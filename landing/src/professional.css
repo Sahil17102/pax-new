@@ -5,8 +5,8 @@
   --muted: #606b66;
   --paper: #f4f6f3;
   --line: #dce2de;
-  --coral: #e95750;
-  --coral-dark: #c9403b;
+  --coral: #4e6fe3;
+  --coral-dark: #3153c5;
   --yellow: #f1c65b;
   --green: #0b5c4b;
   --green-dark: #073f35;
@@ -158,7 +158,7 @@ body {
 .product-hero {
   min-height: calc(100svh - 108px);
   background:
-    radial-gradient(circle at 9% 80%, rgba(233, 87, 80, 0.1), transparent 27%),
+    radial-gradient(circle at 9% 80%, rgba(78, 111, 227, 0.1), transparent 27%),
     linear-gradient(110deg, #f5f2eb 0%, #f5f2eb 55%, #0d342e 55%, #0d342e 100%);
 }
 
@@ -496,7 +496,7 @@ body {
 .contact-page-hero {
   background:
     radial-gradient(circle at 82% 20%, rgba(111, 211, 173, 0.14), transparent 26%),
-    radial-gradient(circle at 12% 82%, rgba(233, 87, 80, 0.08), transparent 24%),
+    radial-gradient(circle at 12% 82%, rgba(78, 111, 227, 0.08), transparent 24%),
     #edf2ef;
 }
 
@@ -1027,7 +1027,7 @@ body {
   border: 3px solid #fff;
   border-radius: 50%;
   background: var(--coral);
-  box-shadow: 0 0 0 1px rgba(233, 87, 80, 0.2);
+  box-shadow: 0 0 0 1px rgba(78, 111, 227, 0.2);
   transition: left 0.55s cubic-bezier(0.2, 0.75, 0.2, 1);
 }
 

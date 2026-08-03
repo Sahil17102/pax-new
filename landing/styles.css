@@ -4,8 +4,8 @@
   --paper: #f5f4f1;
   --white: #ffffff;
   --line: #deded9;
-  --coral: #ff4d58;
-  --coral-dark: #ed3442;
+  --coral: #4e6fe3;
+  --coral-dark: #3153c5;
   --yellow: #ffc83d;
   --green: #006a51;
   --green-dark: #00513f;
@@ -300,12 +300,12 @@ svg {
 .button-coral {
   background: var(--coral);
   color: #fff;
-  box-shadow: 0 15px 35px rgba(255, 77, 88, 0.28);
+  box-shadow: 0 15px 35px rgba(78, 111, 227, 0.28);
 }
 
 .button-coral:hover {
   background: var(--coral-dark);
-  box-shadow: 0 18px 42px rgba(255, 77, 88, 0.34);
+  box-shadow: 0 18px 42px rgba(78, 111, 227, 0.34);
 }
 
 .button-glass {
@@ -914,7 +914,7 @@ h3 {
 
 .phone-progress i.active {
   background: var(--coral);
-  box-shadow: 0 0 0 5px rgba(255, 77, 88, 0.12);
+  box-shadow: 0 0 0 5px rgba(78, 111, 227, 0.12);
 }
 
 .phone-progress span {
@@ -2073,7 +2073,7 @@ h3 {
   overflow: hidden;
   background:
     radial-gradient(circle at 84% 8%, rgba(255, 200, 61, 0.32), transparent 31%),
-    radial-gradient(circle at 8% 92%, rgba(255, 77, 88, 0.11), transparent 28%),
+    radial-gradient(circle at 8% 92%, rgba(78, 111, 227, 0.11), transparent 28%),
     linear-gradient(135deg, #f1d5c6 0%, #f7eadf 58%, #efe3d7 100%);
   color: var(--navy);
 }
@@ -2559,7 +2559,7 @@ h3 {
   right: -90px;
   width: 340px;
   height: 340px;
-  border: 45px solid rgba(255, 77, 88, 0.12);
+  border: 45px solid rgba(78, 111, 227, 0.12);
   border-radius: 50%;
   content: "";
 }
@@ -2803,7 +2803,7 @@ h3 {
 @keyframes card-pulse {
   50% {
     transform: scale(1.008);
-    box-shadow: 0 28px 80px rgba(255, 77, 88, 0.2);
+    box-shadow: 0 28px 80px rgba(78, 111, 227, 0.2);
   }
 }
 
@@ -3925,7 +3925,7 @@ h3 {
   min-height: 670px;
   background:
     radial-gradient(circle at 8% 12%, rgba(255, 200, 61, 0.22), transparent 28%),
-    radial-gradient(circle at 92% 86%, rgba(255, 77, 88, 0.13), transparent 30%),
+    radial-gradient(circle at 92% 86%, rgba(78, 111, 227, 0.13), transparent 30%),
     #f6f1e7;
 }
 
@@ -4180,7 +4180,7 @@ h3 {
 
 .rate-map-end > i {
   border-color: var(--coral);
-  box-shadow: 0 0 0 7px rgba(255, 77, 88, 0.14);
+  box-shadow: 0 0 0 7px rgba(78, 111, 227, 0.14);
 }
 
 .rate-map-van {
@@ -6175,7 +6175,7 @@ h3 {
   isolation: isolate;
   min-height: calc(100svh - 82px);
   background:
-    radial-gradient(circle at 10% 78%, rgba(255, 77, 88, 0.13), transparent 28%),
+    radial-gradient(circle at 10% 78%, rgba(78, 111, 227, 0.13), transparent 28%),
     linear-gradient(110deg, #f6f2ea 0%, #f6f2ea 55%, #102e2b 55%, #102e2b 100%);
 }
 
@@ -6689,7 +6689,7 @@ h3 {
   .product-hero {
     min-height: auto;
     background:
-      radial-gradient(circle at 10% 32%, rgba(255, 77, 88, 0.12), transparent 25%),
+      radial-gradient(circle at 10% 32%, rgba(78, 111, 227, 0.12), transparent 25%),
       #f6f2ea;
   }
 
