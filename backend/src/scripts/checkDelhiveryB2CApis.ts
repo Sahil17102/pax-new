@@ -94,7 +94,9 @@ const run = async () => {
     captured.push({ method: 'GET', url, headers: config?.headers })
     return {
       status: 200,
-      data: url.includes('/waybill/api/bulk/json/')
+      data: url.includes('/waybill/api/fetch/json/')
+        ? { waybill: '323456789012' }
+        : url.includes('/waybill/api/bulk/json/')
         ? { waybills: '123456789012,123456789013,123456789012' }
         : url.includes('/fetch/serviceability/pincode')
         ? { data: { pincode: 400086, status: 'Serviceable', payment_type: ['Pre-paid', 'COD'] } }
@@ -128,6 +130,15 @@ const run = async () => {
     'https://staging-express.delhivery.com/api/dc/fetch/serviceability/pincode?product_type=Heavy&pincode=400086',
   )
   assert.equal(captured.at(-1)?.headers?.Accept, 'application/json')
+
+  const singleWaybill = await mockedService.fetchSingleWaybill()
+  assert.deepEqual(singleWaybill, { waybill: '323456789012' })
+  assert.equal(
+    captured.at(-1)?.url,
+    'https://staging-express.delhivery.com/waybill/api/fetch/json/?token=test-token',
+  )
+  assert.equal(captured.at(-1)?.headers?.Accept, 'application/json')
+  assert.equal(captured.at(-1)?.headers?.Authorization, undefined)
 
   const waybillBatch = await mockedService.fetchWaybills(5)
   assert.deepEqual(waybillBatch, {
@@ -247,6 +258,11 @@ const run = async () => {
   )
   assert(fetchWaybillsRequest.request.url.includes('count={{waybillCount}}'))
   assert(JSON.stringify(fetchWaybillsRequest.event).includes('receivedCount'))
+  const fetchSingleWaybillRequest = mutatingFolder.item.find(
+    (request: any) => request.name === 'Fetch Single Waybill',
+  )
+  assert(fetchSingleWaybillRequest.request.url.endsWith('/waybills/single'))
+  assert(JSON.stringify(fetchSingleWaybillRequest.event).includes('fetchedSingleWaybill'))
   const createShipmentRequest = mutatingFolder.item.find(
     (request: any) => request.name === 'Create Forward Shipment',
   )

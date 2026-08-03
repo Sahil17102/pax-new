@@ -154,6 +154,24 @@
       }],
       "item": [
         {
+          "name": "Fetch Single Waybill",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "var body = pm.response.json();",
+              "pm.test('A normalized single waybill is returned', function () {",
+              "  pm.expect(body.data.waybill).to.be.a('string').that.is.not.empty;",
+              "});",
+              "if (body.data && body.data.waybill) { pm.environment.set('fetchedSingleWaybill', body.data.waybill); }"
+            ] }
+          }],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/delhivery/b2c/waybills/single",
+            "description": "Allocates exactly one Delhivery waybill per request. The production limit is 750 requests per 5 minutes per IP. The returned AWB is saved as fetchedSingleWaybill; copy it to manifestWaybill only when you intentionally create that shipment. This request is mutation-locked by default."
+          }
+        },
+        {
           "name": "Fetch Waybill(s)",
           "event": [{
             "listen": "test",

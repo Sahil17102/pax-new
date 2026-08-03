@@ -76,3 +76,9 @@ returned `data.waybills` list and do not manifest it immediately. After the
 provider has made an AWB available, copy one into `manifestWaybill`; the Create
 Forward Shipment request will send it explicitly. Leave `manifestWaybill` empty
 when Delhivery should assign the shipment AWB itself.
+
+Fetch Single Waybill calls Delhivery's dedicated single-allocation endpoint and
+stores the normalized response in the Postman `fetchedSingleWaybill` variable.
+The production limit is 750 requests per five-minute IP window. Copy that value
+to `manifestWaybill` only for the shipment that should consume it; every single
+fetch request allocates a new AWB.

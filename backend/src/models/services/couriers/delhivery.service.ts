@@ -199,6 +199,10 @@ export type DelhiveryWaybillBatch = {
   waybills: string[]
 }
 
+export type DelhiverySingleWaybill = {
+  waybill: string
+}
+
 export const normalizeDelhiveryWaybills = (response: unknown): string[] => {
   const candidates: string[] = []
   const append = (value: unknown) => {
@@ -617,6 +621,40 @@ export class DelhiveryService {
   }
 
   // 🔹 3. Fetch Waybills
+  async fetchSingleWaybill(): Promise<DelhiverySingleWaybill> {
+    try {
+      await this.ensureCredentials()
+      const query = qs.stringify({ token: this.token })
+      const url = `${this.apiBase}/waybill/api/fetch/json/?${query}`
+      const res = await this.getWithTimeout(url, {
+        headers: { Accept: 'application/json' },
+      })
+      const waybill = normalizeDelhiveryWaybills(res.data)[0]
+
+      if (!waybill) {
+        throw new HttpError(
+          502,
+          extractProviderErrorMessage(res.data) || 'Delhivery returned no waybill',
+        )
+      }
+
+      return { waybill }
+    } catch (err: any) {
+      if (err instanceof HttpError) throw err
+
+      console.error('[Delhivery] Single waybill fetch failed', {
+        status: err.response?.status,
+        message: err.message,
+      })
+      throw new HttpError(
+        Number(err.response?.status) || 502,
+        extractProviderErrorMessage(err.response?.data) ||
+          err.message ||
+          'Failed to fetch a Delhivery waybill',
+      )
+    }
+  }
+
   async fetchWaybills(count: number = 10): Promise<DelhiveryWaybillBatch> {
     const normalizedCount = Number(count)
     if (!Number.isInteger(normalizedCount) || normalizedCount < 1 || normalizedCount > 10000) {

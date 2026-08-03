@@ -134,6 +134,9 @@ export const fetchWaybillsController = (req: Request, res: Response) => {
   return sendResult(res, service.fetchWaybills(count))
 }
 
+export const fetchSingleWaybillController = (_req: Request, res: Response) =>
+  sendResult(res, service.fetchSingleWaybill())
+
 export const createWarehouseController = (req: Request, res: Response) =>
   sendResult(res, service.createWarehouse(req.body || {}))
 

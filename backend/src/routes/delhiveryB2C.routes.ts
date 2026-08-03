@@ -6,6 +6,7 @@ import {
   createShipmentController,
   createWarehouseController,
   fetchWaybillsController,
+  fetchSingleWaybillController,
   generateLabelController,
   heavyServiceabilityController,
   ndrStatusController,
@@ -28,6 +29,7 @@ router.get('/serviceability/heavy/:pincode', heavyServiceabilityController)
 router.get('/serviceability/:pincode', serviceabilityController)
 router.get('/tat', tatController)
 router.get('/shipping-cost', shippingCostController)
+router.get('/waybills/single', fetchSingleWaybillController)
 router.get('/waybills', fetchWaybillsController)
 router.post('/warehouses', createWarehouseController)
 router.patch('/warehouses', updateWarehouseController)
