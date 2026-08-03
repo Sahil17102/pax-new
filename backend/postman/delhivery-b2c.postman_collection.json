@@ -90,9 +90,22 @@
         },
         {
           "name": "Expected TAT",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "var body = pm.response.json();",
+              "pm.test('Normalized TAT response is returned', function () {",
+              "  pm.expect(body.data).to.have.property('tatDays');",
+              "  pm.expect(body.data).to.have.property('expectedDeliveryDate');",
+              "  pm.expect(body.data.mode).to.eql(pm.environment.get('tatMode'));",
+              "  pm.expect(body.data.productType).to.eql(pm.environment.get('tatProductType'));",
+              "});"
+            ] }
+          }],
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/api/delhivery/b2c/tat?origin_pin={{originPincode}}&destination_pin={{destinationPincode}}&mode=S"
+            "url": "{{baseUrl}}/api/delhivery/b2c/tat?origin_pin={{originPincode}}&destination_pin={{destinationPincode}}&mot={{tatMode}}&pdt={{tatProductType}}&expected_pickup_date={{expectedPickupDate}}",
+            "description": "Supports Surface (S), Express (E), and NDD (N), optional B2B/B2C product type, and an optional pickup date in YYYY-MM-DD or YYYY-MM-DD HH:mm format."
           }
         },
         {

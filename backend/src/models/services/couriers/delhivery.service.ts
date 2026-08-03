@@ -126,6 +126,57 @@ export type DelhiveryShippingCostParams = {
   codAmount?: number
 }
 
+export type DelhiveryTransportMode = 'S' | 'E' | 'N'
+export type DelhiveryProductType = 'B2B' | 'B2C' | ''
+
+export type DelhiveryExpectedTatSummary = {
+  tatDays: number | null
+  expectedDeliveryDate: string | null
+  originPincode: string | null
+  destinationPincode: string | null
+  mode: DelhiveryTransportMode | null
+  productType: DelhiveryProductType | null
+  expectedPickupDate: string | null
+}
+
+export const summarizeDelhiveryExpectedTat = (
+  response: any,
+  request: {
+    originPincode?: string
+    destinationPincode?: string
+    mode?: DelhiveryTransportMode
+    productType?: DelhiveryProductType
+    expectedPickupDate?: string
+  } = {},
+): DelhiveryExpectedTatSummary => {
+  const responseData = response?.data ?? response?.response ?? response
+  const record = Array.isArray(responseData) ? responseData[0] ?? {} : responseData ?? {}
+  const rawTat = record?.tat ?? record?.expected_tat ?? record?.tat_days ?? record?.days ?? null
+  const parsedTat =
+    typeof rawTat === 'number'
+      ? rawTat
+      : String(rawTat || '').match(/\d+(?:\.\d+)?/)?.[0] ?? null
+  const tatDays = parsedTat === null ? null : Number(parsedTat)
+
+  return {
+    tatDays: Number.isFinite(tatDays) ? tatDays : null,
+    expectedDeliveryDate:
+      record?.expected_delivery_date || record?.edd || record?.delivery_date || null,
+    originPincode: String(
+      record?.origin_pin || record?.origin_pincode || request.originPincode || '',
+    ) || null,
+    destinationPincode: String(
+      record?.destination_pin || record?.destination_pincode || request.destinationPincode || '',
+    ) || null,
+    mode: (record?.mot || record?.mode || request.mode || null) as DelhiveryTransportMode | null,
+    productType: (record?.pdt || record?.product_type || request.productType || null) as
+      | DelhiveryProductType
+      | null,
+    expectedPickupDate:
+      record?.expected_pickup_date || request.expectedPickupDate || null,
+  }
+}
+
 export type DelhiveryShipmentUpdate = {
   name?: string
   phone?: string
@@ -433,20 +484,92 @@ export class DelhiveryService {
   }
 
   // 🔹 2. Expected TAT (Transit Time)
+  async getExpectedTATDetails(
+    origin: string,
+    destination: string,
+    mot: DelhiveryTransportMode = 'S',
+    pdt: DelhiveryProductType = 'B2C',
+    expectedPickupDate?: string,
+  ) {
+    const originPincode = String(origin || '').trim()
+    const destinationPincode = String(destination || '').trim()
+    const normalizedMode = String(mot || '').trim().toUpperCase()
+    const normalizedProductType = String(pdt ?? '').trim().toUpperCase()
+    const normalizedPickupDate = String(expectedPickupDate || '').trim()
+
+    if (!/^\d{6}$/.test(originPincode) || !/^\d{6}$/.test(destinationPincode)) {
+      throw new HttpError(400, 'Valid 6-digit origin_pin and destination_pin are required')
+    }
+    if (!['S', 'E', 'N'].includes(normalizedMode)) {
+      throw new HttpError(400, 'mot must be S, E, or N')
+    }
+    if (normalizedProductType && !['B2B', 'B2C'].includes(normalizedProductType)) {
+      throw new HttpError(400, 'pdt must be B2B, B2C, or empty')
+    }
+    if (
+      normalizedPickupDate &&
+      !/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/.test(normalizedPickupDate)
+    ) {
+      throw new HttpError(
+        400,
+        'expected_pickup_date must use YYYY-MM-DD or YYYY-MM-DD HH:mm format',
+      )
+    }
+    if (normalizedPickupDate) {
+      const [datePart, timePart = '00:00'] = normalizedPickupDate.split(' ')
+      const [year, month, day] = datePart.split('-').map(Number)
+      const [hour, minute] = timePart.split(':').map(Number)
+      const parsedPickupDate = new Date(Date.UTC(year, month - 1, day, hour, minute))
+      if (
+        Number.isNaN(parsedPickupDate.getTime()) ||
+        parsedPickupDate.getUTCFullYear() !== year ||
+        parsedPickupDate.getUTCMonth() !== month - 1 ||
+        parsedPickupDate.getUTCDate() !== day ||
+        parsedPickupDate.getUTCHours() !== hour ||
+        parsedPickupDate.getUTCMinutes() !== minute
+      ) {
+        throw new HttpError(400, 'expected_pickup_date is not a valid calendar date')
+      }
+    }
+
+    await this.ensureCredentials()
+    const query = qs.stringify({
+      origin_pin: originPincode,
+      destination_pin: destinationPincode,
+      mot: normalizedMode,
+      ...(normalizedProductType ? { pdt: normalizedProductType } : {}),
+      ...(normalizedPickupDate ? { expected_pickup_date: normalizedPickupDate } : {}),
+    })
+    const res = await this.getWithTimeout(`${this.apiBase}/api/dc/expected_tat?${query}`, {
+      headers: this.headers,
+    })
+    return res.data
+  }
+
   async getExpectedTAT(
     origin: string,
     destination: string,
-    mot: 'S' | 'E' = 'S',
-    pdt: 'B2B' | 'B2C' = 'B2C',
+    mot: DelhiveryTransportMode = 'S',
+    pdt: DelhiveryProductType = 'B2C',
+    expectedPickupDate?: string,
   ) {
     try {
-      await this.ensureCredentials()
-      const url = `${this.apiBase}/api/dc/expected_tat?origin_pin=${origin}&destination_pin=${destination}&mot=${mot}&pdt=${pdt}`
-      const res = await this.getWithTimeout(url, { headers: this.headers })
-      const tat = res.data?.data?.tat
-      return typeof tat === 'number' || typeof tat === 'string' ? Number(tat) : null
+      const response = await this.getExpectedTATDetails(
+        origin,
+        destination,
+        mot,
+        pdt,
+        expectedPickupDate,
+      )
+      return summarizeDelhiveryExpectedTat(response).tatDays
     } catch (err: any) {
-      console.error('Delhivery TAT API error:', err.response?.data || err.message)
+      console.error('[Delhivery] TAT request failed', {
+        origin,
+        destination,
+        mode: mot,
+        status: err.response?.status,
+        message: err.message,
+      })
       return null
     }
   }

@@ -2,7 +2,10 @@ import { Request, Response } from 'express'
 import { ShipmentParams } from '../models/services/shiprocket.service'
 import {
   DelhiveryService,
+  DelhiveryProductType,
   DelhiveryShippingCostParams,
+  DelhiveryTransportMode,
+  summarizeDelhiveryExpectedTat,
   summarizeDelhiveryHeavyPincodeServiceability,
   summarizeDelhiveryPincodeServiceability,
 } from '../models/services/couriers/delhivery.service'
@@ -65,16 +68,42 @@ export const heavyServiceabilityController = async (req: Request, res: Response)
   }
 }
 
-export const tatController = (req: Request, res: Response) =>
-  sendResult(
-    res,
-    service.getExpectedTAT(
-      String(req.query.origin_pin || ''),
-      String(req.query.destination_pin || ''),
-      String(req.query.mode || 'S').toUpperCase() === 'E' ? 'E' : 'S',
-      'B2C',
-    ),
-  )
+export const tatController = async (req: Request, res: Response) => {
+  try {
+    const originPincode = String(req.query.origin_pin || '')
+    const destinationPincode = String(req.query.destination_pin || '')
+    const mode = String(req.query.mot || req.query.mode || 'S').trim().toUpperCase()
+    const productType = String(req.query.pdt ?? 'B2C').trim().toUpperCase()
+    const expectedPickupDate = String(req.query.expected_pickup_date || '').trim()
+    const providerResponse = await service.getExpectedTATDetails(
+      originPincode,
+      destinationPincode,
+      mode as DelhiveryTransportMode,
+      productType as DelhiveryProductType,
+      expectedPickupDate || undefined,
+    )
+
+    return res.json({
+      success: true,
+      data: {
+        ...summarizeDelhiveryExpectedTat(providerResponse, {
+          originPincode,
+          destinationPincode,
+          mode: mode as DelhiveryTransportMode,
+          productType: (productType || '') as DelhiveryProductType,
+          expectedPickupDate: expectedPickupDate || undefined,
+        }),
+        provider_response: providerResponse,
+      },
+    })
+  } catch (error: any) {
+    const statusCode = Number(error?.statusCode || error?.response?.status || 500)
+    return res.status(statusCode >= 400 && statusCode < 600 ? statusCode : 500).json({
+      success: false,
+      message: error?.message || 'Delhivery Expected TAT request failed',
+    })
+  }
+}
 
 export const shippingCostController = (req: Request, res: Response) => {
   const paymentType = String(req.query.payment_type || 'Pre-paid').toUpperCase() === 'COD'

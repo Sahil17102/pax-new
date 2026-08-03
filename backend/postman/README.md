@@ -63,3 +63,8 @@ label metadata, and NDR status. Requests that allocate waybills or change
 Delhivery state are skipped by default. Set `allowMutating=true` only when you
 deliberately want to run those requests against the configured Delhivery
 account.
+
+Expected TAT supports `tatMode` values `S`, `E`, and `N`, optional `B2B`/`B2C`
+product type, and `expectedPickupDate` in `YYYY-MM-DD` or `YYYY-MM-DD HH:mm`
+format. Clear the pickup-date value to let Delhivery calculate from the current
+handover date.

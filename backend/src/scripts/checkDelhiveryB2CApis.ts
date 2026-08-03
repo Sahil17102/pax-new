@@ -7,6 +7,7 @@ const run = async () => {
   process.env.DATABASE_URL = 'postgresql://test:test@127.0.0.1:5432/test'
   const {
     DelhiveryService,
+    summarizeDelhiveryExpectedTat,
     summarizeDelhiveryHeavyPincodeServiceability,
     summarizeDelhiveryPincodeServiceability,
   } = await import('../models/services/couriers/delhivery.service')
@@ -61,6 +62,21 @@ const run = async () => {
   assert.equal(heavyServiceable.prepaid, true)
   assert.deepEqual(heavyServiceable.paymentTypes, ['COD', 'Pre-paid'])
 
+  const expectedTat = summarizeDelhiveryExpectedTat(
+    { data: { tat: '2 days', expected_delivery_date: '2026-08-06' } },
+    {
+      originPincode: '122003',
+      destinationPincode: '136118',
+      mode: 'N',
+      productType: 'B2C',
+      expectedPickupDate: '2026-08-04 14:00',
+    },
+  )
+  assert.equal(expectedTat.tatDays, 2)
+  assert.equal(expectedTat.expectedDeliveryDate, '2026-08-06')
+  assert.equal(expectedTat.mode, 'N')
+  assert.equal(expectedTat.productType, 'B2C')
+
   const originalGet = axios.get
   const originalPost = axios.post
   const captured: Array<{ method: string; url: string; data?: unknown; headers?: any }> = []
@@ -70,9 +86,11 @@ const run = async () => {
       status: 200,
       data: url.includes('/fetch/serviceability/pincode')
         ? { data: { pincode: 400086, status: 'Serviceable', payment_type: ['Pre-paid', 'COD'] } }
-        : url.includes('/pin-codes/')
-          ? { delivery_codes: [{ postal_code: { pin: 194103, pickup: 'Y', pre_paid: 'Y', cod: 'N', remark: '' } }] }
-          : [{ total_amount: 75 }],
+        : url.includes('/expected_tat')
+          ? { data: { tat: 2, expected_delivery_date: '2026-08-06' } }
+          : url.includes('/pin-codes/')
+            ? { delivery_codes: [{ postal_code: { pin: 194103, pickup: 'Y', pre_paid: 'Y', cod: 'N', remark: '' } }] }
+            : [{ total_amount: 75 }],
     }
   }
   ;(axios as any).post = async (url: string, data: unknown, config: any) => {
@@ -99,6 +117,19 @@ const run = async () => {
   )
   assert.equal(captured.at(-1)?.headers?.Accept, 'application/json')
 
+  const tatResponse = await mockedService.getExpectedTATDetails(
+    '122003',
+    '136118',
+    'N',
+    'B2C',
+    '2026-08-04 14:00',
+  )
+  assert.equal(tatResponse.data.tat, 2)
+  assert.equal(
+    captured.at(-1)?.url,
+    'https://staging-express.delhivery.com/api/dc/expected_tat?origin_pin=122003&destination_pin=136118&mot=N&pdt=B2C&expected_pickup_date=2026-08-04%2014%3A00',
+  )
+
   await mockedService.calculateShippingCost({
     originPincode: '122001',
     destinationPincode: '400093',
@@ -119,6 +150,18 @@ const run = async () => {
   const service = new DelhiveryService()
   await assert.rejects(() => service.checkServiceability('19410'), /6-digit/)
   await assert.rejects(() => service.checkHeavyServiceability('40008'), /6-digit/)
+  await assert.rejects(
+    () => service.getExpectedTATDetails('12200', '136118'),
+    /6-digit/,
+  )
+  await assert.rejects(
+    () => service.getExpectedTATDetails('122003', '136118', 'X' as any),
+    /mot must be S, E, or N/,
+  )
+  await assert.rejects(
+    () => service.getExpectedTATDetails('122003', '136118', 'S', 'B2C', '2026-02-31'),
+    /valid calendar date/,
+  )
   await assert.rejects(
     () => service.calculateShippingCost({
       originPincode: '12200',
@@ -160,6 +203,9 @@ const run = async () => {
       (request: any) => request.name === 'Heavy Product Pincode Serviceability',
     ),
   )
+  const tatRequest = readOnlyFolder.item.find((request: any) => request.name === 'Expected TAT')
+  assert(tatRequest.request.url.includes('mot={{tatMode}}'))
+  assert(tatRequest.request.url.includes('expected_pickup_date={{expectedPickupDate}}'))
   const mutatingFolder = collection.item.find(
     (folder: any) => folder.name === 'Mutating lifecycle requests',
   )
