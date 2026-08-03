@@ -1,6 +1,6 @@
 import { io, type Socket } from 'socket.io-client'
 
-const DEFAULT_PRODUCTION_API_URL = 'https://express-magic-backend.onrender.com/api'
+const DEFAULT_PRODUCTION_API_URL = 'https://pax-new.onrender.com/api'
 
 const resolveApiBaseUrl = () => {
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL

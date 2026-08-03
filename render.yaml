@@ -1,23 +1,25 @@
 services:
   - type: web
     runtime: static
-    name: express-magic
+    name: pax-log
     buildCommand: npm run build
     staticPublishPath: ./combined-dist
     autoDeployTrigger: commit
     envVars:
       - key: VITE_CLIENT_APP_URL
-        value: https://express-magic.onrender.com/app
+        value: https://pax-log.onrender.com/app
       - key: VITE_AUTH_APP_URL
-        value: https://express-magic.onrender.com/app/#/login
+        value: https://pax-log.onrender.com/app/#/login
       - key: VITE_ADMIN_APP_URL
-        value: https://express-magic-admin.onrender.com
+        value: https://pax-log-admin.onrender.com
       - key: VITE_ADMIN_AUTH_URL
-        value: https://express-magic-admin.onrender.com/#/auth/signin
+        value: https://pax-log-admin.onrender.com/#/auth/signin
       - key: VITE_API_URL
-        value: https://express-magic-backend.onrender.com/api
+        value: https://pax-new.onrender.com/api
+      - key: PAX_LANDING_API_URL
+        value: https://pax-new.onrender.com
       - key: VITE_APP_SOCKET_URL
-        value: https://express-magic-backend.onrender.com
+        value: https://pax-new.onrender.com
       - key: VITE_GOOGLE_OAUTH_CLIENT_ID
         sync: false
       - key: VITE_PUBLIC_GEOAPIFY_KEY
@@ -29,16 +31,16 @@ services:
 
   - type: web
     runtime: static
-    name: express-magic-admin
+    name: pax-log-admin
     rootDir: admin-dashboard
     buildCommand: npm ci --legacy-peer-deps && npm run build
     staticPublishPath: ./dist
     autoDeployTrigger: commit
     envVars:
       - key: REACT_APP_API_BASE_URL
-        value: https://express-magic-backend.onrender.com/api
+        value: https://pax-new.onrender.com/api
       - key: REACT_APP_SOCKET_URL
-        value: https://express-magic-backend.onrender.com
+        value: https://pax-new.onrender.com
     routes:
       - type: rewrite
         source: /*
@@ -46,7 +48,8 @@ services:
 
   - type: web
     runtime: docker
-    name: express-magic-backend
+    name: pax-new
+    plan: free
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
     autoDeployTrigger: commit
@@ -54,11 +57,11 @@ services:
       - key: NODE_ENV
         value: production
       - key: API_URL
-        value: https://express-magic-backend.onrender.com
+        value: https://pax-new.onrender.com
       - key: CORS_ALLOWED_ORIGINS
-        value: https://express-magic.onrender.com,https://express-magic-admin.onrender.com
+        value: https://pax-log.onrender.com,https://pax-log-admin.onrender.com
       - key: FRONTEND_URL
-        value: https://express-magic.onrender.com/app
+        value: https://pax-log.onrender.com/app
       - key: AUTH_OTP_DELIVERY
         value: screen
       - key: AUTO_MIGRATE_ON_START
@@ -74,6 +77,6 @@ services:
       - key: ADMIN_SEED_EMAIL
         value: admin@expressmagic.com
       - key: ADMIN_SEED_PASSWORD
-        value: Admin@12345!
+        sync: false
       - key: ADMIN_FORCE_PASSWORD_RESET
         value: "false"

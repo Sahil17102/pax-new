@@ -2,7 +2,7 @@ import axios, { type InternalAxiosRequestConfig } from 'axios'
 import { getAppHashHref } from '../utils/appNavigation'
 import { clearAuthTokens, getAuthTokens, setAuthTokens } from './tokenVault'
 
-const DEFAULT_PRODUCTION_API_URL = 'https://express-magic-backend.onrender.com/api'
+const DEFAULT_PRODUCTION_API_URL = 'https://pax-new.onrender.com/api'
 
 const resolveDefaultApiBaseUrl = () => {
   if (typeof window !== 'undefined') {

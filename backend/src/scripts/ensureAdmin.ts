@@ -94,7 +94,7 @@ async function ensureAdmin() {
     companyContactNumber: '+919999999999',
     brandName: 'Express Magic',
     companyEmail: email,
-    website: 'https://express-magic-admin.onrender.com',
+    website: 'https://pax-log-admin.onrender.com',
   }
 
   if (existingProfile) {

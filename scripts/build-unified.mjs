@@ -15,14 +15,14 @@ const npmCommand = isWindows ? "npm.cmd" : "npm";
 const skipInstall =
   String(process.env.UNIFIED_SKIP_INSTALL || "").toLowerCase() === "true";
 
-const run = (cwd, args) => {
+const run = (cwd, args, envOverrides = {}) => {
   const command = isWindows ? "cmd.exe" : npmCommand;
   const commandArgs = isWindows
     ? ["/d", "/s", "/c", [npmCommand, ...args].join(" ")]
     : args;
   const result = spawnSync(command, commandArgs, {
     cwd,
-    env: process.env,
+    env: { ...process.env, ...envOverrides },
     stdio: "inherit",
     shell: false,
   });
@@ -41,7 +41,13 @@ if (!skipInstall) {
   run(clientDir, ["ci"]);
 }
 
-run(landingDir, ["run", "build"]);
+run(landingDir, ["run", "build"], {
+  VITE_API_URL:
+    String(process.env.PAX_LANDING_API_URL || "").trim() ||
+    "https://pax-new.onrender.com",
+  VITE_APP_MODE: "client",
+  VITE_ENABLE_PREVIEW_MODE: "false",
+});
 run(clientDir, ["run", "build", "--", "--base=/app/"]);
 
 rmSync(outputDir, { force: true, recursive: true });

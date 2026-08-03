@@ -156,6 +156,8 @@ const allowedOrigins = new Set([
   'https://admin.fgship.in',
   'https://express-magic.onrender.com',
   'https://express-magic-admin.onrender.com',
+  'https://pax-log.onrender.com',
+  'https://pax-log-admin.onrender.com',
   ...configuredAllowedOrigins,
 ])
 

@@ -1,38 +1,22 @@
 {
-  "name": "feather-global-landing",
+  "name": "pax-logistics",
+  "version": "2.0.0",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/prepare-public.mjs",
     "dev": "vite",
-    "build": "vite build",
-    "lint": "eslint .",
+    "prebuild": "node scripts/prepare-public.mjs",
+    "build": "vite build && node scripts/prepare-spa-routes.mjs",
     "preview": "vite preview",
     "start": "node scripts/serve-dist.mjs"
   },
   "dependencies": {
-    "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.14.1",
-    "@mui/icons-material": "^7.3.9",
-    "@mui/material": "^7.3.9",
-    "@tailwindcss/vite": "^4.2.1",
-    "framer-motion": "^12.36.0",
-    "lottie-react": "^2.4.1",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "react-router-dom": "^7.14.0",
-    "three": "^0.179.1"
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
-    "@eslint/js": "^9.36.0",
-    "@types/react": "^19.1.16",
-    "@types/react-dom": "^19.1.9",
-    "@vitejs/plugin-react": "^5.0.4",
-    "eslint": "^9.36.0",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-react-refresh": "^0.4.22",
-    "globals": "^16.4.0",
-    "tailwindcss": "^4.2.1",
-    "vite": "^7.1.7"
+    "@vitejs/plugin-react": "^6.0.4",
+    "vite": "^8.1.5"
   }
 }

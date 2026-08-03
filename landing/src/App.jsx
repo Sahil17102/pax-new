@@ -1,163 +1,232 @@
-import { Suspense, lazy, useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { Route, Routes } from "react-router-dom";
-import MainLayout from "./components/feather/MainLayout";
+import { useEffect, useState } from "react";
+import HomePage from "./pages/HomePage.jsx";
+import ServicesPage from "./pages/ServicesPage.jsx";
+import EstimatePage from "./pages/EstimatePage.jsx";
+import WeightCalculatorPage from "./pages/WeightCalculatorPage.jsx";
+import TrackPage from "./pages/TrackPage.jsx";
+import ContactPage from "./pages/ContactPage.jsx";
+import { usePageInteractions } from "./usePageInteractions.js";
+import { ADMIN_AUTH_URL, API_BASE_URL, CLIENT_APP_URL, CLIENT_AUTH_URL } from "./config.js";
 
-const logoImage = "/express-magic-logo.jpeg";
+const primaryNavItems = [
+  ["/services", "Services"],
+  ["/rate-calculator", "Rate Calculator"],
+  ["/track", "Track Shipment"],
+  ["/contact", "Contact"],
+];
 
-const LandingPage = lazy(() => import("./pages/LandingPage"));
-const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
-const RateCalculatorPage = lazy(() => import("./pages/RateCalculatorPage"));
-const TrackingPage = lazy(() => import("./pages/TrackingPage"));
-const TermsAndConditionsPage = lazy(() => import("./pages/TermsAndConditionsPage"));
-const VolumetricCalculatorPage = lazy(() => import("./pages/VolumetricCalculatorPage"));
-const MotionDiv = motion.div;
-const MotionImg = motion.img;
-const MotionP = motion.p;
+const utilityNavItems = [
+  ["/weight-calculator", "Weight Calculator"],
+];
 
-function LoadingScreen() {
+const navItems = [...primaryNavItems, ...utilityNavItems];
+
+const footerItems = [
+  ["/services", "Services"],
+  ["/rate-calculator", "Rate Calculator"],
+  ["/weight-calculator", "Weight Calculator"],
+  ["/track", "Track"],
+  ["/contact", "Contact"],
+];
+
+function navigateClient(to) {
+  window.history.pushState({}, "", to);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+function AppLink({ to, className, children, ...props }) {
+  const isActive = window.location.pathname === to;
+  const resolvedClassName = typeof className === "function" ? className({ isActive }) : className;
+
   return (
-    <MotionDiv
-      key="site-loader"
-      initial={{ opacity: 1 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.6, ease: "easeInOut" }}
-      className="fixed inset-0 z-[9999] flex min-h-screen items-center justify-center bg-[#F5F8FC] px-6"
+    <a
+      href={to}
+      className={resolvedClassName}
+      onClick={(event) => {
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        navigateClient(to);
+      }}
+      {...props}
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_18%,rgba(6,42,91,0.12),transparent_24%),radial-gradient(circle_at_78%_28%,rgba(237,28,36,0.16),transparent_24%),linear-gradient(180deg,#ffffff_0%,#F5F8FC_100%)]" />
-      <MotionDiv
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: "easeOut" }}
-        className="relative z-10 text-center"
-      >
-        <MotionImg
-          src={logoImage}
-          alt="Express Magic"
-          className="mx-auto h-36 w-auto object-contain sm:h-44"
-          animate={{ opacity: [1, 0.72, 1], y: [0, -4, 0] }}
-          transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-        />
-        <MotionP
-          className="mt-3 text-sm font-semibold uppercase tracking-[0.24em] text-[#062A5B]"
-          animate={{ opacity: [0.42, 1, 0.42] }}
-          transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+      {children}
+    </a>
+  );
+}
+
+function Header({ pathname }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const isHome = pathname === "/";
+
+  useEffect(() => setMenuOpen(false), [pathname]);
+
+  return (
+    <header className={`site-header${isHome ? " site-header--home" : ""}`}>
+      <div className="header-utility">
+        <div className="shell header-utility-inner">
+          <span><i></i> Hyderabad-based courier and logistics support</span>
+          <nav aria-label="Utility navigation">
+            {utilityNavItems.map(([path, label]) => (
+              <AppLink key={path} to={path}>{label}</AppLink>
+            ))}
+            <a href={CLIENT_AUTH_URL}>Sign In</a>
+          </nav>
+        </div>
+      </div>
+      <div className="shell nav">
+        <AppLink className="brand" to="/" aria-label="Pax Logistics home">
+          <span className="brand-logo"><img src="/assets/pax-logo.png" alt="PAX — Reaching Further" /></span>
+        </AppLink>
+        <nav className="desktop-nav" aria-label="Primary navigation">
+          {primaryNavItems.map(([path, label]) => (
+            <AppLink
+              key={path}
+              to={path}
+              className={({ isActive }) => isActive ? "is-active" : ""}
+            >
+              {label}
+            </AppLink>
+          ))}
+          <a href={CLIENT_AUTH_URL} className="nav-signin">
+            Log In <span aria-hidden="true">→</span>
+          </a>
+        </nav>
+        {isHome ? (
+          <AppLink className="home-quote-button" to="/rate-calculator">
+            Get a Quote <span aria-hidden="true">↗</span>
+          </AppLink>
+        ) : (
+          <a className="nav-phone" href="tel:+919494338206">
+            <small>Talk to our team</small>
+            <strong>+91 94943 38206</strong>
+          </a>
+        )}
+        <button
+          className="menu-toggle"
+          type="button"
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((open) => !open)}
         >
-          Site is loading
-        </MotionP>
-      </MotionDiv>
-    </MotionDiv>
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+      <nav className={`mobile-nav${menuOpen ? " is-open" : ""}`} aria-label="Mobile navigation">
+        {navItems.map(([path, label]) => (
+          <AppLink key={path} to={path}>{label}</AppLink>
+        ))}
+        <a href={CLIENT_AUTH_URL}>Sign In</a>
+        <a className="button button-dark" href="tel:+919494338206">Call logistics desk</a>
+      </nav>
+    </header>
   );
 }
 
-function RouteFallback() {
-  return <LoadingScreen />;
+function Footer() {
+  return (
+    <footer className="site-footer">
+      <div className="shell footer-grid">
+        <div>
+          <AppLink className="brand footer-brand" to="/">
+            <span className="brand-logo"><img src="/assets/pax-logo.png" alt="PAX — Reaching Further" /></span>
+          </AppLink>
+          <p>Clear, practical shipping support from Hyderabad.</p>
+        </div>
+        <div className="footer-nav">
+          {footerItems.map(([path, label]) => <AppLink key={path} to={path}>{label}</AppLink>)}
+        </div>
+        <address className="footer-contact">
+          <a href="tel:+919494338206">+91 94943 38206</a>
+          <a href="mailto:Saipratham650@gmail.com">Saipratham650@gmail.com</a>
+          <span>House No. 3-6-105, Flat No. 105</span>
+          <span>Himayat Nagar, Hyderabad, Telangana 500029, India</span>
+        </address>
+      </div>
+      <div className="shell footer-bottom">
+        <span>© {new Date().getFullYear()} Pax Logistics</span>
+        <span>Hyderabad · Telangana · India</span>
+      </div>
+    </footer>
+  );
 }
 
-function App() {
-  const [showLoader, setShowLoader] = useState(false);
-  const [minimumElapsed, setMinimumElapsed] = useState(false);
-  const [pageLoaded, setPageLoaded] = useState(() =>
-    typeof document === "undefined" ? false : document.readyState === "complete"
-  );
+function SiteRoutes({ location }) {
+  usePageInteractions(location, navigateClient);
 
   useEffect(() => {
-    const minimumTimer = window.setTimeout(() => {
-      setMinimumElapsed(true);
-    }, 1200);
-    const loadFallbackTimer = window.setTimeout(() => {
-      setPageLoaded(true);
-    }, 2600);
-
-    const handleLoad = () => {
-      setPageLoaded(true);
+    window.scrollTo({ top: 0, behavior: "auto" });
+    const titles = {
+      "/": "Pax Logistics — Courier & Shipping, Hyderabad",
+      "/services": "Services — Pax Logistics",
+      "/estimate": "Rate Calculator — Pax Logistics",
+      "/rate-calculator": "Rate Calculator — Pax Logistics",
+      "/weight-calculator": "Weight Calculator — Pax Logistics",
+      "/track": "Track a Shipment — Pax Logistics",
+      "/contact": "Contact — Pax Logistics",
     };
+    document.title = titles[location.pathname] || titles["/"];
+  }, [location.pathname]);
 
-    if (document.readyState === "complete") {
-      handleLoad();
-    } else {
-      window.addEventListener("load", handleLoad, { once: true });
-    }
+  const pages = {
+    "/": <HomePage />,
+    "/services": <ServicesPage />,
+    "/estimate": <EstimatePage />,
+    "/rate-calculator": <EstimatePage />,
+    "/weight-calculator": <WeightCalculatorPage />,
+    "/track": <TrackPage />,
+    "/contact": <ContactPage />,
+  };
 
-    return () => {
-      window.clearTimeout(minimumTimer);
-      window.clearTimeout(loadFallbackTimer);
-      window.removeEventListener("load", handleLoad);
-    };
+  return pages[location.pathname] || <HomePage />;
+}
+
+function PublicLandingApp() {
+  const [location, setLocation] = useState(() => ({
+    pathname: window.location.pathname,
+    search: window.location.search,
+  }));
+
+  useEffect(() => {
+    const updateLocation = () => setLocation({
+      pathname: window.location.pathname,
+      search: window.location.search,
+    });
+    window.addEventListener("popstate", updateLocation);
+    return () => window.removeEventListener("popstate", updateLocation);
   }, []);
 
-  useEffect(() => {
-    if (minimumElapsed && pageLoaded) {
-      setShowLoader(false);
-    }
-  }, [minimumElapsed, pageLoaded]);
-
   return (
-    <>
-      <MotionDiv
-        initial={false}
-        animate={{ opacity: showLoader ? 0 : 1 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        className={showLoader ? "pointer-events-none" : undefined}
-      >
-        <Routes>
-          <Route element={<MainLayout />}>
-            <Route
-              path="/"
-              element={
-                <Suspense fallback={<RouteFallback />}>
-                  <LandingPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/volumetric-weight-calculator"
-              element={
-                <Suspense fallback={<RouteFallback />}>
-                  <VolumetricCalculatorPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/rate-calculator"
-              element={
-                <Suspense fallback={<RouteFallback />}>
-                  <RateCalculatorPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/tracking"
-              element={
-                <Suspense fallback={<RouteFallback />}>
-                  <TrackingPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/terms-and-conditions"
-              element={
-                <Suspense fallback={<RouteFallback />}>
-                  <TermsAndConditionsPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="*"
-              element={
-                <Suspense fallback={<RouteFallback />}>
-                  <NotFoundPage />
-                </Suspense>
-              }
-            />
-          </Route>
-        </Routes>
-      </MotionDiv>
-
-      <AnimatePresence>{showLoader ? <LoadingScreen /> : null}</AnimatePresence>
-    </>
+    <div data-api-base={API_BASE_URL}>
+      <a className="skip-link" href="#main">Skip to content</a>
+      <Header pathname={location.pathname} />
+      <SiteRoutes location={location} />
+      <Footer />
+    </div>
   );
 }
 
-export default App;
+function ExternalRedirect({ to, label }) {
+  useEffect(() => {
+    window.location.replace(to);
+  }, [to]);
+
+  return <main id="main"><p>Opening {label}… <a href={to}>Continue</a></p></main>;
+}
+
+export default function App() {
+  const pathname = window.location.pathname;
+
+  if (pathname === "/sign-in") {
+    return <ExternalRedirect to={CLIENT_AUTH_URL} label="the Express Magic client login" />;
+  }
+
+  if (pathname === "/dashboard" || pathname === "/app" || pathname.startsWith("/app/")) {
+    return <ExternalRedirect to={CLIENT_APP_URL} label="the Express Magic client panel" />;
+  }
+
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    return <ExternalRedirect to={ADMIN_AUTH_URL} label="the admin panel" />;
+  }
+
+  return <PublicLandingApp />;
+}
