@@ -231,6 +231,11 @@ const run = async () => {
         ? { waybill: '323456789012' }
         : url.includes('/waybill/api/bulk/json/')
         ? { waybills: '123456789012,123456789013,123456789012' }
+        : url.includes('/api/rest/fetch/pkg/document/')
+        ? {
+            success: true,
+            documents: [{ url: 'https://documents.example.com/epod.pdf' }],
+          }
         : url.includes('/fetch/serviceability/pincode')
         ? { data: { pincode: 400086, status: 'Serviceable', payment_type: ['Pre-paid', 'COD'] } }
         : url.includes('/api/p/packing_slip')
@@ -563,6 +568,37 @@ const run = async () => {
     /returned no PDF label link/,
   )
   ;(axios as any).get = successfulLabelGetMock
+
+  const downloadedDocument = await mockedService.downloadDocument('123456789012', 'epod')
+  const downloadedDocumentUrl = new URL(String(captured.at(-1)?.url))
+  assert.equal(downloadedDocumentUrl.pathname, '/api/rest/fetch/pkg/document/')
+  assert.equal(downloadedDocumentUrl.searchParams.get('doc_type'), 'EPOD')
+  assert.equal(downloadedDocumentUrl.searchParams.get('waybill'), '123456789012')
+  assert.equal(captured.at(-1)?.headers?.Authorization, 'Token test-token')
+  assert.equal(captured.at(-1)?.headers?.Cookie, undefined)
+  assert.equal(downloadedDocument.waybill, '123456789012')
+  assert.equal(downloadedDocument.doc_type, 'EPOD')
+  assert.deepEqual(downloadedDocument.document_urls, [
+    'https://documents.example.com/epod.pdf',
+  ])
+  await assert.rejects(
+    () => mockedService.downloadDocument('123456789012', 'INVOICE'),
+    /doc_type must be one of/,
+  )
+  await assert.rejects(
+    () => mockedService.downloadDocument('AWB-INVALID', 'EPOD'),
+    /numeric Delhivery waybill is required/,
+  )
+  const successfulDocumentGetMock = (axios as any).get
+  ;(axios as any).get = async () => ({
+    status: 200,
+    data: { success: false, error: 'Document not available' },
+  })
+  await assert.rejects(
+    () => mockedService.downloadDocument('123456789012', 'SIGNATURE_URL'),
+    /Document not available/,
+  )
+  ;(axios as any).get = successfulDocumentGetMock
 
   const bulkTracking = await mockedService.trackShipments(
     'TRACK-AWB-1, TRACK-AWB-2, TRACK-AWB-1',
@@ -1334,6 +1370,12 @@ const run = async () => {
   )
   assert(pdfLabelRequest.request.url.includes('pdf=true'))
   assert(JSON.stringify(pdfLabelRequest.event).includes('label_url'))
+  const downloadDocumentRequest = readOnlyFolder.item.find(
+    (request: any) => request.name === 'Download Shipment Document',
+  )
+  assert(downloadDocumentRequest.request.url.includes('/shipments/{{awb}}/documents'))
+  assert(downloadDocumentRequest.request.url.includes('doc_type={{documentType}}'))
+  assert(JSON.stringify(downloadDocumentRequest.event).includes('document_urls'))
   const mutatingFolder = collection.item.find(
     (folder: any) => folder.name === 'Mutating lifecycle requests',
   )

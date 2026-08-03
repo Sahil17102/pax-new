@@ -206,6 +206,12 @@ export const generateLabelController = (req: Request, res: Response) =>
     }),
   )
 
+export const downloadDocumentController = (req: Request, res: Response) =>
+  sendResult(
+    res,
+    service.downloadDocument(req.params.awb, String(req.query.doc_type || '')),
+  )
+
 export const createPickupController = (req: Request, res: Response) =>
   sendResult(res, service.createPickupRequest(req.body || {}))
 

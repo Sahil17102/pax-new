@@ -5,6 +5,7 @@ import {
   createReverseShipmentController,
   createShipmentController,
   createWarehouseController,
+  downloadDocumentController,
   fetchWaybillsController,
   fetchSingleWaybillController,
   generateLabelController,
@@ -42,6 +43,7 @@ router.delete('/shipments/:awb', cancelShipmentController)
 router.put('/shipments/:awb/ewaybill', updateEwaybillController)
 router.get('/shipments/:awb/tracking', trackShipmentController)
 router.get('/shipments/:awb/label', generateLabelController)
+router.get('/shipments/:awb/documents', downloadDocumentController)
 router.post('/pickups', createPickupController)
 router.post('/reverse-shipments', createReverseShipmentController)
 router.post('/ndr/actions', submitNdrActionController)

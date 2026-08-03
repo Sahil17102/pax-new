@@ -374,6 +374,15 @@ export type DelhiveryLabelOptions = {
   format?: 'json' | 'pdf' | string
 }
 
+export const DELHIVERY_DOCUMENT_TYPES = [
+  'SIGNATURE_URL',
+  'RVP_QC_IMAGE',
+  'EPOD',
+  'SELLER_RETURN_IMAGE',
+] as const
+
+export type DelhiveryDocumentType = (typeof DELHIVERY_DOCUMENT_TYPES)[number]
+
 export type DelhiveryPickupRequest = {
   pickup_time: string
   pickup_date: string
@@ -730,6 +739,26 @@ const findDelhiveryLabelUrl = (value: unknown): string | null => {
     }
   }
   return null
+}
+
+const findDelhiveryDocumentUrls = (value: unknown): string[] => {
+  const urls: string[] = []
+  const visit = (candidate: unknown) => {
+    if (typeof candidate === 'string') {
+      const normalized = candidate.trim()
+      if (/^https?:\/\//i.test(normalized)) urls.push(normalized)
+      return
+    }
+    if (Array.isArray(candidate)) {
+      candidate.forEach(visit)
+      return
+    }
+    if (candidate && typeof candidate === 'object') {
+      Object.values(candidate as Record<string, unknown>).forEach(visit)
+    }
+  }
+  visit(value)
+  return Array.from(new Set(urls))
 }
 
 const isTimeoutError = (err: any) => {
@@ -3193,6 +3222,61 @@ export class DelhiveryService {
         extractProviderErrorMessage(err.response?.data) ||
           err.message ||
           'Failed to generate Delhivery shipping label',
+      )
+    }
+  }
+
+  async downloadDocument(awb: string, documentType: string) {
+    const normalizedWaybill = String(awb || '').trim()
+    if (!/^\d+$/.test(normalizedWaybill)) {
+      throw new HttpError(400, 'A numeric Delhivery waybill is required to download a document')
+    }
+
+    const normalizedDocumentType = String(documentType || '').trim().toUpperCase()
+    if (!DELHIVERY_DOCUMENT_TYPES.includes(normalizedDocumentType as DelhiveryDocumentType)) {
+      throw new HttpError(
+        400,
+        `doc_type must be one of: ${DELHIVERY_DOCUMENT_TYPES.join(', ')}`,
+      )
+    }
+
+    try {
+      await this.ensureCredentials()
+      const query = qs.stringify({
+        doc_type: normalizedDocumentType,
+        waybill: normalizedWaybill,
+      })
+      const res = await this.getWithTimeout(
+        `${this.apiBase}/api/rest/fetch/pkg/document/?${query}`,
+        { headers: this.headers },
+      )
+      const providerErrorValue = res.data?.error ?? res.data?.errors
+      const providerStatus = String(res.data?.status || '').trim().toLowerCase()
+      if (
+        res.data?.success === false ||
+        res.data?.status === false ||
+        ['fail', 'failed', 'failure', 'error', 'rejected'].includes(providerStatus) ||
+        hasProviderErrorValue(providerErrorValue)
+      ) {
+        throw new HttpError(
+          502,
+          extractProviderErrorMessage(res.data) || 'Delhivery document download was rejected',
+        )
+      }
+
+      return {
+        waybill: normalizedWaybill,
+        doc_type: normalizedDocumentType as DelhiveryDocumentType,
+        document_urls: findDelhiveryDocumentUrls(res.data),
+        provider_response: res.data,
+      }
+    } catch (err: any) {
+      if (err instanceof HttpError) throw err
+      throw new HttpError(
+        Number(err.response?.status) || 502,
+        extractProviderErrorMessage(err.response?.data) ||
+          err.message ||
+          'Failed to fetch Delhivery shipment document',
       )
     }
   }

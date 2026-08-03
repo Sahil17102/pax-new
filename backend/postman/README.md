@@ -164,6 +164,16 @@ as raw PDF bytes. Label requests use a configurable 70-second timeout because
 of the documented provider tail latency. Delhivery documents a production limit
 of 3,000 requests per five-minute IP window.
 
+Download Document is available at
+`GET /api/delhivery/b2c/shipments/:awb/documents?doc_type=EPOD`. Supported
+document types are `SIGNATURE_URL`, `RVP_QC_IMAGE`, `EPOD`, and
+`SELLER_RETURN_IMAGE`; values are normalized to uppercase and all other types
+are rejected before contacting Delhivery. The response retains the complete
+`provider_response` and also collects any HTTP(S) links into `document_urls`.
+Only the configured Delhivery token is forwarded—the session cookie shown in
+the provider curl example is not required or accepted from the client. Set the
+Postman `awb` and `documentType` variables to test another document.
+
 Client Warehouse Creation is available at `POST /api/delhivery/b2c/warehouses`.
 The proxy sends only Delhivery's documented fields and requires `name`, `phone`,
 `pin`, and `return_address`. Warehouse names retain their exact case because the

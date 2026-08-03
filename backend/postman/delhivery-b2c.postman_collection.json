@@ -185,6 +185,26 @@
           }
         },
         {
+          "name": "Download Shipment Document",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "var body = pm.response.json();",
+              "pm.test('Shipment document response is normalized', function () {",
+              "  pm.expect(body.data.waybill).to.eql(pm.environment.get('awb'));",
+              "  pm.expect(body.data.doc_type).to.eql(pm.environment.get('documentType'));",
+              "  pm.expect(body.data.document_urls).to.be.an('array');",
+              "  pm.expect(body.data).to.have.property('provider_response');",
+              "});"
+            ] }
+          }],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/delhivery/b2c/shipments/{{awb}}/documents?doc_type={{documentType}}",
+            "description": "Fetches a non-archived B2C shipment document. documentType must be SIGNATURE_URL, RVP_QC_IMAGE, EPOD, or SELLER_RETURN_IMAGE. The backend authenticates with the configured Delhivery token; no browser session cookie is required."
+          }
+        },
+        {
           "name": "NDR Upload Status",
           "request": {
             "method": "GET",
