@@ -293,6 +293,12 @@ const ensureFallbackCouriers = async (client: PoolClient) => {
          values ($1, $2, $3, true, '["b2c"]'::jsonb, now(), now())
          on conflict (id, "serviceProvider") do update set
           name = excluded.name,
+          "isEnabled" = true,
+          business_type = case
+            when couriers.business_type @> '["b2b"]'::jsonb
+              then '["b2c", "b2b"]'::jsonb
+            else '["b2c"]'::jsonb
+          end,
           updated_at = now()`,
         [seed.id, seed.name, seed.serviceProvider],
       )
