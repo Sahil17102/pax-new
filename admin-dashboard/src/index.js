@@ -41,7 +41,7 @@ const root = createRoot(document.getElementById('root'))
 root.render(
   <QueryClientProvider client={queryClient}>
     <HashRouter>
-      <Suspense fallback={<div className="app-route-loader">Loading Express Magic…</div>}>
+      <Suspense fallback={<div className="app-route-loader">Loading Pax Logistics…</div>}>
         <Switch>
           <Route path={`/auth`} component={AuthLayout} />
           <Route path={`/admin`} component={AdminLayout} />

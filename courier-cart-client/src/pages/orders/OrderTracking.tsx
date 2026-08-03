@@ -483,8 +483,8 @@ export default function TrackingPage() {
       >
         <Box
           component="img"
-          src="/express-magic-logo.jpeg"
-          alt="Express Magic Logo"
+          src="/images/pax-logo.png"
+          alt="Pax Logistics Logo"
           sx={{ width: 72, height: 'auto', mb: 0.5, borderRadius: 1.5 }}
         />
         <Typography
@@ -497,7 +497,7 @@ export default function TrackingPage() {
             letterSpacing: 0.5,
           }}
         >
-          Powered by Express Magic
+          Powered by Pax Logistics
         </Typography>
       </Box>
     </Box>

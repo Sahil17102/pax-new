@@ -138,8 +138,8 @@ export default function ExpressMagicLanding() {
   return (
     <main className="em-landing">
       <header className="em-nav">
-        <a className="em-brand" href={appHomeHref} aria-label="Express Magic home">
-          <img src="/express-magic-logo.jpeg" alt="Express Magic" />
+        <a className="em-brand" href={appHomeHref} aria-label="Pax Logistics home">
+          <img src="/images/pax-logo.png" alt="Pax Logistics" />
         </a>
 
         <nav className={`em-nav__links${navOpen ? ' is-open' : ''}`} aria-label="Primary navigation">
@@ -193,7 +193,7 @@ export default function ExpressMagicLanding() {
           </div>
         </div>
 
-        <div className="em-feature-strip" aria-label="Express Magic platform features">
+        <div className="em-feature-strip" aria-label="Pax Logistics platform features">
           {heroFeatures.map((feature) => (
             <article key={feature.title}>
               <span className={`em-feature-icon is-${feature.tone}`}>{feature.icon}</span>
@@ -289,7 +289,7 @@ export default function ExpressMagicLanding() {
                 Check chargeable weight here, then move into tracking or live courier pricing without losing your place.
               </p>
             </div>
-            <div className="em-tool-tabs" aria-label="Express Magic tools">
+            <div className="em-tool-tabs" aria-label="Pax Logistics tools">
               <a href={trackingHref}>
                 <FiMapPin /> Tracking
               </a>
@@ -501,11 +501,11 @@ export default function ExpressMagicLanding() {
 
       <footer className="em-footer" id="about">
         <div>
-          <img src="/express-magic-logo.jpeg" alt="Express Magic" loading="lazy" decoding="async" />
+          <img src="/images/pax-logo.png" alt="Pax Logistics" loading="lazy" decoding="async" />
           <p>Courier intelligence for modern commerce.</p>
         </div>
         <a className="em-button em-button--primary" href={loginHref}>
-          Launch Express Magic <FiArrowRight />
+          Launch Pax Logistics <FiArrowRight />
         </a>
       </footer>
     </main>

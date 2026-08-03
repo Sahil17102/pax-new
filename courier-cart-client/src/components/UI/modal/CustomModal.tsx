@@ -1,6 +1,7 @@
 import { Box, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Typography } from '@mui/material'
 import React from 'react'
 import { FiX } from 'react-icons/fi'
+import { BRAND } from '../../../config/brand'
 
 const BRAND_INK = '#141414'
 
@@ -77,7 +78,7 @@ const CustomDialog: React.FC<CustomDialogProps> = ({
                 mb: 0.6,
               }}
             >
-              Express Magic
+              {BRAND.name}
             </Typography>
             <Typography component="div" sx={{ fontSize: { xs: '1rem', sm: '1.08rem' }, fontWeight: 800, color: BRAND_INK }}>
               {title}

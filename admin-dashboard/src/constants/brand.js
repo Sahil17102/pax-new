@@ -1,12 +1,12 @@
 export const BRAND = {
-  name: 'Express Magic',
-  shortName: 'Express Magic',
-  tagline: 'Fast. Safe. Worldwide.',
+  name: 'Pax Logistics',
+  shortName: 'Pax',
+  tagline: 'Reaching Further.',
   adminEmail: 'admin@expressmagic.com',
   supportEmail: 'support@expressmagic.in',
   website: 'www.expressmagic.in',
-  logo: '/express-magic-logo.jpeg',
-  mark: '/express-magic-logo.jpeg',
+  logo: '/images/pax-logo.png',
+  mark: '/images/pax-logo.png',
   colors: {
     teal: '#062A5B',
     tealDark: '#041A38',

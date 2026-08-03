@@ -74,13 +74,13 @@ export default function PublicToolsHeader() {
           <Box
             component={Link}
             to="/"
-            aria-label="Express Magic home"
+            aria-label={`${BRAND.name} home`}
             sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}
           >
             <Box
               component="img"
               src={BRAND.logo}
-              alt="Express Magic"
+              alt={BRAND.name}
               sx={{
                 width: { xs: 104, sm: 126 },
                 height: { xs: 45, sm: 54 },

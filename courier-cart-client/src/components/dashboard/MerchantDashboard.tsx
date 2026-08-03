@@ -81,7 +81,7 @@ export default function MerchantDashboard() {
                 letterSpacing: '-0.5px',
               }}
             >
-              ⬡ Express Magic
+              ⬡ Pax Logistics
             </Box>
           </Box>
 

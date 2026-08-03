@@ -1,11 +1,11 @@
 {
-  "short_name": "Express Magic",
-  "name": "Express Magic Admin",
+  "short_name": "Pax",
+  "name": "Pax Logistics Admin",
   "icons": [
     {
-      "src": "express-magic-logo.jpeg",
+      "src": "images/pax-logo.png",
       "sizes": "any",
-      "type": "image/jpeg"
+      "type": "image/png"
     }
   ],
   "start_url": "./index.html",

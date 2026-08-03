@@ -81,7 +81,7 @@ async function ensureAdmin() {
   })
 
   const companyInfo = {
-    businessName: 'Express Magic Admin',
+    businessName: 'Pax Logistics Admin',
     contactPerson: 'Admin User',
     POCEmailVerified: true,
     POCPhoneVerified: true,
@@ -92,7 +92,7 @@ async function ensureAdmin() {
     contactNumber: '+919999999999',
     contactEmail: email,
     companyContactNumber: '+919999999999',
-    brandName: 'Express Magic',
+    brandName: 'Pax Logistics',
     companyEmail: email,
     website: 'https://pax-log-admin.onrender.com',
   }
