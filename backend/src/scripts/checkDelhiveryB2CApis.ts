@@ -9,6 +9,7 @@ const run = async () => {
     DelhiveryService,
     isDelhiveryCancellationAccepted,
     isDelhiveryEwaybillUpdateAccepted,
+    normalizeDelhiveryRvpQc,
     normalizeDelhiveryWaybills,
     summarizeDelhiveryExpectedTat,
     summarizeDelhiveryHeavyPincodeServiceability,
@@ -40,6 +41,69 @@ const run = async () => {
   assert.deepEqual(
     normalizeDelhiveryWaybills({ data: { waybill: ['223456789012', 223456789013] } }),
     ['223456789012', '223456789013'],
+  )
+
+  const validRvpQc = [{
+    item: 'mobile',
+    description: 'Mi Note Pro',
+    images: 'https://images.example.com/front.jpg, https://images.example.com/back.jpg',
+    return_reason: 'Damaged',
+    brand: 'Mi',
+    product_category: 'mobile',
+    questions: [
+      {
+        questions_id: 'CLIENT-SERIAL',
+        options: [''],
+        value: ['SERIAL-123'],
+        required: true,
+        type: 'varchar',
+        ques_images: ['http://images.example.com/serial-help.jpg'],
+      },
+      {
+        questions_id: 'CLIENT-COLOR',
+        options: ['Black', 'Other'],
+        value: ['Black'],
+        required: true,
+        type: 'multi',
+      },
+    ],
+  }]
+  const normalizedRvpQc = normalizeDelhiveryRvpQc(validRvpQc)
+  assert.equal(normalizedRvpQc[0].quantity, 1)
+  assert.deepEqual(normalizedRvpQc[0].images, [
+    'https://images.example.com/front.jpg',
+    'https://images.example.com/back.jpg',
+  ])
+  assert.equal(normalizedRvpQc[0].questions[0].type, 'varchar')
+  assert.deepEqual(normalizedRvpQc[0].questions[1].options, ['Black', 'Other'])
+  assert.throws(
+    () => normalizeDelhiveryRvpQc([validRvpQc[0], validRvpQc[0], validRvpQc[0]]),
+    /maximum of 2 items/,
+  )
+  assert.throws(
+    () => normalizeDelhiveryRvpQc([{
+      ...validRvpQc[0],
+      questions: Array.from({ length: 7 }, () => validRvpQc[0].questions[0]),
+    }]),
+    /maximum of 6 questions/,
+  )
+  assert.throws(
+    () => normalizeDelhiveryRvpQc([{
+      ...validRvpQc[0],
+      questions: [{ ...validRvpQc[0].questions[1], required: 'true' }],
+    }]),
+    /required must be a boolean/,
+  )
+  assert.throws(
+    () => normalizeDelhiveryRvpQc([{
+      ...validRvpQc[0],
+      questions: [{ ...validRvpQc[0].questions[1], value: ['Blue'] }],
+    }]),
+    /value\[0\] must match one of the multi-question options/,
+  )
+  assert.throws(
+    () => normalizeDelhiveryRvpQc([{ ...validRvpQc[0], images: ['not-a-url'] }]),
+    /valid HTTP\(S\) image URLs/,
   )
 
   assert.deepEqual(summarizeDelhiveryPincodeServiceability({ delivery_codes: [] }), {
@@ -592,6 +656,54 @@ const run = async () => {
   assert.equal(pickupPayload.shipments[0].return_pin, '122001')
 
   await mockedService.createShipment({
+    order: 'DOC-RVP-QC-1',
+    payment_mode: 'Pickup',
+    total_amount: 749,
+    name: 'RVP Customer',
+    add: 'Customer reverse pickup address',
+    city: 'Meerjapuram',
+    state: 'Andhra Pradesh',
+    pin: '521111',
+    phone: '9999999999',
+    weight: '150.0 gm',
+    shipping_mode: 'Express',
+    pickup_location: 'Test Warehouse',
+    return_name: 'Pax Returns',
+    return_address: 'Return Warehouse Road',
+    return_city: 'Gurugram',
+    return_state: 'Haryana',
+    return_pin: '122001',
+    return_phone: '9888888888',
+    qc_type: 'param',
+    custom_qc: validRvpQc,
+  } as any, 'RVP-QC-AWB-1')
+  const rvpQcForm = new URLSearchParams(String(captured.at(-1)?.data))
+  assert.equal(rvpQcForm.get('format'), 'json')
+  const rvpQcPayload = JSON.parse(rvpQcForm.get('data') || '{}')
+  assert.equal(rvpQcPayload.pickup_location.name, 'Test Warehouse')
+  assert.equal(rvpQcPayload.shipments.length, 1)
+  assert.equal(rvpQcPayload.shipments[0].payment_mode, 'Pickup')
+  assert.equal(rvpQcPayload.shipments[0].waybill, 'RVP-QC-AWB-1')
+  assert.equal(rvpQcPayload.shipments[0].weight, 150)
+  assert.equal(rvpQcPayload.shipments[0].client, 'test-client')
+  assert.equal(rvpQcPayload.shipments[0].qc_type, 'param')
+  assert.equal(rvpQcPayload.shipments[0].custom_qc.length, 1)
+  assert.equal(rvpQcPayload.shipments[0].custom_qc[0].quantity, 1)
+  assert.deepEqual(rvpQcPayload.shipments[0].custom_qc[0].images, [
+    'https://images.example.com/front.jpg',
+    'https://images.example.com/back.jpg',
+  ])
+  assert.equal(
+    rvpQcPayload.shipments[0].custom_qc[0].questions[0].questions_id,
+    'CLIENT-SERIAL',
+  )
+  assert.equal(rvpQcPayload.shipments[0].custom_qc[0].questions[1].type, 'multi')
+  assert.equal(
+    rvpQcPayload.shipments[0].custom_qc[0].questions[1].value[0],
+    'Black',
+  )
+
+  await mockedService.createShipment({
     order: 'DOC-REPL-1',
     payment_mode: 'REPL',
     total_amount: 500,
@@ -848,6 +960,38 @@ const run = async () => {
       boxes: [{ waybill: 'MPS-ONE' }, { waybill: 'MPS-TWO' }],
     } as any),
     /master_id is required/,
+  )
+  await assert.rejects(
+    () => service.createShipment({
+      ...nativeShipmentBase,
+      custom_qc: validRvpQc,
+    } as any),
+    /supported only for Pickup shipments/,
+  )
+  await assert.rejects(
+    () => service.createShipment({
+      ...nativeShipmentBase,
+      payment_mode: 'Pickup',
+      qc_type: 'param',
+    } as any),
+    /custom_qc is required when qc_type is provided/,
+  )
+  await assert.rejects(
+    () => service.createShipment({
+      ...nativeShipmentBase,
+      payment_mode: 'Pickup',
+      qc_type: 'legacy',
+      custom_qc: validRvpQc,
+    } as any),
+    /qc_type must be param/,
+  )
+  await assert.rejects(
+    () => service.createShipment({
+      ...nativeShipmentBase,
+      payment_mode: 'Pickup',
+      custom_qc: [],
+    } as any),
+    /custom_qc must be a non-empty array/,
   )
   await assert.rejects(() => service.checkServiceability('19410'), /6-digit/)
   await assert.rejects(() => service.checkHeavyServiceability('40008'), /6-digit/)
@@ -1214,6 +1358,16 @@ const run = async () => {
   assert(createShipmentRequest.request.body.raw.includes('{{manifestWaybill}}'))
   assert(createShipmentRequest.request.body.raw.includes('transport_speed'))
   assert(mutatingFolder.item.some((request: any) => request.name === 'Create Pickup Shipment'))
+  const createRvpQcRequest = mutatingFolder.item.find(
+    (request: any) => request.name === 'Create RVP QC 3.0 Shipment',
+  )
+  assert(createRvpQcRequest.request.body.raw.includes('"qc_type": "param"'))
+  assert(createRvpQcRequest.request.body.raw.includes('"custom_qc"'))
+  assert(createRvpQcRequest.request.body.raw.includes('"questions_id"'))
+  assert(createRvpQcRequest.request.body.raw.includes('{{qcSerialQuestionId}}'))
+  assert(createRvpQcRequest.request.body.raw.includes('{{qcColorQuestionId}}'))
+  assert(createRvpQcRequest.request.body.raw.includes('"ques_images"'))
+  assert(JSON.stringify(createRvpQcRequest.event).includes('packages'))
   assert(mutatingFolder.item.some((request: any) => request.name === 'Create REPL Shipment'))
   const createMpsRequest = mutatingFolder.item.find(
     (request: any) => request.name === 'Create Multi Piece Shipment',

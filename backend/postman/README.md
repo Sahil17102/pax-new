@@ -96,6 +96,21 @@ Delhivery's native `{ pickup_location, shipments: [...] }` MPS structure.
 form-encodes the provider payload, including addresses that contain `&`, `#`,
 `%`, `;`, or backslashes.
 
+RVP QC 3.0 uses the same `POST /api/delhivery/b2c/shipments` endpoint with
+`payment_mode=Pickup`, `qc_type=param`, and a `custom_qc` array. Delhivery must
+first configure the one-time mapping between the client's `questions_id` values
+and Delhivery question IDs; that account-side mapping is coordinated with the
+Delhivery BD team. The proxy accepts at most two QC items and six questions per
+item and rejects larger payloads instead of allowing Delhivery to silently
+manifest a non-QC shipment. Item description, images, quantity, questions,
+question ID, options, correct-value list, required boolean, and varchar/multi
+type are validated. HTTP(S) image URLs and optional question images are
+supported; quantity defaults to one. In multi-choice questions, `value[0]`
+must match an option. Explicit gram/kg weight strings from Delhivery's examples
+are normalized to grams. The Postman RVP QC request is mutation-locked unless
+`allowMutating=true`. Delhivery documents a production limit of 20,000 requests
+per five minutes per IP.
+
 Shipment Edit sends only Delhivery's documented editable keys: `name`, `phone`,
 `pt`, `cod`, `add`, `products_desc`, `gm`, and shipment dimensions. The Postman
 examples cover forward, Pickup, and REPL status rules. `current_payment_mode` and

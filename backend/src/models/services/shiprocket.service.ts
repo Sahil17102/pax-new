@@ -5812,6 +5812,8 @@ export interface ShipmentParams {
   mps?: boolean
   obd_shipment?: boolean
   qc_details?: any
+  qc_type?: 'param'
+  custom_qc?: any[]
   category_of_goods?: string
   invoices?: {
     invoiceNumber?: string

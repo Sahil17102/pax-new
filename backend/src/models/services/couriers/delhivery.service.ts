@@ -404,6 +404,26 @@ export type DelhiveryWarehouseUpdateRequest = {
   phone?: string
 }
 
+export type DelhiveryRvpQcQuestion = {
+  questions_id: string
+  options: string[]
+  value: string[]
+  required: boolean
+  type: 'varchar' | 'multi'
+  ques_images?: string[]
+}
+
+export type DelhiveryRvpQcItem = {
+  item?: string
+  description: string
+  images: string[]
+  return_reason?: string
+  quantity: number
+  brand?: string
+  product_category?: string
+  questions: DelhiveryRvpQcQuestion[]
+}
+
 export type DelhiveryCredentialsOverride = {
   apiBase: string
   apiKey: string
@@ -493,6 +513,184 @@ const hasProviderErrorValue = (value: unknown): boolean => {
   if (Array.isArray(value)) return value.length > 0
   if (typeof value === 'object') return Object.keys(value as Record<string, unknown>).length > 0
   return Boolean(value)
+}
+
+const normalizeDelhiveryQcStringList = (
+  value: unknown,
+  field: string,
+  allowEmptyValues = false,
+): string[] => {
+  const entries = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+      ? value.split(',')
+      : null
+  if (!entries || entries.length === 0) {
+    throw new HttpError(400, `${field} must be a non-empty list`)
+  }
+
+  const normalized = entries.map((entry) => String(entry ?? '').trim())
+  if (!allowEmptyValues && normalized.some((entry) => !entry)) {
+    throw new HttpError(400, `${field} cannot contain an empty value`)
+  }
+  return normalized
+}
+
+const normalizeDelhiveryQcImageList = (
+  value: unknown,
+  field: string,
+  required: boolean,
+): string[] => {
+  if (!required && (value === undefined || value === null || value === '')) return []
+  if (!required && Array.isArray(value) && value.length === 0) return []
+
+  const images = normalizeDelhiveryQcStringList(value, field)
+  for (const imageUrl of images) {
+    try {
+      const parsedUrl = new URL(imageUrl)
+      if (!['http:', 'https:'].includes(parsedUrl.protocol)) throw new Error('Invalid protocol')
+    } catch {
+      throw new HttpError(400, `${field} must contain valid HTTP(S) image URLs`)
+    }
+  }
+  return images
+}
+
+export const normalizeDelhiveryRvpQc = (value: unknown): DelhiveryRvpQcItem[] => {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new HttpError(400, 'custom_qc must be a non-empty array')
+  }
+  if (value.length > 2) {
+    throw new HttpError(400, 'Delhivery RVP QC supports a maximum of 2 items')
+  }
+
+  return value.map((rawItem, itemIndex) => {
+    if (!rawItem || typeof rawItem !== 'object' || Array.isArray(rawItem)) {
+      throw new HttpError(400, `custom_qc[${itemIndex}] must be an object`)
+    }
+    const item = rawItem as Record<string, unknown>
+    const allowedItemFields = new Set([
+      'item',
+      'description',
+      'images',
+      'return_reason',
+      'quantity',
+      'brand',
+      'product_category',
+      'questions',
+    ])
+    const unsupportedItemFields = Object.keys(item).filter(
+      (field) => !allowedItemFields.has(field),
+    )
+    if (unsupportedItemFields.length > 0) {
+      throw new HttpError(
+        400,
+        `Unsupported custom_qc[${itemIndex}] field(s): ${unsupportedItemFields.join(', ')}`,
+      )
+    }
+
+    const description = String(item.description || '').trim()
+    if (!description) {
+      throw new HttpError(400, `custom_qc[${itemIndex}].description is required`)
+    }
+    const images = normalizeDelhiveryQcImageList(
+      item.images,
+      `custom_qc[${itemIndex}].images`,
+      true,
+    )
+    const quantity = item.quantity === undefined || item.quantity === null
+      ? 1
+      : Number(item.quantity)
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      throw new HttpError(400, `custom_qc[${itemIndex}].quantity must be a positive integer`)
+    }
+    if (!Array.isArray(item.questions) || item.questions.length === 0) {
+      throw new HttpError(400, `custom_qc[${itemIndex}].questions must be a non-empty array`)
+    }
+    if (item.questions.length > 6) {
+      throw new HttpError(
+        400,
+        `custom_qc[${itemIndex}] supports a maximum of 6 questions`,
+      )
+    }
+
+    const questions = item.questions.map((rawQuestion, questionIndex) => {
+      const fieldPrefix = `custom_qc[${itemIndex}].questions[${questionIndex}]`
+      if (!rawQuestion || typeof rawQuestion !== 'object' || Array.isArray(rawQuestion)) {
+        throw new HttpError(400, `${fieldPrefix} must be an object`)
+      }
+      const question = rawQuestion as Record<string, unknown>
+      const allowedQuestionFields = new Set([
+        'questions_id',
+        'options',
+        'value',
+        'required',
+        'type',
+        'ques_images',
+      ])
+      const unsupportedQuestionFields = Object.keys(question).filter(
+        (field) => !allowedQuestionFields.has(field),
+      )
+      if (unsupportedQuestionFields.length > 0) {
+        throw new HttpError(
+          400,
+          `Unsupported ${fieldPrefix} field(s): ${unsupportedQuestionFields.join(', ')}`,
+        )
+      }
+
+      const questionId = String(question.questions_id || '').trim()
+      if (!questionId) throw new HttpError(400, `${fieldPrefix}.questions_id is required`)
+      const type = String(question.type || '').trim().toLowerCase()
+      if (!['varchar', 'multi'].includes(type)) {
+        throw new HttpError(400, `${fieldPrefix}.type must be varchar or multi`)
+      }
+      if (typeof question.required !== 'boolean') {
+        throw new HttpError(400, `${fieldPrefix}.required must be a boolean`)
+      }
+
+      const options = normalizeDelhiveryQcStringList(
+        question.options,
+        `${fieldPrefix}.options`,
+        type === 'varchar',
+      )
+      const correctValues = normalizeDelhiveryQcStringList(
+        question.value,
+        `${fieldPrefix}.value`,
+      )
+      if (type === 'multi' && !options.includes(correctValues[0])) {
+        throw new HttpError(
+          400,
+          `${fieldPrefix}.value[0] must match one of the multi-question options`,
+        )
+      }
+      const questionImages = normalizeDelhiveryQcImageList(
+        question.ques_images,
+        `${fieldPrefix}.ques_images`,
+        false,
+      )
+
+      return {
+        questions_id: questionId,
+        options,
+        value: correctValues,
+        required: question.required,
+        type: type as 'varchar' | 'multi',
+        ...(questionImages.length > 0 ? { ques_images: questionImages } : {}),
+      }
+    })
+
+    const normalizedItem: DelhiveryRvpQcItem = {
+      description,
+      images,
+      quantity,
+      questions,
+    }
+    for (const field of ['item', 'return_reason', 'brand', 'product_category'] as const) {
+      const normalized = String(item[field] || '').trim()
+      if (normalized) normalizedItem[field] = normalized
+    }
+    return normalizedItem
+  })
 }
 
 const findDelhiveryLabelUrl = (value: unknown): string | null => {
@@ -586,8 +784,20 @@ const getDelhiveryPickupRequestId = (value: unknown): string | null => {
 }
 
 const normalizeDelhiveryWeightGrams = (value: unknown, fallbackGrams = 500) => {
-  const numericValue = Number(value ?? 0)
+  const normalized = String(value ?? '').trim().toLowerCase()
+  const unitMatch = normalized.match(
+    /^(\d+(?:\.\d+)?)\s*(kg|kgs|kilogram|kilograms|g|gm|gms|gram|grams)?$/,
+  )
+  const numericValue = unitMatch ? Number(unitMatch[1]) : Number(value ?? 0)
   if (!Number.isFinite(numericValue) || numericValue <= 0) return fallbackGrams
+
+  const unit = unitMatch?.[2] || ''
+  if (['kg', 'kgs', 'kilogram', 'kilograms'].includes(unit)) {
+    return Math.round(numericValue * 1000)
+  }
+  if (['g', 'gm', 'gms', 'gram', 'grams'].includes(unit)) {
+    return Math.round(numericValue)
+  }
 
   // Shiplifi stores B2C weights in grams; older integrations may still send kg.
   return numericValue > 50 ? Math.round(numericValue) : Math.round(numericValue * 1000)
@@ -1372,6 +1582,31 @@ export class DelhiveryService {
         throw new HttpError(400, 'REPL shipments must use a single waybill.')
       }
 
+      const rawQcType = input.qc_type ?? params.qc_details?.qc_type
+      const rawCustomQc = input.custom_qc ?? params.qc_details?.custom_qc
+      const hasCustomQc = rawCustomQc !== undefined && rawCustomQc !== null
+      let customQc: DelhiveryRvpQcItem[] | null = null
+      if (rawQcType !== undefined && rawQcType !== null && !hasCustomQc) {
+        throw new HttpError(400, 'custom_qc is required when qc_type is provided')
+      }
+      if (hasCustomQc) {
+        if (paymentMode !== 'Pickup') {
+          throw new HttpError(400, 'Delhivery RVP QC 3.0 is supported only for Pickup shipments')
+        }
+        if (isMultiPiece) {
+          throw new HttpError(400, 'Delhivery RVP QC 3.0 cannot be combined with MPS')
+        }
+        if (
+          rawQcType !== undefined &&
+          rawQcType !== null &&
+          sanitizeString(String(rawQcType)).toLowerCase() !== 'param'
+        ) {
+          throw new HttpError(400, 'qc_type must be param for Delhivery RVP QC 3.0')
+        }
+        customQc = normalizeDelhiveryRvpQc(rawCustomQc)
+        await this.ensureCredentials()
+      }
+
       const rawCodAmount = Number(input.cod_amount ?? orderAmount)
       if (!Number.isFinite(rawCodAmount) || rawCodAmount < 0) {
         throw new HttpError(400, 'cod_amount must be a non-negative number.')
@@ -1542,6 +1777,12 @@ export class DelhiveryService {
       if (params.plastic_packaging !== undefined) {
         manifestShipment.plastic_packaging = sanitizeBoolean(params.plastic_packaging)
       }
+      if (customQc) {
+        manifestShipment.client =
+          sanitizeString(this.clientName) || sanitizeString(input.client) || sellerName
+        manifestShipment.qc_type = 'param'
+        manifestShipment.custom_qc = customQc
+      }
       const directQuantity = params.quantity ?? input.quantity
       if (directQuantity !== undefined && directQuantity !== null) {
         manifestShipment.quantity = sanitizeString(String(directQuantity))
@@ -1678,6 +1919,10 @@ export class DelhiveryService {
         invoice_number: invoiceNumber,
         shipping_mode: shippingMode,
         cod_amount: codAmount,
+        qc_type: payload.shipments[0].qc_type ?? null,
+        qc_item_count: Array.isArray(payload.shipments[0].custom_qc)
+          ? payload.shipments[0].custom_qc.length
+          : 0,
         package_count: manifestShipments.length,
       })
 

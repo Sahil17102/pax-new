@@ -309,6 +309,26 @@
           }
         },
         {
+          "name": "Create RVP QC 3.0 Shipment",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "var body = pm.response.json();",
+              "pm.test('RVP QC shipment is manifested', function () {",
+              "  pm.expect(body.data.packages).to.be.an('array').that.is.not.empty;",
+              "  pm.expect(body.data.packages[0].waybill).to.be.a('string').that.is.not.empty;",
+              "});"
+            ] }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/delhivery/b2c/shipments",
+            "body": { "mode": "raw", "raw": "{\n  \"waybill\": \"{{manifestWaybill}}\",\n  \"order\": \"POSTMAN-RVP-QC-{{$timestamp}}\",\n  \"payment_mode\": \"Pickup\",\n  \"name\": \"RVP Customer\",\n  \"phone\": \"9999999999\",\n  \"add\": \"Customer reverse pickup address\",\n  \"pin\": \"{{destinationPincode}}\",\n  \"city\": \"Mumbai\",\n  \"state\": \"Maharashtra\",\n  \"country\": \"India\",\n  \"pickup_location\": \"{{warehouseName}}\",\n  \"return_name\": \"Pax Logistics\",\n  \"return_address\": \"Test return warehouse address\",\n  \"return_city\": \"Gurugram\",\n  \"return_state\": \"Haryana\",\n  \"return_pin\": \"{{originPincode}}\",\n  \"return_phone\": \"9999999999\",\n  \"total_amount\": 749,\n  \"weight\": \"150 gm\",\n  \"shipping_mode\": \"Express\",\n  \"qc_type\": \"param\",\n  \"custom_qc\": [\n    {\n      \"item\": \"mobile\",\n      \"description\": \"Mi Note Pro\",\n      \"images\": [\"https://fdn2.gsmarena.com/vv/pics/xiaomi/xiaomi-note-pro-2.jpg\"],\n      \"return_reason\": \"Damaged\",\n      \"quantity\": 1,\n      \"brand\": \"Mi\",\n      \"product_category\": \"mobile\",\n      \"questions\": [\n        {\n          \"questions_id\": \"{{qcSerialQuestionId}}\",\n          \"options\": [\"\"],\n          \"value\": [\"SERIAL-123\"],\n          \"required\": true,\n          \"type\": \"varchar\",\n          \"ques_images\": [\"http://ecx.images-amazon.com/images/I/414yumheSAS._AC_.jpg\"]\n        },\n        {\n          \"questions_id\": \"{{qcColorQuestionId}}\",\n          \"options\": [\"Black\", \"Other\"],\n          \"value\": [\"Black\"],\n          \"required\": true,\n          \"type\": \"multi\"\n        }\n      ]\n    }\n  ]\n}" },
+            "description": "Creates an RVP/Pickup shipment with Delhivery QC 3.0. qc_type is always param. Complete the one-time client-question-ID to Delhivery-question-ID mapping with the Delhivery BD team first, then replace qcSerialQuestionId and qcColorQuestionId with the mapped client IDs. The proxy rejects more than 2 QC items or more than 6 questions per item so the shipment cannot silently degrade to non-QC. This mutation is locked unless allowMutating=true."
+          }
+        },
+        {
           "name": "Create REPL Shipment",
           "request": {
             "method": "POST",
