@@ -13,6 +13,7 @@ const run = async () => {
     summarizeDelhiveryExpectedTat,
     summarizeDelhiveryHeavyPincodeServiceability,
     summarizeDelhiveryPincodeServiceability,
+    summarizeDelhiveryShippingCost,
     summarizeDelhiveryTracking,
   } = await import('../models/services/couriers/delhivery.service')
 
@@ -105,6 +106,20 @@ const run = async () => {
   assert.equal(expectedTat.expectedDeliveryDate, '2026-08-06')
   assert.equal(expectedTat.mode, 'N')
   assert.equal(expectedTat.productType, 'B2C')
+
+  const shippingCostSummary = summarizeDelhiveryShippingCost([{
+    total_amount: '84.50',
+    gross_amount: 75,
+    tax_amount: 9.5,
+    chargeable_weight: 1000,
+    zone: 'B',
+    charge_FSC: '5.25',
+  }])
+  assert.equal(shippingCostSummary.quoteCount, 1)
+  assert.equal(shippingCostSummary.quotes[0].totalAmount, 84.5)
+  assert.equal(shippingCostSummary.quotes[0].chargeableWeightGrams, 1000)
+  assert.equal(shippingCostSummary.quotes[0].zone, 'B')
+  assert.equal(shippingCostSummary.quotes[0].breakdown.charge_FSC, 5.25)
 
   const trackingSummary = summarizeDelhiveryTracking(
     {
@@ -251,15 +266,71 @@ const run = async () => {
     'https://staging-express.delhivery.com/api/dc/expected_tat?origin_pin=122003&destination_pin=136118&mot=N&pdt=B2C&expected_pickup_date=2026-08-04%2014%3A00',
   )
 
-  await mockedService.calculateShippingCost({
+  const shippingCost = await mockedService.calculateShippingCost({
     originPincode: '122001',
     destinationPincode: '400093',
     weightGrams: 500,
+    mode: 'E',
+    status: 'DTO',
+    paymentType: 'COD',
+    length: 10,
+    breadth: 8,
+    height: 6,
+    packageType: 'box',
   })
-  assert(captured.at(-1)?.url.includes('/api/kinko/v1/invoice/charges/.json?'))
-  assert(captured.at(-1)?.url.includes('o_pin=122001'))
-  assert(captured.at(-1)?.url.includes('d_pin=400093'))
-  assert(captured.at(-1)?.url.includes('cgm=500'))
+  const shippingCostUrl = new URL(String(captured.at(-1)?.url))
+  assert.equal(shippingCostUrl.pathname, '/api/kinko/v1/invoice/charges/.json')
+  assert.equal(shippingCostUrl.searchParams.get('md'), 'E')
+  assert.equal(shippingCostUrl.searchParams.get('ss'), 'DTO')
+  assert.equal(shippingCostUrl.searchParams.get('o_pin'), '122001')
+  assert.equal(shippingCostUrl.searchParams.get('d_pin'), '400093')
+  assert.equal(shippingCostUrl.searchParams.get('cgm'), '500')
+  assert.equal(shippingCostUrl.searchParams.get('pt'), 'COD')
+  assert.equal(shippingCostUrl.searchParams.get('l'), '10')
+  assert.equal(shippingCostUrl.searchParams.get('b'), '8')
+  assert.equal(shippingCostUrl.searchParams.get('h'), '6')
+  assert.equal(shippingCostUrl.searchParams.get('ipkg_type'), 'box')
+  assert.equal(shippingCostUrl.searchParams.has('cod'), false)
+  assert.equal(captured.at(-1)?.headers?.Authorization, 'Token test-token')
+  assert.equal(shippingCost.quoteCount, 1)
+  assert.equal(shippingCost.quotes[0].totalAmount, 75)
+
+  await mockedService.calculateShippingCost({
+    originPincode: '122001',
+    destinationPincode: '400093',
+    weightGrams: 0,
+    mode: 'S',
+    status: 'Delivered',
+    paymentType: 'Pre-paid',
+  })
+  assert.equal(new URL(String(captured.at(-1)?.url)).searchParams.get('cgm'), '0')
+
+  const successfulShippingCostGetMock = (axios as any).get
+  ;(axios as any).get = async () => ({ status: 200, data: [] })
+  await assert.rejects(
+    () => mockedService.calculateShippingCost({
+      originPincode: '122001',
+      destinationPincode: '400093',
+      weightGrams: 500,
+      mode: 'S',
+      status: 'Delivered',
+      paymentType: 'Pre-paid',
+    }),
+    /returned no shipping-cost quote/,
+  )
+  ;(axios as any).get = async () => ({ status: 200, data: { error: 'Rate card unavailable' } })
+  await assert.rejects(
+    () => mockedService.calculateShippingCost({
+      originPincode: '122001',
+      destinationPincode: '400093',
+      weightGrams: 500,
+      mode: 'S',
+      status: 'Delivered',
+      paymentType: 'Pre-paid',
+    }),
+    /Rate card unavailable/,
+  )
+  ;(axios as any).get = successfulShippingCostGetMock
 
   const bulkTracking = await mockedService.trackShipments(
     'TRACK-AWB-1, TRACK-AWB-2, TRACK-AWB-1',
@@ -588,21 +659,56 @@ const run = async () => {
     () => service.getExpectedTATDetails('122003', '136118', 'S', 'B2C', '2026-02-31'),
     /valid calendar date/,
   )
+  const shippingCostBase = {
+    originPincode: '122001',
+    destinationPincode: '400093',
+    weightGrams: 500,
+    mode: 'S' as const,
+    status: 'Delivered' as const,
+    paymentType: 'Pre-paid' as const,
+  }
   await assert.rejects(
     () => service.calculateShippingCost({
+      ...shippingCostBase,
       originPincode: '12200',
-      destinationPincode: '400093',
-      weightGrams: 500,
     }),
     /6-digit/,
   )
   await assert.rejects(
     () => service.calculateShippingCost({
-      originPincode: '122001',
-      destinationPincode: '400093',
-      weightGrams: 0,
+      ...shippingCostBase,
+      weightGrams: 1.5,
     }),
-    /positive number/,
+    /non-negative integer/,
+  )
+  await assert.rejects(
+    () => service.calculateShippingCost({ ...shippingCostBase, mode: 'X' as any }),
+    /mode\/md must be S or E/,
+  )
+  await assert.rejects(
+    () => service.calculateShippingCost({ ...shippingCostBase, status: 'Pending' as any }),
+    /status\/ss must be Delivered, RTO, or DTO/,
+  )
+  await assert.rejects(
+    () => service.calculateShippingCost({ ...shippingCostBase, paymentType: 'Pickup' as any }),
+    /payment_type\/pt must be Pre-paid or COD/,
+  )
+  await assert.rejects(
+    () => service.calculateShippingCost({ ...shippingCostBase, length: 10 }),
+    /length, breadth, and height must be provided together/,
+  )
+  await assert.rejects(
+    () => service.calculateShippingCost({
+      ...shippingCostBase,
+      length: 10,
+      breadth: 8.5,
+      height: 6,
+    }),
+    /length, breadth, and height must be positive integers/,
+  )
+  await assert.rejects(
+    () => service.calculateShippingCost({ ...shippingCostBase, packageType: 'satchel' as any }),
+    /package_type\/ipkg_type must be box or flyer/,
   )
   await assert.rejects(() => service.updateShipment('TEST-AWB', {}), /editable shipment field/)
   await assert.rejects(() => service.fetchWaybills(0), /between 1 and 10000/)
@@ -730,6 +836,14 @@ const run = async () => {
   const tatRequest = readOnlyFolder.item.find((request: any) => request.name === 'Expected TAT')
   assert(tatRequest.request.url.includes('mot={{tatMode}}'))
   assert(tatRequest.request.url.includes('expected_pickup_date={{expectedPickupDate}}'))
+  const shippingCostRequest = readOnlyFolder.item.find(
+    (request: any) => request.name === 'Shipping Cost',
+  )
+  assert(shippingCostRequest.request.url.includes('md={{shippingMode}}'))
+  assert(shippingCostRequest.request.url.includes('ss={{shippingStatus}}'))
+  assert(shippingCostRequest.request.url.includes('pt={{shippingPaymentType}}'))
+  assert(shippingCostRequest.request.url.includes('ipkg_type={{shippingPackageType}}'))
+  assert(JSON.stringify(shippingCostRequest.event).includes('quoteCount'))
   const trackingRequest = readOnlyFolder.item.find(
     (request: any) => request.name === 'Shipment Tracking',
   )

@@ -120,10 +120,71 @@ export type DelhiveryShippingCostParams = {
   originPincode: string
   destinationPincode: string
   weightGrams: number
-  mode?: 'S' | 'E'
-  status?: 'Delivered' | 'RTO'
-  paymentType?: 'Pre-paid' | 'COD'
-  codAmount?: number
+  mode: 'S' | 'E'
+  status: 'Delivered' | 'RTO' | 'DTO'
+  paymentType: 'Pre-paid' | 'COD'
+  length?: number
+  breadth?: number
+  height?: number
+  packageType?: 'box' | 'flyer'
+}
+
+export type DelhiveryShippingCostQuote = {
+  totalAmount: number | null
+  grossAmount: number | null
+  taxAmount: number | null
+  chargeableWeightGrams: number | null
+  zone: string | null
+  breakdown: Record<string, number>
+}
+
+export type DelhiveryShippingCostSummary = {
+  quoteCount: number
+  quotes: DelhiveryShippingCostQuote[]
+}
+
+const parseDelhiveryChargeNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+export const summarizeDelhiveryShippingCost = (
+  response: any,
+): DelhiveryShippingCostSummary => {
+  const responseData = response?.data ?? response?.charges ?? response
+  const records = Array.isArray(responseData)
+    ? responseData
+    : responseData && typeof responseData === 'object'
+      ? [responseData]
+      : []
+  const quotes = records.map((record: Record<string, unknown>): DelhiveryShippingCostQuote => {
+    const breakdown = Object.fromEntries(
+      Object.entries(record)
+        .filter(([key]) => /(charge|amount|tax|freight)/i.test(key))
+        .map(([key, value]) => [key, parseDelhiveryChargeNumber(value)])
+        .filter((entry): entry is [string, number] => entry[1] !== null),
+    )
+
+    return {
+      totalAmount: parseDelhiveryChargeNumber(
+        record.total_amount ?? record.totalAmount ?? record.total_charge,
+      ),
+      grossAmount: parseDelhiveryChargeNumber(
+        record.gross_amount ?? record.grossAmount ?? record.freight_charge,
+      ),
+      taxAmount: parseDelhiveryChargeNumber(
+        record.tax_amount ?? record.taxAmount ?? record.tax,
+      ),
+      chargeableWeightGrams: parseDelhiveryChargeNumber(
+        record.chargeable_weight ?? record.charged_weight ?? record.cgm,
+      ),
+      zone: String(record.zone ?? record.zone_type ?? '').trim() || null,
+      breakdown,
+    }
+  })
+
+  return { quoteCount: quotes.length, quotes }
 }
 
 export type DelhiveryTransportMode = 'S' | 'E' | 'N'
@@ -543,6 +604,10 @@ export class DelhiveryService {
   private readonly credentialsOverride?: DelhiveryCredentialsOverride
   private readonly requestTimeoutMs = parseTimeout(process.env.DELHIVERY_REQUEST_TIMEOUT_MS, 30000)
   private readonly labelTimeoutMs = parseTimeout(process.env.DELHIVERY_LABEL_TIMEOUT_MS, 15000)
+  private readonly shippingCostTimeoutMs = parseTimeout(
+    process.env.DELHIVERY_SHIPPING_COST_TIMEOUT_MS,
+    70000,
+  )
 
   constructor(credentialsOverride?: DelhiveryCredentialsOverride) {
     this.credentialsOverride = credentialsOverride
@@ -871,33 +936,117 @@ export class DelhiveryService {
     const originPincode = String(params.originPincode || '').trim()
     const destinationPincode = String(params.destinationPincode || '').trim()
     const weightGrams = Number(params.weightGrams)
-    const codAmount = Number(params.codAmount || 0)
+    const mode = String(params.mode || '').trim().toUpperCase()
+    const rawStatus = String(params.status || '').trim().toUpperCase()
+    const status = rawStatus === 'DELIVERED' ? 'Delivered' : rawStatus
+    const rawPaymentType = String(params.paymentType || '').trim().toLowerCase()
+    const paymentType = rawPaymentType === 'cod'
+      ? 'COD'
+      : ['prepaid', 'pre-paid'].includes(rawPaymentType)
+        ? 'Pre-paid'
+        : ''
 
     if (!/^\d{6}$/.test(originPincode) || !/^\d{6}$/.test(destinationPincode)) {
       throw new HttpError(400, 'Valid 6-digit origin and destination pincodes are required')
     }
-    if (!Number.isFinite(weightGrams) || weightGrams <= 0) {
-      throw new HttpError(400, 'weightGrams must be a positive number')
+    if (!Number.isInteger(weightGrams) || weightGrams < 0) {
+      throw new HttpError(400, 'weightGrams must be a non-negative integer in grams')
     }
-    if (!Number.isFinite(codAmount) || codAmount < 0) {
-      throw new HttpError(400, 'codAmount must be a non-negative number')
+    if (!['S', 'E'].includes(mode)) {
+      throw new HttpError(400, 'mode/md must be S or E')
+    }
+    if (!['Delivered', 'RTO', 'DTO'].includes(status)) {
+      throw new HttpError(400, 'status/ss must be Delivered, RTO, or DTO')
+    }
+    if (!paymentType) throw new HttpError(400, 'payment_type/pt must be Pre-paid or COD')
+
+    const dimensions = [params.length, params.breadth, params.height]
+    const suppliedDimensionCount = dimensions.filter(
+      (value) => value !== undefined && value !== null,
+    ).length
+    if (suppliedDimensionCount > 0 && suppliedDimensionCount < 3) {
+      throw new HttpError(400, 'length, breadth, and height must be provided together')
+    }
+    const normalizedDimensions = dimensions.map((value) => Number(value))
+    if (
+      suppliedDimensionCount === 3 &&
+      normalizedDimensions.some((value) => !Number.isInteger(value) || value <= 0)
+    ) {
+      throw new HttpError(400, 'length, breadth, and height must be positive integers')
+    }
+    const packageType = String(params.packageType || '').trim().toLowerCase()
+    if (packageType && !['box', 'flyer'].includes(packageType)) {
+      throw new HttpError(400, 'package_type/ipkg_type must be box or flyer')
     }
 
-    await this.ensureCredentials()
-    const query = qs.stringify({
-      md: params.mode || 'S',
-      ss: params.status || 'Delivered',
-      d_pin: destinationPincode,
-      o_pin: originPincode,
-      cgm: Math.round(weightGrams),
-      pt: params.paymentType || 'Pre-paid',
-      ...(params.paymentType === 'COD' ? { cod: codAmount } : {}),
-    })
-    const res = await this.getWithTimeout(
-      `${this.apiBase}/api/kinko/v1/invoice/charges/.json?${query}`,
-      { headers: this.headers },
-    )
-    return res.data
+    try {
+      await this.ensureCredentials()
+      const query = qs.stringify({
+        md: mode,
+        cgm: weightGrams,
+        o_pin: originPincode,
+        d_pin: destinationPincode,
+        ss: status,
+        pt: paymentType,
+        ...(suppliedDimensionCount === 3
+          ? {
+              l: normalizedDimensions[0],
+              b: normalizedDimensions[1],
+              h: normalizedDimensions[2],
+            }
+          : {}),
+        ...(packageType ? { ipkg_type: packageType } : {}),
+      })
+      const res = await this.getWithTimeout(
+        `${this.apiBase}/api/kinko/v1/invoice/charges/.json?${query}`,
+        { headers: this.headers },
+        this.shippingCostTimeoutMs,
+      )
+      const explicitProviderError =
+        res.data?.Error ?? res.data?.error ?? res.data?.[0]?.Error ?? res.data?.[0]?.error
+      if (explicitProviderError) {
+        throw new HttpError(
+          502,
+          extractProviderErrorMessage(explicitProviderError) ||
+            'Delhivery shipping-cost request was rejected',
+        )
+      }
+
+      const summary = summarizeDelhiveryShippingCost(res.data)
+      if (summary.quoteCount === 0) {
+        throw new HttpError(502, 'Delhivery returned no shipping-cost quote')
+      }
+
+      return {
+        request: {
+          mode,
+          status,
+          paymentType,
+          originPincode,
+          destinationPincode,
+          weightGrams,
+          dimensions:
+            suppliedDimensionCount === 3
+              ? {
+                  length: normalizedDimensions[0],
+                  breadth: normalizedDimensions[1],
+                  height: normalizedDimensions[2],
+                }
+              : null,
+          packageType: packageType || null,
+        },
+        ...summary,
+        provider_response: res.data,
+      }
+    } catch (err: any) {
+      if (err instanceof HttpError) throw err
+      throw new HttpError(
+        Number(err.response?.status) || 502,
+        extractProviderErrorMessage(err.response?.data) ||
+          err.message ||
+          'Failed to calculate Delhivery shipping cost',
+      )
+    }
   }
 
   // 🔹 4. Create Shipment (Manifestation)

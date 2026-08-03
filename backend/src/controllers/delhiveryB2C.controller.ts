@@ -35,6 +35,9 @@ const parseQueryList = (value: unknown): string | string[] | undefined => {
   return Array.isArray(value) ? value.map(String) : String(value)
 }
 
+const parseOptionalNumber = (value: unknown): number | undefined =>
+  value === undefined || value === null || value === '' ? undefined : Number(value)
+
 export const serviceabilityController = async (req: Request, res: Response) => {
   try {
     const providerResponse = await service.checkServiceability(req.params.pincode)
@@ -111,19 +114,24 @@ export const tatController = async (req: Request, res: Response) => {
 }
 
 export const shippingCostController = (req: Request, res: Response) => {
-  const paymentType = String(req.query.payment_type || 'Pre-paid').toUpperCase() === 'COD'
-    ? 'COD'
-    : 'Pre-paid'
   const params: DelhiveryShippingCostParams = {
-    originPincode: String(req.query.origin_pin || ''),
-    destinationPincode: String(req.query.destination_pin || ''),
-    weightGrams: Number(req.query.weight_g),
-    mode: String(req.query.mode || 'S').toUpperCase() === 'E' ? 'E' : 'S',
-    status: String(req.query.status || 'Delivered').toUpperCase() === 'RTO'
-      ? 'RTO'
-      : 'Delivered',
-    paymentType,
-    codAmount: Number(req.query.cod_amount || 0),
+    originPincode: String(req.query.o_pin ?? req.query.origin_pin ?? ''),
+    destinationPincode: String(req.query.d_pin ?? req.query.destination_pin ?? ''),
+    weightGrams: Number(req.query.cgm ?? req.query.weight_g),
+    mode: String(req.query.md ?? req.query.mode ?? '').trim().toUpperCase() as 'S' | 'E',
+    status: String(req.query.ss ?? req.query.status ?? '').trim() as
+      | 'Delivered'
+      | 'RTO'
+      | 'DTO',
+    paymentType: String(req.query.pt ?? req.query.payment_type ?? '').trim() as
+      | 'Pre-paid'
+      | 'COD',
+    length: parseOptionalNumber(req.query.l ?? req.query.length),
+    breadth: parseOptionalNumber(req.query.b ?? req.query.breadth),
+    height: parseOptionalNumber(req.query.h ?? req.query.height),
+    packageType: String(req.query.ipkg_type ?? req.query.package_type ?? '').trim() as
+      | 'box'
+      | 'flyer',
   }
   return sendResult(res, service.calculateShippingCost(params))
 }

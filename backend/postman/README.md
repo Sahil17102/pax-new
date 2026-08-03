@@ -128,3 +128,13 @@ order ID can be supplied through `ref_ids`, including an order-ID-only lookup.
 Responses normalize each shipment's current status and full scan history while
 retaining `provider_response`. Delhivery documents a production limit of 750
 requests per five-minute IP window.
+
+Calculate Shipping Cost accepts Delhivery's documented query names
+`md`, `cgm`, `o_pin`, `d_pin`, `ss`, `pt`, `l`, `b`, `h`, and `ipkg_type`.
+The earlier friendly aliases (`mode`, `weight_g`, `origin_pin`,
+`destination_pin`, `status`, `payment_type`, and dimension names) remain
+supported. Mode must be E or S; status may be Delivered, RTO, or DTO; package
+type may be box or flyer. Dimensions must be supplied together as positive
+integers. The response includes normalized quotes and the original provider
+response. Delhivery documents a production limit of 50 requests per five-minute
+IP window.

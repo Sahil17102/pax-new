@@ -110,9 +110,21 @@
         },
         {
           "name": "Shipping Cost",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "var body = pm.response.json();",
+              "pm.test('Normalized shipping quote is returned', function () {",
+              "  pm.expect(body.data.quoteCount).to.be.a('number');",
+              "  pm.expect(body.data.quotes).to.be.an('array');",
+              "  pm.expect(body.data.request.weightGrams).to.eql(Number(pm.environment.get('weightGrams')));",
+              "});"
+            ] }
+          }],
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/api/delhivery/b2c/shipping-cost?origin_pin={{originPincode}}&destination_pin={{destinationPincode}}&weight_g={{weightGrams}}&mode=S&payment_type=Pre-paid&status=Delivered"
+            "url": "{{baseUrl}}/api/delhivery/b2c/shipping-cost?md={{shippingMode}}&cgm={{weightGrams}}&o_pin={{originPincode}}&d_pin={{destinationPincode}}&ss={{shippingStatus}}&pt={{shippingPaymentType}}&l={{shippingLength}}&b={{shippingBreadth}}&h={{shippingHeight}}&ipkg_type={{shippingPackageType}}",
+            "description": "Calculates an estimated Delhivery shipping charge without creating a shipment. Supports Express/Surface, Delivered/RTO/DTO, Pre-paid/COD, optional integer dimensions, and box/flyer package type."
           }
         },
         {
