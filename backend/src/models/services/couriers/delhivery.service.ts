@@ -397,6 +397,13 @@ export type DelhiveryWarehouseCreateRequest = {
   return_country?: string
 }
 
+export type DelhiveryWarehouseUpdateRequest = {
+  name: string
+  address?: string
+  pin?: string
+  phone?: string
+}
+
 export type DelhiveryCredentialsOverride = {
   apiBase: string
   apiKey: string
@@ -708,6 +715,10 @@ export class DelhiveryService {
   private readonly labelTimeoutMs = parseTimeout(process.env.DELHIVERY_LABEL_TIMEOUT_MS, 70000)
   private readonly shippingCostTimeoutMs = parseTimeout(
     process.env.DELHIVERY_SHIPPING_COST_TIMEOUT_MS,
+    70000,
+  )
+  private readonly warehouseUpdateTimeoutMs = parseTimeout(
+    process.env.DELHIVERY_WAREHOUSE_UPDATE_TIMEOUT_MS,
     70000,
   )
 
@@ -2552,12 +2563,61 @@ export class DelhiveryService {
     }
   }
 
-  async updateWarehouse(data: {
-    name: string // warehouse name (case-sensitive, cannot be changed)
-    address?: string
-    pin: string
-    phone?: string
-  }) {
+  async updateWarehouse(warehouseData: DelhiveryWarehouseUpdateRequest) {
+    const input = (warehouseData || {}) as unknown as Record<string, unknown>
+    const allowedFields = new Set(['name', 'address', 'pin', 'phone'])
+    const unsupportedFields = Object.keys(input).filter((key) => !allowedFields.has(key))
+    if (unsupportedFields.length > 0) {
+      throw new HttpError(
+        400,
+        `Unsupported Delhivery warehouse update field(s): ${unsupportedFields.join(', ')}`,
+      )
+    }
+
+    const name = String(input.name || '').trim()
+    if (!name) {
+      throw new HttpError(
+        400,
+        'Warehouse name is required, is case-sensitive, and cannot be changed',
+      )
+    }
+
+    const payload: Record<string, string> = { name }
+    if (input.address !== undefined && input.address !== null) {
+      const address = String(input.address).trim()
+      if (!address) {
+        throw new HttpError(400, 'Warehouse address must be a non-empty string when provided')
+      }
+      payload.address = address
+    }
+
+    if (input.pin !== undefined && input.pin !== null) {
+      const pin = String(input.pin).trim()
+      if (!/^\d{6}$/.test(pin)) {
+        throw new HttpError(400, 'Warehouse pin must be a valid 6-digit pincode')
+      }
+      payload.pin = pin
+    }
+
+    if (input.phone !== undefined && input.phone !== null) {
+      const rawPhoneDigits = String(input.phone).replace(/\D/g, '')
+      const phone =
+        rawPhoneDigits.length === 12 && rawPhoneDigits.startsWith('91')
+          ? rawPhoneDigits.slice(2)
+          : rawPhoneDigits.length === 11 && rawPhoneDigits.startsWith('0')
+            ? rawPhoneDigits.slice(1)
+            : rawPhoneDigits
+      if (!/^\d{10}$/.test(phone)) {
+        throw new HttpError(400, 'Warehouse phone must contain a valid 10-digit number')
+      }
+      payload.phone = phone
+    }
+
+    const updatedFields = Object.keys(payload).filter((field) => field !== 'name')
+    if (updatedFields.length === 0) {
+      throw new HttpError(400, 'Provide at least one warehouse field to update: address, pin, or phone')
+    }
+
     try {
       await this.ensureCredentials()
       const url = `${this.apiBase}/api/backend/clientwarehouse/edit/`
@@ -2567,18 +2627,69 @@ export class DelhiveryService {
         'Content-Type': 'application/json',
       }
 
-      const payload = {
-        name: data.name,
-        address: data.address,
-        pin: data.pin,
-        phone: data.phone,
+      const res = await this.postWithTimeout(
+        url,
+        payload,
+        { headers },
+        this.warehouseUpdateTimeoutMs,
+      )
+      const responseData = res.data
+      const providerStatus = String(responseData?.status || '').trim().toLowerCase()
+      const rejected =
+        responseData?.success === false ||
+        responseData?.status === false ||
+        ['fail', 'failed', 'failure', 'error'].includes(providerStatus) ||
+        hasProviderErrorValue(responseData?.error) ||
+        hasProviderErrorValue(responseData?.errors)
+      if (rejected) {
+        const error = new Error(
+          extractProviderErrorMessage(responseData?.message) ||
+            extractProviderErrorMessage(responseData?.error) ||
+            extractProviderErrorMessage(responseData?.errors) ||
+            extractProviderErrorMessage(responseData) ||
+            'Delhivery warehouse update was rejected',
+        )
+        ;(error as any).statusCode = 502
+        ;(error as any).details = responseData
+        ;(error as any).isWarehouseUpdateError = true
+        throw error
       }
 
-      const res = await this.postWithTimeout(url, payload, { headers })
-      return res.data
+      return {
+        success: true,
+        warehouse_name: name,
+        updated_fields: updatedFields,
+        message:
+          extractProviderErrorMessage(responseData?.message) ||
+          'Delhivery warehouse updated successfully',
+        provider_response: responseData || null,
+      }
     } catch (err: any) {
+      if (err?.isWarehouseUpdateError) throw err
+
+      const timeoutError = isTimeoutError(err)
+      const providerError = err.response?.data
+      const providerMessage =
+        extractProviderErrorMessage(providerError?.message) ||
+        extractProviderErrorMessage(providerError?.error) ||
+        extractProviderErrorMessage(providerError?.errors) ||
+        (!timeoutError && extractProviderErrorMessage(providerError)) ||
+        (typeof err.message === 'string' && err.message.trim() && !timeoutError
+          ? err.message.trim()
+          : 'Warehouse update is taking longer than expected. Please try again.')
+
       console.error('❌ Delhivery warehouse update error:', err.response?.data || err.message)
-      throw new Error('Failed to update Delhivery warehouse')
+      const error = new Error(providerMessage)
+      ;(error as any).statusCode = typeof err.response?.status === 'number'
+        ? err.response.status
+        : timeoutError
+          ? 504
+          : 502
+      ;(error as any).details = providerError || null
+      ;(error as any).isWarehouseUpdateError = true
+      ;(error as any).providerStatus = err.response?.status ?? null
+      ;(error as any).code = err?.code ?? null
+      throw error
     }
   }
 

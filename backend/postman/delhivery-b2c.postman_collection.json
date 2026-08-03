@@ -268,11 +268,24 @@
         },
         {
           "name": "Update Warehouse",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "var body = pm.response.json();",
+              "pm.test('Warehouse update response is normalized', function () {",
+              "  pm.expect(body.data.success).to.eql(true);",
+              "  pm.expect(body.data.warehouse_name).to.eql(pm.environment.get('warehouseName'));",
+              "  pm.expect(body.data.updated_fields).to.be.an('array').that.is.not.empty;",
+              "  pm.expect(body.data).to.have.property('provider_response');",
+              "});"
+            ] }
+          }],
           "request": {
             "method": "PATCH",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{baseUrl}}/api/delhivery/b2c/warehouses",
-            "body": { "mode": "raw", "raw": "{\n  \"name\": \"{{warehouseName}}\",\n  \"address\": \"Updated warehouse address\",\n  \"pin\": \"{{originPincode}}\",\n  \"phone\": \"9999999999\"\n}" }
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"{{warehouseName}}\",\n  \"address\": \"Updated warehouse address\",\n  \"pin\": \"{{originPincode}}\",\n  \"phone\": \"9999999999\"\n}" },
+            "description": "Updates address, pin, and/or phone for the exact case-sensitive warehouse name; the name itself cannot be changed. The official sample omits pin, so the proxy accepts any non-empty subset of address, pin, and phone while validating provided values. This mutation is locked unless allowMutating=true. Delhivery's production limit is 10 requests per minute per IP."
           }
         },
         {

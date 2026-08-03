@@ -160,6 +160,19 @@ name and original `provider_response`. The Postman request is mutation-locked
 unless `allowMutating=true`. Delhivery documents a production limit of 10
 requests per minute per IP.
 
+Client Warehouse Updation is exposed as
+`PATCH /api/delhivery/b2c/warehouses` and forwarded to Delhivery's warehouse
+edit endpoint as POST. The exact case-sensitive `name` is always required and
+is used only to identify the existing warehouse; it cannot be changed. At least
+one of `address`, `pin`, or `phone` must be supplied. Although the parameter
+table marks pin mandatory, Delhivery's official example updates address/phone
+without pin, so the proxy supports that documented sample and validates pin
+only when provided. Unsupported fields are rejected, phone is normalized to 10
+digits, and the response reports `updated_fields` plus `provider_response`.
+The provider timeout is 70 seconds to cover the documented 61.16-second P99.
+The Postman request is mutation-locked unless `allowMutating=true`; Delhivery's
+production limit is 10 requests per minute per IP.
+
 Pickup Request Creation is available at `POST /api/delhivery/b2c/pickups` with
 exactly `pickup_date`, `pickup_time`, `pickup_location`, and
 `expected_package_count`. The location is the case-sensitive registered

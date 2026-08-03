@@ -199,6 +199,12 @@ const run = async () => {
         data: { success: true, message: 'Warehouse created' },
       }
     }
+    if (url.includes('/api/backend/clientwarehouse/edit/')) {
+      return {
+        status: 200,
+        data: { success: true, message: 'Warehouse updated' },
+      }
+    }
     if (url.includes('/fm/request/new/')) {
       return {
         status: 200,
@@ -310,6 +316,52 @@ const run = async () => {
     /Warehouse registration rejected/,
   )
   ;(axios as any).post = successfulWarehousePostMock
+
+  const warehouseUpdate = await mockedService.updateWarehouse({
+    name: ' Case Sensitive Warehouse ',
+    address: ' Updated Warehouse Road ',
+    phone: '+91 88888 88888',
+  })
+  assert.equal(
+    captured.at(-1)?.url,
+    'https://staging-express.delhivery.com/api/backend/clientwarehouse/edit/',
+  )
+  assert.deepEqual(captured.at(-1)?.data, {
+    name: 'Case Sensitive Warehouse',
+    address: 'Updated Warehouse Road',
+    phone: '8888888888',
+  })
+  assert.equal(captured.at(-1)?.headers?.Authorization, 'Token test-token')
+  assert.equal(captured.at(-1)?.headers?.Accept, 'application/json')
+  assert.equal(captured.at(-1)?.headers?.['Content-Type'], 'application/json')
+  assert.equal(warehouseUpdate.success, true)
+  assert.equal(warehouseUpdate.warehouse_name, 'Case Sensitive Warehouse')
+  assert.deepEqual(warehouseUpdate.updated_fields, ['address', 'phone'])
+  assert.equal(warehouseUpdate.message, 'Warehouse updated')
+
+  const warehousePinUpdate = await mockedService.updateWarehouse({
+    name: 'Case Sensitive Warehouse',
+    pin: '110044',
+  })
+  assert.deepEqual(captured.at(-1)?.data, {
+    name: 'Case Sensitive Warehouse',
+    pin: '110044',
+  })
+  assert.deepEqual(warehousePinUpdate.updated_fields, ['pin'])
+
+  const successfulWarehouseUpdatePostMock = (axios as any).post
+  ;(axios as any).post = async () => ({
+    status: 200,
+    data: { status: 'Failed', error: 'Warehouse update rejected' },
+  })
+  await assert.rejects(
+    () => mockedService.updateWarehouse({
+      name: 'Case Sensitive Warehouse',
+      address: 'Rejected address',
+    }),
+    /Warehouse update rejected/,
+  )
+  ;(axios as any).post = successfulWarehouseUpdatePostMock
 
   const waybillBatch = await mockedService.fetchWaybills(5)
   assert.deepEqual(waybillBatch, {
@@ -1047,6 +1099,33 @@ const run = async () => {
     /Unsupported Delhivery warehouse field.*state/,
   )
   await assert.rejects(
+    () => service.updateWarehouse({ name: '   ', address: 'Updated address' }),
+    /Warehouse name is required.*cannot be changed/,
+  )
+  await assert.rejects(
+    () => service.updateWarehouse({ name: 'Exact Warehouse Name' }),
+    /at least one warehouse field to update/,
+  )
+  await assert.rejects(
+    () => service.updateWarehouse({ name: 'Exact Warehouse Name', address: '   ' }),
+    /address must be a non-empty string/,
+  )
+  await assert.rejects(
+    () => service.updateWarehouse({ name: 'Exact Warehouse Name', pin: '11004' }),
+    /pin must be a valid 6-digit pincode/,
+  )
+  await assert.rejects(
+    () => service.updateWarehouse({ name: 'Exact Warehouse Name', phone: '12345' }),
+    /phone must contain a valid 10-digit number/,
+  )
+  await assert.rejects(
+    () => service.updateWarehouse({
+      name: 'Exact Warehouse Name',
+      registered_name: 'Not editable',
+    } as any),
+    /Unsupported Delhivery warehouse update field.*registered_name/,
+  )
+  await assert.rejects(
     () => service.cancelShipment('TEST-AWB', {
       current_payment_mode: 'Pickup',
       current_status: 'Pending',
@@ -1182,6 +1261,16 @@ const run = async () => {
   assert(createWarehouseRequest.request.body.raw.includes('return_pin'))
   assert(JSON.stringify(createWarehouseRequest.event).includes('warehouse_name'))
   assert(JSON.stringify(createWarehouseRequest.event).includes('provider_response'))
+  const updateWarehouseRequest = mutatingFolder.item.find(
+    (request: any) => request.name === 'Update Warehouse',
+  )
+  assert.equal(updateWarehouseRequest.request.method, 'PATCH')
+  assert(updateWarehouseRequest.request.body.raw.includes('{{warehouseName}}'))
+  assert(updateWarehouseRequest.request.body.raw.includes('address'))
+  assert(updateWarehouseRequest.request.body.raw.includes('pin'))
+  assert(updateWarehouseRequest.request.body.raw.includes('phone'))
+  assert(JSON.stringify(updateWarehouseRequest.event).includes('updated_fields'))
+  assert(JSON.stringify(updateWarehouseRequest.event).includes('provider_response'))
 
   console.log('Delhivery B2C integration checks passed')
 }
