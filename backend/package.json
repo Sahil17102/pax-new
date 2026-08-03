@@ -10,6 +10,7 @@
     "check:rate-apis": "node -r ts-node/register src/scripts/checkRateCalculatorApis.ts",
     "check:amazon-shipping-apis": "node -r ts-node/register src/scripts/checkAmazonShippingApis.ts",
     "check:delhivery-b2b-apis": "node -r ts-node/register src/scripts/checkDelhiveryB2BApis.ts",
+    "check:delhivery-b2c-apis": "node -r ts-node/register src/scripts/checkDelhiveryB2CApis.ts",
     "check:ekart-apis": "node -r ts-node/register src/scripts/checkEkartApis.ts",
     "check:shopify-apis": "node -r ts-node/register src/scripts/checkShopifyApis.ts",
     "check:woocommerce-apis": "node -r ts-node/register src/scripts/checkWooCommerceApis.ts",

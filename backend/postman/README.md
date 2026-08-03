@@ -43,3 +43,21 @@ creation/update, manifestation, shipment update/cancellation, appointment, and
 pickup creation/cancellation individually and only against the intended account.
 For a read-only smoke test, run Login, Pincode Serviceability, Expected TAT, and
 tracking with an existing LRN.
+
+## Delhivery B2C
+
+Import:
+
+- `delhivery-b2c.postman_collection.json`
+- `delhivery-b2c.local.postman_environment.json`
+
+Save the Delhivery B2C token and client name from **Admin > Courier Credentials**.
+Set the Postman admin login values locally; no courier or admin secret belongs in
+the exported files. Run **Admin Login** first so its test script stores the Pax
+admin access token.
+
+The read-only folder covers pincode serviceability (including empty/Embargo
+normalization), expected TAT, shipping cost, tracking, label metadata, and NDR
+status. Requests that allocate waybills or change Delhivery state are skipped by
+default. Set `allowMutating=true` only when you deliberately want to run those
+requests against the configured Delhivery account.

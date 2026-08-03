@@ -104,7 +104,10 @@ import {
   hasUsableXpressbeesCredentials,
   type XpressbeesConfig,
 } from './courierCredentials.service'
-import { DelhiveryService } from './couriers/delhivery.service'
+import {
+  DelhiveryService,
+  summarizeDelhiveryPincodeServiceability,
+} from './couriers/delhivery.service'
 import {
   DelhiveryB2BService,
   mapDelhiveryB2BTrackingStatus,
@@ -4050,16 +4053,13 @@ export const fetchAvailableCouriersWithRates = async (
           ])
           delhiveryResp = destinationResp
 
-          const originService = originResp?.delivery_codes?.[0]?.postal_code
-          const destinationService = destinationResp?.delivery_codes?.[0]?.postal_code
+          const originService = summarizeDelhiveryPincodeServiceability(originResp)
+          const destinationService = summarizeDelhiveryPincodeServiceability(destinationResp)
 
-          delhiveryOriginServiceable =
-            Boolean(originResp?.delivery_codes?.length) && originService?.pickup === 'Y'
-          delhiveryDestinationServiceable =
-            Boolean(destinationResp?.delivery_codes?.length) &&
-            (delhiveryRequiresCOD
-              ? destinationService?.cod === 'Y'
-              : destinationService?.pre_paid === 'Y')
+          delhiveryOriginServiceable = originService.pickup
+          delhiveryDestinationServiceable = delhiveryRequiresCOD
+            ? destinationService.cod
+            : destinationService.prepaid
 
           console.log('[Serviceability] Delhivery pincode check result', {
             mode: isCalculator ? 'calculator' : 'standard',
@@ -4069,10 +4069,10 @@ export const fetchAvailableCouriersWithRates = async (
             requiresCOD: delhiveryRequiresCOD,
             originAvailableRecords: originResp?.delivery_codes?.length ?? 0,
             destinationAvailableRecords: destinationResp?.delivery_codes?.length ?? 0,
-            originPickup: originService?.pickup,
-            destinationPrePaid: destinationService?.pre_paid,
-            destinationCod: destinationService?.cod,
-            destinationRemark: destinationService?.remark ?? '',
+            originPickup: originService.pickup,
+            destinationPrePaid: destinationService.prepaid,
+            destinationCod: destinationService.cod,
+            destinationRemark: destinationService.remark,
           })
 
           delhiveryAvailable = delhiveryOriginServiceable && delhiveryDestinationServiceable
@@ -4111,11 +4111,12 @@ export const fetchAvailableCouriersWithRates = async (
     }
 
     if (delhiveryAvailable) {
+      const destinationSummary = summarizeDelhiveryPincodeServiceability(delhiveryResp)
       registerServiceableProvider('delhivery', {
         providerId: 'delhivery',
         providerName: 'Delhivery',
-        codAvailable: delhiveryResp?.delivery_codes?.[0]?.postal_code?.cod === 'Y',
-        prepaidAvailable: delhiveryResp?.delivery_codes?.[0]?.postal_code?.pre_paid === 'Y',
+        codAvailable: destinationSummary.cod,
+        prepaidAvailable: destinationSummary.prepaid,
         edd: delhiveryEDD,
         raw: delhiveryResp,
       })
@@ -6419,19 +6420,19 @@ export const createB2CShipmentService = async (
         delhivery.checkServiceability(destinationPin),
       ])
 
-      const originPostalCode = originResp?.delivery_codes?.[0]?.postal_code
-      if (!originPostalCode?.pickup || originPostalCode.pickup !== 'Y') {
+      const originPostalCode = summarizeDelhiveryPincodeServiceability(originResp)
+      if (!originPostalCode.pickup) {
         throw new HttpError(
           400,
           `Delhivery pickup pincode ${originPin} is not serviceable for order ${orderNumber ?? 'unknown'}. Please update the pickup location.`,
         )
       }
 
-      const destinationPostalCode = destinationResp?.delivery_codes?.[0]?.postal_code
+      const destinationPostalCode = summarizeDelhiveryPincodeServiceability(destinationResp)
       const isDestinationReady =
         requiresCOD === true
-          ? destinationPostalCode?.cod === 'Y'
-          : destinationPostalCode?.pre_paid === 'Y'
+          ? destinationPostalCode.cod
+          : destinationPostalCode.prepaid
       if (!isDestinationReady) {
         throw new HttpError(
           400,
@@ -6448,7 +6449,9 @@ export const createB2CShipmentService = async (
         requires_cod: requiresCOD,
         origin_pickup_flag: originPostalCode.pickup,
         destination_cod_flag: destinationPostalCode.cod,
-        destination_prepaid_flag: destinationPostalCode.pre_paid,
+        destination_prepaid_flag: destinationPostalCode.prepaid,
+        origin_embargoed: originPostalCode.embargoed,
+        destination_embargoed: destinationPostalCode.embargoed,
       })
 
       return { originResp, destinationResp }

@@ -8,6 +8,67 @@ import {
 import { getDelhiveryCredentials } from '../delhiveryCredentials.service'
 import { ShipmentParams } from '../shiprocket.service'
 
+export type DelhiveryPincodeSummary = {
+  pincode: string | null
+  serviceable: boolean
+  embargoed: boolean
+  remark: string
+  pickup: boolean
+  prepaid: boolean
+  cod: boolean
+  reversePickup: boolean
+}
+
+export const summarizeDelhiveryPincodeServiceability = (
+  response: any,
+): DelhiveryPincodeSummary => {
+  const deliveryCodes = Array.isArray(response)
+    ? response
+    : Array.isArray(response?.delivery_codes)
+      ? response.delivery_codes
+      : []
+  const postalCode = deliveryCodes[0]?.postal_code || null
+  const remark = String(postalCode?.remark || '').trim()
+  const embargoed = remark.toLowerCase().includes('embargo')
+
+  return {
+    pincode: postalCode?.pin ? String(postalCode.pin) : null,
+    serviceable: Boolean(postalCode) && !embargoed,
+    embargoed,
+    remark,
+    pickup: Boolean(postalCode) && !embargoed && postalCode.pickup === 'Y',
+    prepaid: Boolean(postalCode) && !embargoed && postalCode.pre_paid === 'Y',
+    cod: Boolean(postalCode) && !embargoed && postalCode.cod === 'Y',
+    reversePickup: Boolean(postalCode) && !embargoed && postalCode.repl === 'Y',
+  }
+}
+
+export type DelhiveryShippingCostParams = {
+  originPincode: string
+  destinationPincode: string
+  weightGrams: number
+  mode?: 'S' | 'E'
+  status?: 'Delivered' | 'RTO'
+  paymentType?: 'Pre-paid' | 'COD'
+  codAmount?: number
+}
+
+export type DelhiveryShipmentUpdate = {
+  name?: string
+  phone?: string
+  add?: string
+  pin?: string
+  products_desc?: string
+  cod_amount?: number
+  total_amount?: number
+}
+
+export type DelhiveryCredentialsOverride = {
+  apiBase: string
+  apiKey: string
+  clientName: string
+}
+
 const parseTimeout = (value: string | undefined, fallbackMs: number) => {
   const parsed = Number(value)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallbackMs
@@ -157,10 +218,21 @@ export class DelhiveryService {
   private apiBase = 'https://track.delhivery.com'
   private token = ''
   private clientName = ''
+  private readonly credentialsOverride?: DelhiveryCredentialsOverride
   private readonly requestTimeoutMs = parseTimeout(process.env.DELHIVERY_REQUEST_TIMEOUT_MS, 30000)
   private readonly labelTimeoutMs = parseTimeout(process.env.DELHIVERY_LABEL_TIMEOUT_MS, 15000)
 
+  constructor(credentialsOverride?: DelhiveryCredentialsOverride) {
+    this.credentialsOverride = credentialsOverride
+  }
+
   private async ensureCredentials() {
+    if (this.credentialsOverride) {
+      this.apiBase = this.credentialsOverride.apiBase.replace(/\/+$/, '')
+      this.token = this.credentialsOverride.apiKey
+      this.clientName = this.credentialsOverride.clientName
+      return
+    }
     const credentials = await getDelhiveryCredentials()
     this.apiBase = credentials.apiBase
     this.token = credentials.apiKey
@@ -213,30 +285,37 @@ export class DelhiveryService {
 
   // 🔹 1. Check Serviceability
   async checkServiceability(pincode: string) {
+    const normalizedPincode = String(pincode || '').trim()
+    if (!/^\d{6}$/.test(normalizedPincode)) {
+      throw new HttpError(400, 'A valid 6-digit pincode is required')
+    }
+
     try {
       await this.ensureCredentials()
-      const url = `${this.apiBase}/c/api/pin-codes/json/?filter_codes=${pincode}`
+      const url = `${this.apiBase}/c/api/pin-codes/json/?filter_codes=${encodeURIComponent(normalizedPincode)}`
       const res = await this.getWithTimeout(url, { headers: this.headers })
+      const summary = summarizeDelhiveryPincodeServiceability(res.data)
 
-      // Log the full response structure
-      console.log('📦 Delhivery Serviceability API Response:', {
-        url,
+      console.log('[Delhivery] Pincode serviceability checked', {
+        pincode: normalizedPincode,
         status: res.status,
-        data: JSON.stringify(res.data, null, 2),
-        dataType: typeof res.data,
-        isArray: Array.isArray(res.data),
-        keys: res.data ? Object.keys(res.data) : [],
+        serviceable: summary.serviceable,
+        embargoed: summary.embargoed,
       })
 
       return res.data
     } catch (err: any) {
-      console.error('❌ Delhivery serviceability error:', {
-        pincode,
+      if (err instanceof HttpError) throw err
+      console.error('[Delhivery] Serviceability request failed', {
+        pincode: normalizedPincode,
         status: err.response?.status,
-        data: JSON.stringify(err.response?.data, null, 2),
         message: err.message,
       })
-      throw new Error('Failed to fetch Delhivery serviceability')
+      throw new HttpError(
+        typeof err.response?.status === 'number' ? err.response.status : 502,
+        extractProviderErrorMessage(err.response?.data) ||
+          'Failed to fetch Delhivery serviceability',
+      )
     }
   }
 
@@ -278,6 +357,40 @@ export class DelhiveryService {
       console.error('Delhivery waybill fetch error:', err.response?.data || err.message)
       throw new Error('Failed to fetch Delhivery waybill')
     }
+  }
+
+  // Calculate the provider charge without creating a shipment.
+  async calculateShippingCost(params: DelhiveryShippingCostParams) {
+    const originPincode = String(params.originPincode || '').trim()
+    const destinationPincode = String(params.destinationPincode || '').trim()
+    const weightGrams = Number(params.weightGrams)
+    const codAmount = Number(params.codAmount || 0)
+
+    if (!/^\d{6}$/.test(originPincode) || !/^\d{6}$/.test(destinationPincode)) {
+      throw new HttpError(400, 'Valid 6-digit origin and destination pincodes are required')
+    }
+    if (!Number.isFinite(weightGrams) || weightGrams <= 0) {
+      throw new HttpError(400, 'weightGrams must be a positive number')
+    }
+    if (!Number.isFinite(codAmount) || codAmount < 0) {
+      throw new HttpError(400, 'codAmount must be a non-negative number')
+    }
+
+    await this.ensureCredentials()
+    const query = qs.stringify({
+      md: params.mode || 'S',
+      ss: params.status || 'Delivered',
+      d_pin: destinationPincode,
+      o_pin: originPincode,
+      cgm: Math.round(weightGrams),
+      pt: params.paymentType || 'Pre-paid',
+      ...(params.paymentType === 'COD' ? { cod: codAmount } : {}),
+    })
+    const res = await this.getWithTimeout(
+      `${this.apiBase}/api/kinko/v1/invoice/charges/.json?${query}`,
+      { headers: this.headers },
+    )
+    return res.data
   }
 
   // 🔹 4. Create Shipment (Manifestation)
@@ -714,6 +827,51 @@ export class DelhiveryService {
         'Delhivery cancellation failed'
       throw new Error(providerMessage)
     }
+  }
+
+  // Update editable forward-shipment fields before Delhivery locks them in transit.
+  async updateShipment(waybill: string, updates: DelhiveryShipmentUpdate) {
+    const normalizedWaybill = String(waybill || '').trim()
+    if (!normalizedWaybill) {
+      throw new HttpError(400, 'Delhivery AWB number is required for shipment updates')
+    }
+
+    const allowedFields: Array<keyof DelhiveryShipmentUpdate> = [
+      'name',
+      'phone',
+      'add',
+      'pin',
+      'products_desc',
+      'cod_amount',
+      'total_amount',
+    ]
+    const payload: Record<string, string | number> = { waybill: normalizedWaybill }
+    for (const field of allowedFields) {
+      const value = updates?.[field]
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        payload[field] = typeof value === 'number' ? value : String(value).trim()
+      }
+    }
+
+    if (Object.keys(payload).length === 1) {
+      throw new HttpError(400, 'At least one editable shipment field is required')
+    }
+    if (payload.pin && !/^\d{6}$/.test(String(payload.pin))) {
+      throw new HttpError(400, 'pin must be a valid 6-digit pincode')
+    }
+    if (payload.phone) {
+      const phone = String(payload.phone).replace(/\D/g, '').slice(-10)
+      if (!/^\d{10}$/.test(phone)) {
+        throw new HttpError(400, 'phone must contain 10 digits')
+      }
+      payload.phone = phone
+    }
+
+    await this.ensureCredentials()
+    const res = await this.postWithTimeout(`${this.apiBase}/api/p/edit`, payload, {
+      headers: this.headers,
+    })
+    return res.data
   }
 
   // 🔹 7. Track Shipment

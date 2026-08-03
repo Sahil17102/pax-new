@@ -1,0 +1,197 @@
+{
+  "info": {
+    "_postman_id": "67a96c8a-7ca9-44a4-a621-delhivery-b2c",
+    "name": "Pax Logistics - Delhivery B2C",
+    "description": "Admin-only Delhivery B2C lifecycle API. Read-only requests can be run as a smoke suite. Mutating requests are skipped unless allowMutating=true in the selected environment.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('HTTP status is successful', function () { pm.expect(pm.response.code).to.be.within(200, 299); });",
+          "var body = {}; try { body = pm.response.json(); } catch (e) {}",
+          "if (pm.info.requestName !== 'Admin Login') {",
+          "  pm.test('Pax proxy reports success', function () { pm.expect(body.success).to.eql(true); });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Admin Login",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "var body = pm.response.json();",
+              "if (body.token) { pm.environment.set('adminToken', body.token); }"
+            ] }
+          }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}" },
+            "url": "{{baseUrl}}/api/auth/admin/login"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read-only smoke tests",
+      "item": [
+        {
+          "name": "Pincode Serviceability",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "var body = pm.response.json();",
+              "pm.test('Normalized serviceability is returned', function () {",
+              "  pm.expect(body.data).to.have.property('serviceable');",
+              "  pm.expect(body.data).to.have.property('embargoed');",
+              "});"
+            ] }
+          }],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/delhivery/b2c/serviceability/{{destinationPincode}}",
+            "description": "Empty provider results are normalized as non-serviceable. A provider remark containing Embargo is normalized as temporarily non-serviceable."
+          }
+        },
+        {
+          "name": "Expected TAT",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/delhivery/b2c/tat?origin_pin={{originPincode}}&destination_pin={{destinationPincode}}&mode=S"
+          }
+        },
+        {
+          "name": "Shipping Cost",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/delhivery/b2c/shipping-cost?origin_pin={{originPincode}}&destination_pin={{destinationPincode}}&weight_g={{weightGrams}}&mode=S&payment_type=Pre-paid&status=Delivered"
+          }
+        },
+        {
+          "name": "Shipment Tracking",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/delhivery/b2c/shipments/{{awb}}/tracking",
+            "description": "Use an existing Delhivery B2C AWB."
+          }
+        },
+        {
+          "name": "Generate Label Metadata",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/delhivery/b2c/shipments/{{awb}}/label?format=json",
+            "description": "Returns packing-slip metadata for an existing AWB. Use format=pdf to stream a PDF."
+          }
+        },
+        {
+          "name": "NDR Upload Status",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/delhivery/b2c/ndr/status/{{uplId}}?verbose=true",
+            "description": "Use a UPL ID returned by a previous NDR update."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mutating lifecycle requests",
+      "event": [{
+        "listen": "prerequest",
+        "script": { "type": "text/javascript", "exec": [
+          "if (String(pm.environment.get('allowMutating')).toLowerCase() !== 'true') {",
+          "  console.log('Skipped: set allowMutating=true only for an intended staging/account mutation.');",
+          "  pm.execution.skipRequest();",
+          "}"
+        ] }
+      }],
+      "item": [
+        {
+          "name": "Fetch Waybill(s)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/delhivery/b2c/waybills?count=1" }
+        },
+        {
+          "name": "Create Warehouse",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/delhivery/b2c/warehouses",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"{{warehouseName}}\",\n  \"registered_name\": \"Pax Logistics\",\n  \"phone\": \"9999999999\",\n  \"email\": \"operations@example.com\",\n  \"address\": \"Test warehouse address\",\n  \"city\": \"Gurugram\",\n  \"pin\": \"{{originPincode}}\",\n  \"country\": \"India\",\n  \"return_address\": \"Test return address\",\n  \"return_city\": \"Gurugram\",\n  \"return_pin\": \"{{originPincode}}\",\n  \"return_state\": \"Haryana\",\n  \"return_country\": \"India\"\n}" }
+          }
+        },
+        {
+          "name": "Update Warehouse",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/delhivery/b2c/warehouses",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"{{warehouseName}}\",\n  \"address\": \"Updated warehouse address\",\n  \"pin\": \"{{originPincode}}\",\n  \"phone\": \"9999999999\"\n}" }
+          }
+        },
+        {
+          "name": "Create Forward Shipment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/delhivery/b2c/shipments",
+            "body": { "mode": "raw", "raw": "{\n  \"order_number\": \"POSTMAN-{{$timestamp}}\",\n  \"order_date\": \"{{$isoTimestamp}}\",\n  \"payment_type\": \"prepaid\",\n  \"order_amount\": 1000,\n  \"package_weight\": {{weightGrams}},\n  \"package_length\": 10,\n  \"package_breadth\": 10,\n  \"package_height\": 10,\n  \"courier_id\": 100,\n  \"invoice_number\": \"POSTMAN-{{$timestamp}}\",\n  \"consignee\": {\"name\": \"Postman Customer\", \"address\": \"Test consignee address\", \"city\": \"Mumbai\", \"state\": \"Maharashtra\", \"pincode\": \"{{destinationPincode}}\", \"phone\": \"9999999999\"},\n  \"pickup\": {\"warehouse_name\": \"{{warehouseName}}\", \"name\": \"Pax Logistics\", \"address\": \"Test warehouse address\", \"city\": \"Gurugram\", \"state\": \"Haryana\", \"pincode\": \"{{originPincode}}\", \"phone\": \"9999999999\"},\n  \"company\": {\"name\": \"Pax Logistics\"},\n  \"order_items\": [{\"name\": \"Test Product\", \"sku\": \"TEST-1\", \"qty\": 1, \"price\": 1000, \"hsn\": \"610910\", \"discount\": 0, \"tax_rate\": 18}]\n}" }
+          }
+        },
+        {
+          "name": "Update Forward Shipment",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/delhivery/b2c/shipments/{{awb}}",
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"9999999999\",\n  \"add\": \"Updated consignee address\"\n}" }
+          }
+        },
+        {
+          "name": "Create Pickup Request",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/delhivery/b2c/pickups",
+            "body": { "mode": "raw", "raw": "{\n  \"pickup_date\": \"{{pickupDate}}\",\n  \"pickup_time\": \"14:00:00\",\n  \"pickup_location\": \"{{warehouseName}}\",\n  \"expected_package_count\": 1\n}" }
+          }
+        },
+        {
+          "name": "Submit NDR Re-attempt",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/delhivery/b2c/ndr/actions",
+            "body": { "mode": "raw", "raw": "{\n  \"actions\": [{\"waybill\": \"{{awb}}\", \"act\": \"RE-ATTEMPT\"}]\n}" }
+          }
+        },
+        {
+          "name": "Create Reverse Shipment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/delhivery/b2c/reverse-shipments",
+            "body": { "mode": "raw", "raw": "{\n  \"originalAwb\": \"{{awb}}\",\n  \"originalOrderId\": \"POSTMAN-RETURN\",\n  \"order_amount\": 1000,\n  \"package_weight\": {{weightGrams}},\n  \"consignee\": {\"name\": \"Postman Customer\", \"address\": \"Test consignee address\", \"city\": \"Mumbai\", \"state\": \"Maharashtra\", \"pincode\": \"{{destinationPincode}}\", \"phone\": \"9999999999\"},\n  \"pickup\": {\"warehouse_name\": \"{{warehouseName}}\", \"name\": \"Pax Logistics\", \"address\": \"Test warehouse address\", \"city\": \"Gurugram\", \"state\": \"Haryana\", \"pincode\": \"{{originPincode}}\", \"phone\": \"9999999999\"}\n}" }
+          }
+        },
+        {
+          "name": "Cancel Shipment",
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/api/delhivery/b2c/shipments/{{awb}}" }
+        }
+      ]
+    }
+  ]
+}

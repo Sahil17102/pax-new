@@ -59,6 +59,7 @@ import courierRoutes from './routes/courier.routes'
 import courierPriorityRoutes from './routes/courierPriority.routes'
 import dashboardRoutes from './routes/dashboard.routes'
 import delhiveryB2BRoutes from './routes/delhiveryB2B.routes'
+import delhiveryB2CRoutes from './routes/delhiveryB2C.routes'
 import employeeRoutes from './routes/employee.routes'
 import externalApiRoutes from './routes/externalApi.routes'
 import globalSearchRoutes from './routes/globalSearch.routes'
@@ -217,6 +218,7 @@ app.use('/api', pickupRoutes)
 app.use('/api', returnsRoutes)
 app.use('/api/couriers', courierRoutes)
 app.use('/api/delhivery/b2b', delhiveryB2BRoutes)
+app.use('/api/delhivery/b2c', delhiveryB2CRoutes)
 app.use('/api/courier', courierPriorityRoutes)
 app.use('/api/support', supportRoutes)
 app.use('/api/admin', adminSupportRoutes)
