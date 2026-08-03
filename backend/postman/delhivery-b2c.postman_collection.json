@@ -206,10 +206,23 @@
         },
         {
           "name": "NDR Upload Status",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "var body = pm.response.json();",
+              "pm.test('NDR UPL status is normalized', function () {",
+              "  pm.expect(body.data.upl_id).to.eql(pm.environment.get('uplId'));",
+              "  pm.expect(body.data.verbose).to.eql(String(pm.environment.get('ndrStatusVerbose')).toLowerCase() === 'true');",
+              "  pm.expect(body.data).to.have.property('status');",
+              "  pm.expect(body.data).to.have.property('completed');",
+              "  pm.expect(body.data).to.have.property('provider_response');",
+              "});"
+            ] }
+          }],
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/api/delhivery/b2c/ndr/status/{{uplId}}?verbose=true",
-            "description": "Use a UPL ID returned by a previous NDR update."
+            "url": "{{baseUrl}}/api/delhivery/b2c/ndr/status/{{uplId}}?verbose={{ndrStatusVerbose}}",
+            "description": "Fetches the asynchronous status for the UPL ID returned by an NDR action. verbose must be true or false. The response normalizes status/completed while retaining Delhivery's complete provider response."
           }
         }
       ]

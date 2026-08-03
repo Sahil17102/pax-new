@@ -407,6 +407,56 @@ export type DelhiveryNdrAction = {
   attempt_count?: number
 }
 
+export type DelhiveryNdrStatusSummary = {
+  upl_id: string
+  verbose: boolean
+  status: string | null
+  completed: boolean | null
+  message: string | null
+}
+
+export const summarizeDelhiveryNdrStatus = (
+  response: any,
+  uplId: string,
+  verbose: boolean,
+): DelhiveryNdrStatusSummary => {
+  const responseData = response?.data ?? response?.response ?? response
+  const record =
+    responseData && typeof responseData === 'object' && !Array.isArray(responseData)
+      ? responseData[uplId] ?? responseData
+      : responseData
+  const rawStatus =
+    record?.upl_status ??
+    record?.upload_status ??
+    record?.Status ??
+    record?.status ??
+    response?.upl_status ??
+    response?.upload_status ??
+    response?.Status ??
+    response?.status
+  const status =
+    rawStatus === undefined || rawStatus === null || rawStatus === ''
+      ? null
+      : String(rawStatus).trim()
+  const normalizedStatus = String(status || '').toLowerCase()
+  const terminal = /(success|complete|completed|processed|done|fail|failed|error|rejected)/.test(
+    normalizedStatus,
+  )
+  const pending = /(pending|progress|processing|queued|received|initiated)/.test(normalizedStatus)
+  const message =
+    extractProviderErrorMessage(record?.message) ||
+    extractProviderErrorMessage(response?.message) ||
+    null
+
+  return {
+    upl_id: uplId,
+    verbose,
+    status,
+    completed: terminal ? true : pending ? false : null,
+    message,
+  }
+}
+
 export type DelhiveryPickupRequest = {
   pickup_time: string
   pickup_date: string
@@ -1010,6 +1060,10 @@ export class DelhiveryService {
   private readonly ndrActionTimeoutMs = parseTimeout(
     process.env.DELHIVERY_NDR_ACTION_TIMEOUT_MS,
     135000,
+  )
+  private readonly ndrStatusTimeoutMs = parseTimeout(
+    process.env.DELHIVERY_NDR_STATUS_TIMEOUT_MS,
+    95000,
   )
   private readonly warehouseUpdateTimeoutMs = parseTimeout(
     process.env.DELHIVERY_WAREHOUSE_UPDATE_TIMEOUT_MS,
@@ -2705,16 +2759,52 @@ export class DelhiveryService {
 
   // 🔹 9. Get NDR UPL Status
   async getNdrStatus(uplId: string, verbose: boolean = true) {
+    const normalizedUplId = String(uplId || '').trim()
+    if (!/^[A-Za-z0-9_-]{3,100}$/.test(normalizedUplId)) {
+      throw new HttpError(400, 'A valid Delhivery UPL ID is required')
+    }
+
     try {
       await this.ensureCredentials()
-      const url = `${this.apiBase}/api/cmu/get_bulk_upl/${encodeURIComponent(uplId)}?verbose=${
+      const url = `${this.apiBase}/api/cmu/get_bulk_upl/${encodeURIComponent(normalizedUplId)}?verbose=${
         verbose ? 'true' : 'false'
       }`
-      const res = await this.getWithTimeout(url, { headers: this.headers })
-      return res.data
+      const res = await this.getWithTimeout(
+        url,
+        { headers: this.headers },
+        this.ndrStatusTimeoutMs,
+      )
+      if (res.data === undefined || res.data === null || res.data === '') {
+        throw new HttpError(502, 'Delhivery returned an empty NDR status response')
+      }
+      const providerError = res.data?.Error ?? res.data?.error ?? res.data?.errors
+      if (
+        res.data?.success === false ||
+        res.data?.status === false ||
+        hasProviderErrorValue(providerError)
+      ) {
+        throw new HttpError(
+          502,
+          extractProviderErrorMessage(providerError) ||
+            extractProviderErrorMessage(res.data?.message) ||
+            'Delhivery NDR status request was rejected',
+        )
+      }
+
+      return {
+        ...summarizeDelhiveryNdrStatus(res.data, normalizedUplId, verbose),
+        provider_response: res.data,
+      }
     } catch (err: any) {
+      if (err instanceof HttpError) throw err
       console.error('Delhivery NDR status error:', err.response?.data || err.message)
-      throw new Error('Failed to fetch Delhivery NDR status')
+      throw new HttpError(
+        Number(err.response?.status) || (isTimeoutError(err) ? 504 : 502),
+        extractProviderErrorMessage(err.response?.data) ||
+          (isTimeoutError(err)
+            ? 'Delhivery NDR status request timed out'
+            : err.message || 'Failed to fetch Delhivery NDR status'),
+      )
     }
   }
 

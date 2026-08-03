@@ -229,5 +229,16 @@ export const submitNdrActionController = (req: Request, res: Response) => {
   return sendResult(res, service.submitB2CNdrAction(actions))
 }
 
-export const ndrStatusController = (req: Request, res: Response) =>
-  sendResult(res, service.getNdrStatus(req.params.uplId, parseBoolean(req.query.verbose)))
+export const ndrStatusController = (req: Request, res: Response) => {
+  const rawVerbose = req.query.verbose
+  if (
+    rawVerbose !== undefined &&
+    !['true', 'false'].includes(String(rawVerbose).trim().toLowerCase())
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: 'verbose must be true or false',
+    })
+  }
+  return sendResult(res, service.getNdrStatus(req.params.uplId, parseBoolean(rawVerbose)))
+}

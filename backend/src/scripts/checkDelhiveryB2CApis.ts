@@ -236,6 +236,12 @@ const run = async () => {
             success: true,
             documents: [{ url: 'https://documents.example.com/epod.pdf' }],
           }
+        : url.includes('/api/cmu/get_bulk_upl/')
+        ? {
+            status: 'Processing',
+            message: 'NDR update is being processed',
+            data: { processed_count: 1 },
+          }
         : url.includes('/fetch/serviceability/pincode')
         ? { data: { pincode: 400086, status: 'Serviceable', payment_type: ['Pre-paid', 'COD'] } }
         : url.includes('/api/p/packing_slip')
@@ -1002,6 +1008,43 @@ const run = async () => {
   )
   ;(axios as any).post = successfulNdrPostMock
 
+  const ndrStatus = await mockedService.getNdrStatus('UPL70200521839149515', true)
+  assert.equal(
+    captured.at(-1)?.url,
+    'https://staging-express.delhivery.com/api/cmu/get_bulk_upl/UPL70200521839149515?verbose=true',
+  )
+  assert.equal(captured.at(-1)?.headers?.Authorization, 'Token test-token')
+  assert.equal(ndrStatus.upl_id, 'UPL70200521839149515')
+  assert.equal(ndrStatus.verbose, true)
+  assert.equal(ndrStatus.status, 'Processing')
+  assert.equal(ndrStatus.completed, false)
+  assert.equal(ndrStatus.message, 'NDR update is being processed')
+  assert.equal((ndrStatus.provider_response as any).data.processed_count, 1)
+
+  const compactNdrStatus = await mockedService.getNdrStatus('UPL70200521839149515', false)
+  assert(String(captured.at(-1)?.url).endsWith('?verbose=false'))
+  assert.equal(compactNdrStatus.verbose, false)
+
+  await assert.rejects(
+    () => mockedService.getNdrStatus('../invalid-upl', true),
+    /valid Delhivery UPL ID is required/,
+  )
+  const successfulNdrStatusGetMock = (axios as any).get
+  ;(axios as any).get = async () => ({
+    status: 200,
+    data: { error: 'UPL ID not found' },
+  })
+  await assert.rejects(
+    () => mockedService.getNdrStatus('UPL70200521839149515', true),
+    /UPL ID not found/,
+  )
+  ;(axios as any).get = async () => ({ status: 200, data: null })
+  await assert.rejects(
+    () => mockedService.getNdrStatus('UPL70200521839149515', true),
+    /empty NDR status response/,
+  )
+  ;(axios as any).get = successfulNdrStatusGetMock
+
   const pickupRequestPayload = {
     pickup_date: '2026-08-04',
     pickup_time: '11:00:00',
@@ -1464,6 +1507,12 @@ const run = async () => {
   assert(downloadDocumentRequest.request.url.includes('/shipments/{{awb}}/documents'))
   assert(downloadDocumentRequest.request.url.includes('doc_type={{documentType}}'))
   assert(JSON.stringify(downloadDocumentRequest.event).includes('document_urls'))
+  const ndrStatusRequest = readOnlyFolder.item.find(
+    (request: any) => request.name === 'NDR Upload Status',
+  )
+  assert(ndrStatusRequest.request.url.includes('/ndr/status/{{uplId}}'))
+  assert(ndrStatusRequest.request.url.includes('verbose={{ndrStatusVerbose}}'))
+  assert(JSON.stringify(ndrStatusRequest.event).includes('completed'))
   const mutatingFolder = collection.item.find(
     (folder: any) => folder.name === 'Mutating lifecycle requests',
   )

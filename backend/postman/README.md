@@ -76,6 +76,13 @@ to Delhivery. For Pickup rescheduling, confirm the shipment is non-OTP
 cancelled. Delhivery recommends applying both actions after 9 PM. Mutating NDR
 requests remain skipped unless `allowMutating=true`. The action request uses a
 135-second configurable timeout to cover the documented 126.38-second P99.
+GET NDR Status is available at
+`GET /api/delhivery/b2c/ndr/status/:uplId?verbose=true`. It validates the UPL
+ID and boolean `verbose` value, returns normalized `status`, `completed`, and
+`message` fields, and retains the complete `provider_response`. The read-only
+Postman request uses the `uplId` saved by either NDR action and the
+`ndrStatusVerbose` environment variable. A configurable 95-second timeout
+covers Delhivery's documented 88.03-second production P99.
 
 Expected TAT supports `tatMode` values `S`, `E`, and `N`, optional `B2B`/`B2C`
 product type, and `expectedPickupDate` in `YYYY-MM-DD` or `YYYY-MM-DD HH:mm`
