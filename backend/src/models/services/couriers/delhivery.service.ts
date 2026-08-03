@@ -590,6 +590,39 @@ const extractProviderErrorMessage = (value: unknown): string | null => {
   return null
 }
 
+export const isDelhiveryWarehouseMissingError = (error: any): boolean => {
+  const messages = [
+    extractProviderErrorMessage(error?.message),
+    extractProviderErrorMessage(error?.details),
+    extractProviderErrorMessage(error?.response?.data),
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(' ')
+    .toLowerCase()
+    .replace(/[\s_-]+/g, ' ')
+
+  return (
+    messages.includes('clientwarehouse matching query does not exist') ||
+    messages.includes('client warehouse matching query does not exist')
+  )
+}
+
+const isDelhiveryWarehouseAlreadyExistsError = (error: any): boolean => {
+  const message = [
+    extractProviderErrorMessage(error?.message),
+    extractProviderErrorMessage(error?.details),
+    extractProviderErrorMessage(error?.response?.data),
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(' ')
+    .toLowerCase()
+
+  return (
+    message.includes('warehouse') &&
+    (message.includes('already exists') || message.includes('already registered'))
+  )
+}
+
 const hasProviderErrorValue = (value: unknown): boolean => {
   if (value === null || value === undefined || value === false) return false
   if (typeof value === 'string') return value.trim().length > 0
@@ -2176,6 +2209,41 @@ export class DelhiveryService {
         throw err
       }
       throw new Error('Delhivery shipment creation failed')
+    }
+  }
+
+  async createShipmentWithWarehouseRecovery(
+    params: ShipmentParams,
+    warehouseData: DelhiveryWarehouseCreateRequest,
+    waybill?: string,
+  ) {
+    try {
+      return await this.createShipment(params, waybill)
+    } catch (error: any) {
+      if (!isDelhiveryWarehouseMissingError(error)) {
+        throw error
+      }
+
+      console.warn('[Delhivery] Pickup warehouse is missing; registering it before one retry', {
+        order_number: params.order_number,
+        warehouse_name: warehouseData.name,
+        pincode: warehouseData.pin,
+      })
+
+      try {
+        await this.createWarehouse(warehouseData)
+      } catch (warehouseError: any) {
+        if (!isDelhiveryWarehouseAlreadyExistsError(warehouseError)) {
+          throw warehouseError
+        }
+
+        console.warn('[Delhivery] Pickup warehouse was registered concurrently; retrying once', {
+          order_number: params.order_number,
+          warehouse_name: warehouseData.name,
+        })
+      }
+
+      return this.createShipment(params, waybill)
     }
   }
 

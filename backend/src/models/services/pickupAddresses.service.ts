@@ -238,7 +238,7 @@ export async function createPickupAddressService(data: CreatePickupDto, userId: 
         .join(', ')
       const delhiveryResp = await delhivery.createWarehouse({
         name: pickupAddr.addressNickname ?? pickupAddr.contactName ?? 'Default Warehouse',
-        registered_name: 'Shiplifi',
+        registered_name: 'Pax Logistics',
         phone: pickupAddr.contactPhone,
         email: pickupAddr.contactEmail?.trim() || undefined,
         address: pickupAddressLine || pickupAddr.addressLine1,

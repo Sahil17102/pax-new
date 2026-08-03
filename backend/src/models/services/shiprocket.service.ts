@@ -7636,7 +7636,43 @@ export const createB2CShipmentService = async (
           orderNumber: params.order_number,
         })
 
-        shipmentData = await delhivery.createShipment(params)
+        const pickupAddress = [
+          resolvedPickupWarehouse?.addressLine1 || params.pickup?.address,
+          resolvedPickupWarehouse?.addressLine2 || params.pickup?.address_2,
+          resolvedPickupWarehouse?.landmark,
+        ]
+          .map((part) => String(part || '').trim())
+          .filter(Boolean)
+          .join(', ')
+        const returnAddress = [
+          params.rto?.address || pickupAddress,
+          params.rto?.address_2,
+        ]
+          .map((part) => String(part || '').trim())
+          .filter(Boolean)
+          .join(', ')
+
+        shipmentData = await delhivery.createShipmentWithWarehouseRecovery(params, {
+          name: String(params.pickup?.warehouse_name || '').trim(),
+          registered_name: String(
+            params.company?.name || params.pickup?.name || 'Pax Logistics',
+          ).trim(),
+          phone: String(params.pickup?.phone || resolvedPickupWarehouse?.contactPhone || '').trim(),
+          email: String(resolvedPickupWarehouse?.contactEmail || '').trim() || undefined,
+          address: pickupAddress,
+          city: String(params.pickup?.city || resolvedPickupWarehouse?.city || '').trim(),
+          pin: String(params.pickup?.pincode || resolvedPickupWarehouse?.pincode || '').trim(),
+          country: String(
+            params.pickup?.country || resolvedPickupWarehouse?.country || 'India',
+          ).trim(),
+          return_address: returnAddress || pickupAddress,
+          return_city: String(params.rto?.city || params.pickup?.city || '').trim(),
+          return_pin: String(params.rto?.pincode || params.pickup?.pincode || '').trim(),
+          return_state: String(params.rto?.state || params.pickup?.state || '').trim(),
+          return_country: String(
+            params.rto?.country || params.pickup?.country || 'India',
+          ).trim(),
+        })
       }
 
       if (isReverseShipment) {

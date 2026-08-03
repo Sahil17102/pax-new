@@ -9,6 +9,7 @@ const run = async () => {
     DelhiveryService,
     isDelhiveryCancellationAccepted,
     isDelhiveryEwaybillUpdateAccepted,
+    isDelhiveryWarehouseMissingError,
     normalizeDelhiveryRvpQc,
     normalizeDelhiveryWaybills,
     summarizeDelhiveryExpectedTat,
@@ -33,6 +34,16 @@ const run = async () => {
   assert.equal(isDelhiveryEwaybillUpdateAccepted({ status: 'Failed' }), false)
   assert.equal(isDelhiveryEwaybillUpdateAccepted({ error: 'Invalid e-waybill' }), false)
   assert.equal(isDelhiveryEwaybillUpdateAccepted('E-waybill update failed'), false)
+  assert.equal(
+    isDelhiveryWarehouseMissingError(
+      new Error('ClientWarehouse matching query does not exist.'),
+    ),
+    true,
+  )
+  assert.equal(
+    isDelhiveryWarehouseMissingError(new Error('Destination pincode is not serviceable')),
+    false,
+  )
 
   assert.deepEqual(
     normalizeDelhiveryWaybills({ waybills: '123456789012, 123456789013\n123456789012' }),
@@ -386,6 +397,51 @@ const run = async () => {
   assert.equal(warehouseResult.pin, '110042')
   assert.equal(warehouseResult.return_pin, '110043')
   assert.equal(warehouseResult.message, 'Warehouse created')
+
+  const recoveringService = new DelhiveryService({
+    apiBase: 'https://staging-express.delhivery.com/',
+    apiKey: 'test-token',
+    clientName: 'test-client',
+  })
+  let recoveryShipmentAttempts = 0
+  let recoveryWarehouseRegistrations = 0
+  ;(recoveringService as any).createShipment = async () => {
+    recoveryShipmentAttempts += 1
+    if (recoveryShipmentAttempts === 1) {
+      throw new Error('ClientWarehouse matching query does not exist.')
+    }
+    return { success: true, packages: [{ waybill: 'MOCK-RECOVERED-AWB' }] }
+  }
+  ;(recoveringService as any).createWarehouse = async (payload: any) => {
+    recoveryWarehouseRegistrations += 1
+    assert.equal(payload.name, warehouseRequestPayload.name)
+    return { success: true }
+  }
+  const recoveredShipment = await recoveringService.createShipmentWithWarehouseRecovery(
+    {} as any,
+    warehouseRequestPayload,
+  )
+  assert.equal(recoveryShipmentAttempts, 2)
+  assert.equal(recoveryWarehouseRegistrations, 1)
+  assert.equal(recoveredShipment.packages[0].waybill, 'MOCK-RECOVERED-AWB')
+
+  const nonRecoveringService = new DelhiveryService({
+    apiBase: 'https://staging-express.delhivery.com/',
+    apiKey: 'test-token',
+    clientName: 'test-client',
+  })
+  let nonRecoveryWarehouseRegistrations = 0
+  ;(nonRecoveringService as any).createShipment = async () => {
+    throw new Error('Destination pincode is not serviceable')
+  }
+  ;(nonRecoveringService as any).createWarehouse = async () => {
+    nonRecoveryWarehouseRegistrations += 1
+  }
+  await assert.rejects(
+    () => nonRecoveringService.createShipmentWithWarehouseRecovery({} as any, warehouseRequestPayload),
+    /Destination pincode is not serviceable/,
+  )
+  assert.equal(nonRecoveryWarehouseRegistrations, 0)
 
   const successfulWarehousePostMock = (axios as any).post
   ;(axios as any).post = async () => ({
