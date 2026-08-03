@@ -148,3 +148,15 @@ JSON containing `label_url` instead of treating the provider's S3-link response
 as raw PDF bytes. Label requests use a configurable 70-second timeout because
 of the documented provider tail latency. Delhivery documents a production limit
 of 3,000 requests per five-minute IP window.
+
+Pickup Request Creation is available at `POST /api/delhivery/b2c/pickups` with
+exactly `pickup_date`, `pickup_time`, `pickup_location`, and
+`expected_package_count`. The location is the case-sensitive registered
+warehouse name, not a waybill; one request covers all ready packages at that
+location. Date and time are validated as `YYYY-MM-DD` and `HH:mm:ss`, and the
+package count must be a positive integer. The Postman pre-request script sets
+the pickup date to tomorrow. Delhivery allows only one open request per
+warehouse/day, so that provider response is normalized as an idempotent success
+with `already_exists=true`. The request remains mutation-locked unless
+`allowMutating=true`. Delhivery documents a production limit of 4,000 requests
+per five-minute IP window.

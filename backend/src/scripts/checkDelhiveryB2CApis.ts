@@ -193,6 +193,12 @@ const run = async () => {
   }
   ;(axios as any).post = async (url: string, data: unknown, config: any) => {
     captured.push({ method: 'POST', url, data, headers: config?.headers })
+    if (url.includes('/fm/request/new/')) {
+      return {
+        status: 200,
+        data: { success: true, pickup_request_id: 'PICKUP-REQUEST-1' },
+      }
+    }
     if (url.includes('/api/cmu/create.json')) {
       const form = new URLSearchParams(String(data))
       const payload = JSON.parse(form.get('data') || '{}')
@@ -647,6 +653,42 @@ const run = async () => {
   assert.equal(ewaybillUpdate.invoice_number, 'INV-50001')
   assert.equal(ewaybillUpdate.ewaybill_number, '123456789012')
 
+  const pickupRequestPayload = {
+    pickup_date: '2026-08-04',
+    pickup_time: '11:00:00',
+    pickup_location: 'Test Warehouse',
+    expected_package_count: 3,
+  }
+  const pickupRequest = await mockedService.createPickupRequest(pickupRequestPayload)
+  assert.equal(
+    captured.at(-1)?.url,
+    'https://staging-express.delhivery.com/fm/request/new/',
+  )
+  assert.deepEqual(captured.at(-1)?.data, pickupRequestPayload)
+  assert.equal(captured.at(-1)?.headers?.Authorization, 'Token test-token')
+  assert.equal(captured.at(-1)?.headers?.['Content-Type'], 'application/json')
+  assert.equal(pickupRequest.success, true)
+  assert.equal(pickupRequest.already_exists, false)
+  assert.equal(pickupRequest.pickup_request_id, 'PICKUP-REQUEST-1')
+  assert.equal(pickupRequest.pickup_location, 'Test Warehouse')
+  assert.equal(pickupRequest.expected_package_count, 3)
+
+  const successfulPostMock = (axios as any).post
+  ;(axios as any).post = async () => ({
+    status: 200,
+    data: {
+      pickup_date: ['Pickup request PR-123 already exists for this warehouse'],
+    },
+  })
+  const duplicatePickupRequest = await mockedService.createPickupRequest(pickupRequestPayload)
+  assert.equal(duplicatePickupRequest.success, true)
+  assert.equal(duplicatePickupRequest.already_exists, true)
+  assert.equal(duplicatePickupRequest.pickup_request_id, 'PR-123')
+  assert.deepEqual((duplicatePickupRequest.provider_response as any)?.pickup_date, [
+    'Pickup request PR-123 already exists for this warehouse',
+  ])
+  ;(axios as any).post = successfulPostMock
+
   ;(axios as any).get = originalGet
   ;(axios as any).post = originalPost
   ;(axios as any).put = originalPut
@@ -862,6 +904,48 @@ const run = async () => {
     /Unsupported Delhivery e-waybill field.*extra/,
   )
   await assert.rejects(
+    () => service.createPickupRequest({
+      ...pickupRequestPayload,
+      pickup_date: '2026-02-31',
+    }),
+    /valid calendar date/,
+  )
+  await assert.rejects(
+    () => service.createPickupRequest({
+      ...pickupRequestPayload,
+      pickup_time: '24:00:00',
+    }),
+    /HH:mm:ss/,
+  )
+  await assert.rejects(
+    () => service.createPickupRequest({
+      ...pickupRequestPayload,
+      pickup_location: '   ',
+    }),
+    /pickup_location is required/,
+  )
+  await assert.rejects(
+    () => service.createPickupRequest({
+      ...pickupRequestPayload,
+      expected_package_count: 0,
+    }),
+    /positive integer/,
+  )
+  await assert.rejects(
+    () => service.createPickupRequest({
+      ...pickupRequestPayload,
+      expected_package_count: 1.5,
+    }),
+    /positive integer/,
+  )
+  await assert.rejects(
+    () => service.createPickupRequest({
+      ...pickupRequestPayload,
+      waybill: 'NOT-SUPPORTED',
+    } as any),
+    /Unsupported Delhivery pickup request field.*waybill/,
+  )
+  await assert.rejects(
     () => service.cancelShipment('TEST-AWB', {
       current_payment_mode: 'Pickup',
       current_status: 'Pending',
@@ -980,6 +1064,14 @@ const run = async () => {
   assert(ewaybillRequest.request.url.endsWith('/shipments/{{awb}}/ewaybill'))
   assert(ewaybillRequest.request.body.raw.includes('{{invoiceNumber}}'))
   assert(ewaybillRequest.request.body.raw.includes('{{ewaybillNumber}}'))
+  const pickupRequestItem = mutatingFolder.item.find(
+    (request: any) => request.name === 'Create Pickup Request',
+  )
+  assert(pickupRequestItem.request.body.raw.includes('{{pickupDate}}'))
+  assert(pickupRequestItem.request.body.raw.includes('{{pickupTime}}'))
+  assert(pickupRequestItem.request.body.raw.includes('{{pickupPackageCount}}'))
+  assert(JSON.stringify(pickupRequestItem.event).includes('pickup_request_id'))
+  assert(JSON.stringify(pickupRequestItem.event).includes('already_exists'))
 
   console.log('Delhivery B2C integration checks passed')
 }

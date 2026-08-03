@@ -333,11 +333,35 @@
         },
         {
           "name": "Create Pickup Request",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": { "type": "text/javascript", "exec": [
+                "var pickupDate = new Date();",
+                "pickupDate.setUTCDate(pickupDate.getUTCDate() + 1);",
+                "pm.environment.set('pickupDate', pickupDate.toISOString().slice(0, 10));"
+              ] }
+            },
+            {
+              "listen": "test",
+              "script": { "type": "text/javascript", "exec": [
+                "var body = pm.response.json();",
+                "pm.test('Pickup request response is normalized', function () {",
+                "  pm.expect(body.data.success).to.eql(true);",
+                "  pm.expect(body.data.pickup_location).to.eql(pm.environment.get('warehouseName'));",
+                "  pm.expect(body.data.expected_package_count).to.eql(Number(pm.environment.get('pickupPackageCount')));",
+                "  pm.expect(body.data).to.have.property('pickup_request_id');",
+                "  pm.expect(body.data).to.have.property('already_exists');",
+                "});"
+              ] }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{baseUrl}}/api/delhivery/b2c/pickups",
-            "body": { "mode": "raw", "raw": "{\n  \"pickup_date\": \"{{pickupDate}}\",\n  \"pickup_time\": \"14:00:00\",\n  \"pickup_location\": \"{{warehouseName}}\",\n  \"expected_package_count\": 1\n}" }
+            "body": { "mode": "raw", "raw": "{\n  \"pickup_date\": \"{{pickupDate}}\",\n  \"pickup_time\": \"{{pickupTime}}\",\n  \"pickup_location\": \"{{warehouseName}}\",\n  \"expected_package_count\": {{pickupPackageCount}}\n}" },
+            "description": "Creates one warehouse-based pickup request after manifested shipments are packed. pickup_location must exactly match the registered Delhivery warehouse; pickup_date is set to tomorrow and pickup_time must be HH:mm:ss. Delhivery permits only one open request per warehouse/day, so an existing request is returned as an idempotent success. This mutation is locked unless allowMutating=true."
           }
         },
         {

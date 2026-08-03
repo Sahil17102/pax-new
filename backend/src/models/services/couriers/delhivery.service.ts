@@ -374,6 +374,13 @@ export type DelhiveryLabelOptions = {
   format?: 'json' | 'pdf' | string
 }
 
+export type DelhiveryPickupRequest = {
+  pickup_time: string
+  pickup_date: string
+  pickup_location: string
+  expected_package_count: number
+}
+
 export type DelhiveryCredentialsOverride = {
   apiBase: string
   apiKey: string
@@ -457,6 +464,14 @@ const extractProviderErrorMessage = (value: unknown): string | null => {
   return null
 }
 
+const hasProviderErrorValue = (value: unknown): boolean => {
+  if (value === null || value === undefined || value === false) return false
+  if (typeof value === 'string') return value.trim().length > 0
+  if (Array.isArray(value)) return value.length > 0
+  if (typeof value === 'object') return Object.keys(value as Record<string, unknown>).length > 0
+  return Boolean(value)
+}
+
 const findDelhiveryLabelUrl = (value: unknown): string | null => {
   if (typeof value === 'string') {
     const normalized = value.trim()
@@ -518,7 +533,33 @@ const getExistingPickupRequestId = (message: unknown): string | null => {
     return null
   }
 
-  return normalized.match(/pickup request\s+(\d+)/i)?.[1] || null
+  return normalized.match(/pickup request\s+([a-z0-9-]+)/i)?.[1] || null
+}
+
+const getDelhiveryPickupRequestId = (value: unknown): string | null => {
+  if (!value) return null
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const requestId = getDelhiveryPickupRequestId(entry)
+      if (requestId) return requestId
+    }
+    return null
+  }
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    for (const key of ['pickup_request_id', 'pickup_id', 'request_id', 'pr_id']) {
+      const direct = record[key]
+      if (typeof direct === 'string' || typeof direct === 'number') {
+        const normalized = String(direct).trim()
+        if (normalized) return normalized
+      }
+    }
+    for (const nested of Object.values(record)) {
+      const requestId = getDelhiveryPickupRequestId(nested)
+      if (requestId) return requestId
+    }
+  }
+  return null
 }
 
 const normalizeDelhiveryWeightGrams = (value: unknown, fallbackGrams = 500) => {
@@ -2211,12 +2252,8 @@ export class DelhiveryService {
   }
 
   // 🔹 8. Pickup Request (manual scheduling)
-  async requestPickup(pickupData: any) {
-    await this.ensureCredentials()
-    const res = await this.postWithTimeout(`${this.apiBase}/fm/request/new/`, pickupData, {
-      headers: this.headers,
-    })
-    return res.data
+  async requestPickup(pickupData: DelhiveryPickupRequest) {
+    return this.createPickupRequest(pickupData)
   }
 
   // services/delhivery.service.ts
@@ -2408,26 +2445,82 @@ export class DelhiveryService {
     }
   }
 
-  async createPickupRequest({
-    pickup_date,
-    pickup_time,
-    pickup_location,
-    expected_package_count,
-  }: {
-    pickup_date: string
-    pickup_time: string
-    pickup_location: string
-    expected_package_count: number
-  }) {
+  async createPickupRequest(pickupData: DelhiveryPickupRequest) {
+    const input = (pickupData || {}) as unknown as Record<string, unknown>
+    const allowedFields = new Set([
+      'pickup_time',
+      'pickup_date',
+      'pickup_location',
+      'expected_package_count',
+    ])
+    const unsupportedFields = Object.keys(input).filter((key) => !allowedFields.has(key))
+    if (unsupportedFields.length > 0) {
+      throw new HttpError(
+        400,
+        `Unsupported Delhivery pickup request field(s): ${unsupportedFields.join(', ')}`,
+      )
+    }
+
+    const pickup_date = String(input.pickup_date || '').trim()
+    const pickup_time = String(input.pickup_time || '').trim()
+    const pickup_location = String(input.pickup_location || '').trim()
+    const expected_package_count = Number(input.expected_package_count)
+
+    const dateMatch = pickup_date.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    if (!dateMatch) {
+      throw new HttpError(400, 'pickup_date is required in YYYY-MM-DD format')
+    }
+    const [, yearText, monthText, dayText] = dateMatch
+    const year = Number(yearText)
+    const month = Number(monthText)
+    const day = Number(dayText)
+    const calendarDate = new Date(Date.UTC(year, month - 1, day))
+    if (
+      calendarDate.getUTCFullYear() !== year ||
+      calendarDate.getUTCMonth() !== month - 1 ||
+      calendarDate.getUTCDate() !== day
+    ) {
+      throw new HttpError(400, 'pickup_date must be a valid calendar date')
+    }
+    if (!/^([01]\d|2[0-3]):[0-5]\d:[0-5]\d$/.test(pickup_time)) {
+      throw new HttpError(400, 'pickup_time is required in HH:mm:ss format')
+    }
+    if (!pickup_location) {
+      throw new HttpError(400, 'pickup_location is required and must match a registered warehouse')
+    }
+    if (!Number.isInteger(expected_package_count) || expected_package_count <= 0) {
+      throw new HttpError(400, 'expected_package_count must be a positive integer')
+    }
+
+    const payload: DelhiveryPickupRequest = {
+      pickup_time,
+      pickup_date,
+      pickup_location,
+      expected_package_count,
+    }
+
+    const normalizeAcceptedResponse = (
+      responseData: unknown,
+      alreadyExists: boolean,
+      pickupRequestId?: string | null,
+      message?: string | null,
+    ) => ({
+      success: true,
+      already_exists: alreadyExists,
+      pickup_request_id: pickupRequestId || getDelhiveryPickupRequestId(responseData),
+      ...payload,
+      message:
+        message ||
+        extractProviderErrorMessage((responseData as any)?.message) ||
+        (alreadyExists
+          ? 'Delhivery pickup request already exists for this warehouse'
+          : 'Delhivery pickup request created'),
+      provider_response: responseData || null,
+    })
+
     try {
       await this.ensureCredentials()
       const url = `${this.apiBase}/fm/request/new/`
-      const payload = {
-        pickup_date,
-        pickup_time,
-        pickup_location, // must exactly match warehouse name in Delhivery
-        expected_package_count,
-      }
 
       const headers = {
         Authorization: `Token ${this.token}`,
@@ -2437,27 +2530,50 @@ export class DelhiveryService {
 
       const res = await this.postWithTimeout(url, payload, { headers })
       const responseData = res.data
-      const rejected =
-        responseData?.success === false ||
-        responseData?.status === false ||
-        Boolean(responseData?.error) ||
-        Boolean(responseData?.errors)
-
-      if (rejected) {
-        throw new Error(
-          extractProviderErrorMessage(responseData) || 'Delhivery pickup request was rejected',
+      const providerMessage =
+        extractProviderErrorMessage(responseData?.message) ||
+        extractProviderErrorMessage(responseData?.error) ||
+        extractProviderErrorMessage(responseData?.errors) ||
+        extractProviderErrorMessage(responseData?.pickup_date) ||
+        extractProviderErrorMessage(responseData)
+      const existingPickupRequestId = getExistingPickupRequestId(providerMessage)
+      if (existingPickupRequestId) {
+        return normalizeAcceptedResponse(
+          responseData,
+          true,
+          existingPickupRequestId,
+          providerMessage,
         )
       }
 
-      return responseData
+      const providerStatus = String(responseData?.status || '').trim().toLowerCase()
+      const rejected =
+        responseData?.success === false ||
+        responseData?.status === false ||
+        ['fail', 'failed', 'failure', 'error'].includes(providerStatus) ||
+        hasProviderErrorValue(responseData?.error) ||
+        hasProviderErrorValue(responseData?.errors)
+
+      if (rejected) {
+        const error = new Error(providerMessage || 'Delhivery pickup request was rejected')
+        ;(error as any).statusCode = 502
+        ;(error as any).details = responseData
+        ;(error as any).isPickupRequestError = true
+        throw error
+      }
+
+      return normalizeAcceptedResponse(responseData, false)
     } catch (err: any) {
+      if (err?.isPickupRequestError) throw err
+
       const providerError = err.response?.data
       const timeoutError = isTimeoutError(err)
 
       const providerMessage =
-        (!timeoutError && extractProviderErrorMessage(providerError?.pickup_date)) ||
         extractProviderErrorMessage(providerError?.message) ||
         extractProviderErrorMessage(providerError?.error) ||
+        extractProviderErrorMessage(providerError?.errors) ||
+        (!timeoutError && extractProviderErrorMessage(providerError?.pickup_date)) ||
         (!timeoutError && extractProviderErrorMessage(providerError)) ||
         (typeof err.message === 'string' && err.message.trim().length > 0 && !timeoutError
           ? err.message.trim()
@@ -2472,13 +2588,12 @@ export class DelhiveryService {
           pickup_time,
           expected_package_count,
         })
-        return {
-          success: true,
-          already_exists: true,
-          pickup_request_id: existingPickupRequestId,
-          message: providerMessage,
-          provider_response: providerError || null,
-        }
+        return normalizeAcceptedResponse(
+          providerError,
+          true,
+          existingPickupRequestId,
+          providerMessage,
+        )
       }
 
       console.error('❌ Delhivery pickup request error:', providerError || err.message)
@@ -2488,7 +2603,7 @@ export class DelhiveryService {
         ? err.response.status
         : timeoutError
           ? 504
-          : 500
+          : 502
       ;(error as any).details = providerError || null
       ;(error as any).isPickupRequestError = true
       ;(error as any).providerStatus = err.response?.status ?? null
