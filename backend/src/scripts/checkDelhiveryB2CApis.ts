@@ -8,6 +8,7 @@ const run = async () => {
   const {
     DelhiveryService,
     isDelhiveryCancellationAccepted,
+    isDelhiveryEwaybillUpdateAccepted,
     normalizeDelhiveryWaybills,
     summarizeDelhiveryExpectedTat,
     summarizeDelhiveryHeavyPincodeServiceability,
@@ -23,6 +24,12 @@ const run = async () => {
     isDelhiveryCancellationAccepted({ success: false, message: 'Shipment already cancelled' }),
     true,
   )
+  assert.equal(isDelhiveryEwaybillUpdateAccepted({ success: true }), true)
+  assert.equal(isDelhiveryEwaybillUpdateAccepted({ status: 'Success' }), true)
+  assert.equal(isDelhiveryEwaybillUpdateAccepted({ success: false }), false)
+  assert.equal(isDelhiveryEwaybillUpdateAccepted({ status: 'Failed' }), false)
+  assert.equal(isDelhiveryEwaybillUpdateAccepted({ error: 'Invalid e-waybill' }), false)
+  assert.equal(isDelhiveryEwaybillUpdateAccepted('E-waybill update failed'), false)
 
   assert.deepEqual(
     normalizeDelhiveryWaybills({ waybills: '123456789012, 123456789013\n123456789012' }),
@@ -100,6 +107,7 @@ const run = async () => {
 
   const originalGet = axios.get
   const originalPost = axios.post
+  const originalPut = axios.put
   const captured: Array<{ method: string; url: string; data?: unknown; headers?: any }> = []
   ;(axios as any).get = async (url: string, config: any) => {
     captured.push({ method: 'GET', url, headers: config?.headers })
@@ -137,6 +145,10 @@ const run = async () => {
       }
     }
     return { status: 200, data: { success: true } }
+  }
+  ;(axios as any).put = async (url: string, data: unknown, config: any) => {
+    captured.push({ method: 'PUT', url, data, headers: config?.headers })
+    return { status: 200, data: { success: true, message: 'E-waybill updated' } }
   }
 
   const mockedService = new DelhiveryService({
@@ -426,8 +438,26 @@ const run = async () => {
   assert.equal(replCancellation.expected_status, 'In Transit')
   assert.equal(replCancellation.expected_status_type, 'RT')
 
+  const ewaybillUpdate = await mockedService.updateEwaybill('EWB-AWB-1', {
+    dcn: ' INV-50001 ',
+    ewbn: 123456789012,
+  })
+  assert.equal(
+    captured.at(-1)?.url,
+    'https://staging-express.delhivery.com/api/rest/ewaybill/EWB-AWB-1/',
+  )
+  assert.deepEqual(captured.at(-1)?.data, {
+    data: [{ dcn: 'INV-50001', ewbn: '123456789012' }],
+  })
+  assert.equal(captured.at(-1)?.headers?.Authorization, 'Token test-token')
+  assert.equal(captured.at(-1)?.headers?.['Content-Type'], 'application/json')
+  assert.equal(ewaybillUpdate.awb_number, 'EWB-AWB-1')
+  assert.equal(ewaybillUpdate.invoice_number, 'INV-50001')
+  assert.equal(ewaybillUpdate.ewaybill_number, '123456789012')
+
   ;(axios as any).get = originalGet
   ;(axios as any).post = originalPost
+  ;(axios as any).put = originalPut
 
   const service = new DelhiveryService()
   const nativeShipmentBase = {
@@ -557,6 +587,26 @@ const run = async () => {
   )
   await assert.rejects(() => service.cancelShipment(''), /AWB number is required/)
   await assert.rejects(
+    () => service.updateEwaybill('', { dcn: 'INV-1', ewbn: '123456789012' }),
+    /AWB number is required/,
+  )
+  await assert.rejects(
+    () => service.updateEwaybill('TEST-AWB', { dcn: '', ewbn: '123456789012' }),
+    /dcn is required/,
+  )
+  await assert.rejects(
+    () => service.updateEwaybill('TEST-AWB', { dcn: 'INV-1', ewbn: '' }),
+    /ewbn is required/,
+  )
+  await assert.rejects(
+    () => service.updateEwaybill('TEST-AWB', {
+      dcn: 'INV-1',
+      ewbn: '123456789012',
+      extra: true,
+    } as any),
+    /Unsupported Delhivery e-waybill field.*extra/,
+  )
+  await assert.rejects(
     () => service.cancelShipment('TEST-AWB', {
       current_payment_mode: 'Pickup',
       current_status: 'Pending',
@@ -643,6 +693,13 @@ const run = async () => {
   assert(cancelForwardRequest.request.url.includes('current_status={{cancelStatus}}'))
   assert(mutatingFolder.item.some((request: any) => request.name === 'Cancel Pickup Shipment'))
   assert(mutatingFolder.item.some((request: any) => request.name === 'Cancel REPL Shipment'))
+  const ewaybillRequest = mutatingFolder.item.find(
+    (request: any) => request.name === 'Update E-waybill',
+  )
+  assert.equal(ewaybillRequest.request.method, 'PUT')
+  assert(ewaybillRequest.request.url.endsWith('/shipments/{{awb}}/ewaybill'))
+  assert(ewaybillRequest.request.body.raw.includes('{{invoiceNumber}}'))
+  assert(ewaybillRequest.request.body.raw.includes('{{ewaybillNumber}}'))
 
   console.log('Delhivery B2C integration checks passed')
 }

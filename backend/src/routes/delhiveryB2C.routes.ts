@@ -15,6 +15,7 @@ import {
   submitNdrActionController,
   tatController,
   trackShipmentController,
+  updateEwaybillController,
   updateShipmentController,
   updateWarehouseController,
 } from '../controllers/delhiveryB2C.controller'
@@ -36,6 +37,7 @@ router.patch('/warehouses', updateWarehouseController)
 router.post('/shipments', createShipmentController)
 router.patch('/shipments/:awb', updateShipmentController)
 router.delete('/shipments/:awb', cancelShipmentController)
+router.put('/shipments/:awb/ewaybill', updateEwaybillController)
 router.get('/shipments/:awb/tracking', trackShipmentController)
 router.get('/shipments/:awb/label', generateLabelController)
 router.post('/pickups', createPickupController)

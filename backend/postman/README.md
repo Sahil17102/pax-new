@@ -112,3 +112,10 @@ expected provider outcome: Manifested/UD before pickup, In Transit/RT for In
 Transit or Pending, and Canceled/CN for a Scheduled Pickup shipment. Delhivery's
 documented production limit for this endpoint is 12,200 requests per five
 minutes per IP.
+
+E-waybill Update is available at `PUT /api/delhivery/b2c/shipments/:awb/ewaybill`
+with JSON body `{ "dcn": "invoice-number", "ewbn": "ewaybill-number" }`. The
+proxy sends Delhivery exactly `{ "data": [{ "dcn", "ewbn" }] }` to the AWB-specific
+provider endpoint, so it works for the shipment's current forward or return
+flow. The Postman request is mutation-locked by default. Delhivery documents a
+production limit of 250 requests per five-minute IP window.

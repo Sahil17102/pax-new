@@ -205,6 +205,11 @@ export type DelhiveryCancellationContext = {
   current_status?: string
 }
 
+export type DelhiveryEwaybillUpdate = {
+  dcn: string | number
+  ewbn: string | number
+}
+
 export type DelhiveryCredentialsOverride = {
   apiBase: string
   apiKey: string
@@ -406,6 +411,34 @@ export const isDelhiveryCancellationAccepted = (value: unknown) => {
   )
 }
 
+export const isDelhiveryEwaybillUpdateAccepted = (value: unknown) => {
+  const result = value as any
+  const responseText =
+    typeof value === 'string' ? value.trim().toLowerCase() : JSON.stringify(value ?? '').toLowerCase()
+  const normalizedStatus = String(result?.status ?? result?.Status ?? '')
+    .trim()
+    .toLowerCase()
+  const normalizedResult = String(result?.result ?? result?.Result ?? '')
+    .trim()
+    .toLowerCase()
+  const rejectedStatuses = ['fail', 'failed', 'failure', 'error', 'rejected']
+  const errorValue = result?.error ?? result?.errors
+  const hasProviderError =
+    (typeof errorValue === 'string' && errorValue.trim().length > 0) ||
+    (Array.isArray(errorValue) && errorValue.length > 0) ||
+    (errorValue && typeof errorValue === 'object' && Object.keys(errorValue).length > 0)
+
+  return !(
+    result?.success === false ||
+    result?.Success === false ||
+    result?.status === false ||
+    rejectedStatuses.includes(normalizedStatus) ||
+    rejectedStatuses.includes(normalizedResult) ||
+    hasProviderError ||
+    /(^|\W)(fail(?:ed|ure)?|error|invalid|rejected)(\W|$)/.test(responseText)
+  )
+}
+
 export class DelhiveryService {
   private apiBase = 'https://track.delhivery.com'
   private token = ''
@@ -470,6 +503,18 @@ export class DelhiveryService {
     timeoutMs?: number,
   ) {
     return axios.post(url, data, {
+      ...config,
+      timeout: timeoutMs ?? this.requestTimeoutMs,
+    })
+  }
+
+  private async putWithTimeout(
+    url: string,
+    data: unknown,
+    config: AxiosRequestConfig = {},
+    timeoutMs?: number,
+  ) {
+    return axios.put(url, data, {
       ...config,
       timeout: timeoutMs ?? this.requestTimeoutMs,
     })
@@ -1703,6 +1748,66 @@ export class DelhiveryService {
       )
     }
     return res.data
+  }
+
+  // Update a shipment's forward or return e-waybill.
+  async updateEwaybill(waybill: string, update: DelhiveryEwaybillUpdate) {
+    const normalizedWaybill = String(waybill || '').trim()
+    if (!normalizedWaybill) {
+      throw new HttpError(400, 'Delhivery AWB number is required for e-waybill updates')
+    }
+
+    const updateRecord = (update || {}) as Record<string, unknown>
+    const unsupportedFields = Object.keys(updateRecord).filter(
+      (field) => !['dcn', 'ewbn'].includes(field),
+    )
+    if (unsupportedFields.length > 0) {
+      throw new HttpError(
+        400,
+        `Unsupported Delhivery e-waybill field(s): ${unsupportedFields.join(', ')}`,
+      )
+    }
+
+    const normalizeRequiredValue = (value: unknown, field: 'dcn' | 'ewbn') => {
+      if (!['string', 'number'].includes(typeof value)) {
+        throw new HttpError(400, `${field} must be a string or number`)
+      }
+      const normalized = String(value).trim()
+      if (!normalized) throw new HttpError(400, `${field} is required`)
+      return normalized
+    }
+    const dcn = normalizeRequiredValue(updateRecord.dcn, 'dcn')
+    const ewbn = normalizeRequiredValue(updateRecord.ewbn, 'ewbn')
+    const payload = { data: [{ dcn, ewbn }] }
+
+    try {
+      await this.ensureCredentials()
+      const url = `${this.apiBase}/api/rest/ewaybill/${encodeURIComponent(normalizedWaybill)}/`
+      const res = await this.putWithTimeout(url, payload, { headers: this.headers })
+      if (!isDelhiveryEwaybillUpdateAccepted(res.data)) {
+        throw new HttpError(
+          502,
+          extractProviderErrorMessage(res.data) || 'Delhivery e-waybill update was rejected',
+        )
+      }
+
+      return {
+        success: true,
+        provider: 'delhivery',
+        awb_number: normalizedWaybill,
+        invoice_number: dcn,
+        ewaybill_number: ewbn,
+        provider_response: res.data,
+      }
+    } catch (err: any) {
+      if (err instanceof HttpError) throw err
+      throw new HttpError(
+        Number(err.response?.status) || 502,
+        extractProviderErrorMessage(err.response?.data) ||
+          err.message ||
+          'Delhivery e-waybill update failed',
+      )
+    }
   }
 
   // 🔹 7. Track Shipment

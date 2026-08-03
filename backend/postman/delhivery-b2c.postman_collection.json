@@ -306,6 +306,16 @@
           }
         },
         {
+          "name": "Update E-waybill",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/delhivery/b2c/shipments/{{awb}}/ewaybill",
+            "body": { "mode": "raw", "raw": "{\n  \"dcn\": \"{{invoiceNumber}}\",\n  \"ewbn\": \"{{ewaybillNumber}}\"\n}" },
+            "description": "Updates the forward or return e-waybill for the selected shipment. The backend forwards only dcn and ewbn in Delhivery's documented data array. This mutation is locked unless allowMutating=true."
+          }
+        },
+        {
           "name": "Cancel Forward Shipment",
           "request": {
             "method": "DELETE",

@@ -165,6 +165,9 @@ export const cancelShipmentController = (req: Request, res: Response) =>
     }),
   )
 
+export const updateEwaybillController = (req: Request, res: Response) =>
+  sendResult(res, service.updateEwaybill(req.params.awb, req.body || {}))
+
 export const trackShipmentController = (req: Request, res: Response) =>
   sendResult(res, service.trackShipment(req.params.awb))
 
