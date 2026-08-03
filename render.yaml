@@ -7,9 +7,9 @@ services:
     autoDeployTrigger: commit
     envVars:
       - key: VITE_CLIENT_APP_URL
-        value: https://pax-log.onrender.com
+        value: https://pax-log.onrender.com/app
       - key: VITE_AUTH_APP_URL
-        value: https://pax-log.onrender.com/#/login
+        value: https://pax-log.onrender.com/app/#/login
       - key: VITE_ADMIN_APP_URL
         value: https://pax-log-admin.onrender.com
       - key: VITE_ADMIN_AUTH_URL
@@ -61,7 +61,7 @@ services:
       - key: CORS_ALLOWED_ORIGINS
         value: https://pax-log.onrender.com,https://pax-log-admin.onrender.com
       - key: FRONTEND_URL
-        value: https://pax-log.onrender.com
+        value: https://pax-log.onrender.com/app
       - key: AUTH_OTP_DELIVERY
         value: screen
       - key: AUTO_MIGRATE_ON_START

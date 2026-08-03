@@ -5,9 +5,7 @@ export const API_BASE_URL = (
 const isLocalHost = typeof window !== "undefined"
   && ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname.toLowerCase());
 const localHostname = typeof window !== "undefined" ? window.location.hostname : "localhost";
-const defaultClientUrl = isLocalHost
-  ? `http://${localHostname}:5173`
-  : "https://pax-log.onrender.com";
+const defaultClientUrl = isLocalHost ? `http://${localHostname}:5173` : "/app";
 const stripTrailingSlash = (value) => String(value || "").trim().replace(/\/+$/, "");
 
 export const CLIENT_APP_URL = stripTrailingSlash(

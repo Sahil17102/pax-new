@@ -19,7 +19,7 @@ const normalizeAdminAuthUrl = (url) => {
     : normalized;
 };
 
-const UNIFIED_RENDER_CLIENT_URL = "https://pax-log.onrender.com";
+const UNIFIED_RENDER_CLIENT_URL = "https://pax-log.onrender.com/app";
 
 const normalizeClientAppUrl = (url) => {
   const normalized = stripTrailingSlash(url);
