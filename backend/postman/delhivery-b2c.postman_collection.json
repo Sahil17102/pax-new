@@ -433,11 +433,46 @@
         },
         {
           "name": "Submit NDR Re-attempt",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "var body = pm.response.json();",
+              "pm.test('NDR action returns an asynchronous UPL ID', function () {",
+              "  pm.expect(body.data.success).to.eql(true);",
+              "  pm.expect(body.data.upl_id).to.be.a('string').that.is.not.empty;",
+              "  pm.expect(body.data.accepted_count).to.eql(1);",
+              "});",
+              "if (body.data && body.data.upl_id) { pm.environment.set('uplId', body.data.upl_id); }"
+            ] }
+          }],
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{baseUrl}}/api/delhivery/b2c/ndr/actions",
-            "body": { "mode": "raw", "raw": "{\n  \"actions\": [{\"waybill\": \"{{awb}}\", \"act\": \"RE-ATTEMPT\"}]\n}" }
+            "body": { "mode": "raw", "raw": "{\n  \"actions\": [\n    {\n      \"waybill\": \"{{awb}}\",\n      \"act\": \"RE-ATTEMPT\",\n      \"current_nsl\": \"{{ndrReattemptNsl}}\",\n      \"attempt_count\": {{ndrAttemptCount}}\n    }\n  ]\n}" },
+            "description": "Submits Delhivery's asynchronous RE-ATTEMPT action and stores the returned UPL ID. Verify that the current NSL is one of EOD-74, EOD-15, EOD-104, EOD-43, EOD-86, EOD-11, EOD-69, or EOD-6 and the attempt count is 1 or 2. Delhivery recommends applying the action after 9 PM. current_nsl and attempt_count are local safety metadata and are not forwarded to Delhivery."
+          }
+        },
+        {
+          "name": "Submit NDR Pickup Reschedule",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "var body = pm.response.json();",
+              "pm.test('Pickup reschedule returns an asynchronous UPL ID', function () {",
+              "  pm.expect(body.data.success).to.eql(true);",
+              "  pm.expect(body.data.upl_id).to.be.a('string').that.is.not.empty;",
+              "  pm.expect(body.data.actions[0].act).to.eql('PICKUP_RESCHEDULE');",
+              "});",
+              "if (body.data && body.data.upl_id) { pm.environment.set('uplId', body.data.upl_id); }"
+            ] }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/delhivery/b2c/ndr/actions",
+            "body": { "mode": "raw", "raw": "{\n  \"actions\": [\n    {\n      \"waybill\": \"{{pickupAwb}}\",\n      \"act\": \"PICKUP_RESCHEDULE\",\n      \"current_nsl\": \"{{ndrPickupRescheduleNsl}}\",\n      \"attempt_count\": {{ndrAttemptCount}}\n    }\n  ]\n}" },
+            "description": "Submits PICKUP_RESCHEDULE exactly as documented (it is not remapped to DEFER_DLV) and stores the returned UPL ID. Use only for a non-OTP-cancelled Pickup AWB whose current NSL is EOD-777 or EOD-21 and attempt count is 1 or 2. Delhivery recommends applying it after 9 PM. current_nsl and attempt_count are local safety metadata and are not forwarded."
           }
         },
         {

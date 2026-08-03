@@ -280,6 +280,12 @@ const run = async () => {
         data: { success: true, pickup_request_id: 'PICKUP-REQUEST-1' },
       }
     }
+    if (url.includes('/api/p/update')) {
+      return {
+        status: 200,
+        data: { success: true, upl_id: 'UPL-NDR-123' },
+      }
+    }
     if (url.includes('/api/cmu/create.json')) {
       const form = new URLSearchParams(String(data))
       const payload = JSON.parse(form.get('data') || '{}')
@@ -914,6 +920,88 @@ const run = async () => {
   assert.equal(ewaybillUpdate.invoice_number, 'INV-50001')
   assert.equal(ewaybillUpdate.ewaybill_number, '123456789012')
 
+  const ndrReattempt = await mockedService.submitB2CNdrAction([{
+    waybill: '13163116000001',
+    act: 'RE-ATTEMPT',
+    current_nsl: 'eod-74',
+    attempt_count: 1,
+  }])
+  assert.equal(captured.at(-1)?.url, 'https://staging-express.delhivery.com/api/p/update')
+  assert.deepEqual(captured.at(-1)?.data, {
+    data: [{ waybill: '13163116000001', act: 'RE-ATTEMPT' }],
+  })
+  assert.equal(captured.at(-1)?.headers?.Authorization, 'Token test-token')
+  assert.equal(ndrReattempt.upl_id, 'UPL-NDR-123')
+  assert.deepEqual(ndrReattempt.upl_ids, ['UPL-NDR-123'])
+  assert.equal(ndrReattempt.accepted_count, 1)
+
+  const ndrPickupReschedule = await mockedService.submitB2CNdrAction([{
+    waybill: '13163116000002',
+    act: 'PICKUP_RESCHEDULE',
+    current_nsl: 'EOD-777',
+    attempt_count: 2,
+  }])
+  assert.deepEqual(captured.at(-1)?.data, {
+    data: [{ waybill: '13163116000002', act: 'PICKUP_RESCHEDULE' }],
+  })
+  assert.equal(ndrPickupReschedule.upl_id, 'UPL-NDR-123')
+
+  await assert.rejects(
+    () => mockedService.submitB2CNdrAction([{
+      waybill: '13163116000003',
+      act: 'RE-ATTEMPT',
+      current_nsl: 'EOD-777',
+      attempt_count: 1,
+    }]),
+    /RE-ATTEMPT is not allowed for current NSL EOD-777/,
+  )
+  await assert.rejects(
+    () => mockedService.submitB2CNdrAction([{
+      waybill: '13163116000003',
+      act: 'PICKUP_RESCHEDULE',
+      current_nsl: 'EOD-21',
+      attempt_count: 3,
+    }]),
+    /requires attempt_count to be 1 or 2/,
+  )
+  await assert.rejects(
+    () => mockedService.submitB2CNdrAction([{
+      waybill: '13163116000003',
+      act: 'EDIT_DETAILS' as any,
+    }]),
+    /act must be RE-ATTEMPT or PICKUP_RESCHEDULE/,
+  )
+  await assert.rejects(
+    () => mockedService.submitB2CNdrAction([{
+      waybill: '13163116000003',
+      act: 'RE-ATTEMPT',
+      current_nsl: 'EOD-74',
+    } as any]),
+    /current_nsl and attempt_count must be provided together/,
+  )
+
+  const successfulNdrPostMock = (axios as any).post
+  ;(axios as any).post = async () => ({ status: 200, data: { success: true } })
+  await assert.rejects(
+    () => mockedService.submitB2CNdrAction([{
+      waybill: '13163116000003',
+      act: 'RE-ATTEMPT',
+    }]),
+    /returned no UPL ID/,
+  )
+  ;(axios as any).post = async () => ({
+    status: 200,
+    data: { success: false, error: 'NDR action rejected' },
+  })
+  await assert.rejects(
+    () => mockedService.submitB2CNdrAction([{
+      waybill: '13163116000003',
+      act: 'RE-ATTEMPT',
+    }]),
+    /NDR action rejected/,
+  )
+  ;(axios as any).post = successfulNdrPostMock
+
   const pickupRequestPayload = {
     pickup_date: '2026-08-04',
     pickup_time: '11:00:00',
@@ -1448,6 +1536,18 @@ const run = async () => {
   assert(pickupRequestItem.request.body.raw.includes('{{pickupPackageCount}}'))
   assert(JSON.stringify(pickupRequestItem.event).includes('pickup_request_id'))
   assert(JSON.stringify(pickupRequestItem.event).includes('already_exists'))
+  const ndrReattemptRequest = mutatingFolder.item.find(
+    (request: any) => request.name === 'Submit NDR Re-attempt',
+  )
+  assert(ndrReattemptRequest.request.body.raw.includes('RE-ATTEMPT'))
+  assert(ndrReattemptRequest.request.body.raw.includes('{{ndrReattemptNsl}}'))
+  assert(JSON.stringify(ndrReattemptRequest.event).includes('upl_id'))
+  const ndrPickupRequest = mutatingFolder.item.find(
+    (request: any) => request.name === 'Submit NDR Pickup Reschedule',
+  )
+  assert(ndrPickupRequest.request.body.raw.includes('PICKUP_RESCHEDULE'))
+  assert(ndrPickupRequest.request.body.raw.includes('{{ndrPickupRescheduleNsl}}'))
+  assert(JSON.stringify(ndrPickupRequest.event).includes('upl_id'))
   const createWarehouseRequest = mutatingFolder.item.find(
     (request: any) => request.name === 'Create Warehouse',
   )

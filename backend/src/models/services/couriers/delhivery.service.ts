@@ -383,6 +383,30 @@ export const DELHIVERY_DOCUMENT_TYPES = [
 
 export type DelhiveryDocumentType = (typeof DELHIVERY_DOCUMENT_TYPES)[number]
 
+export const DELHIVERY_NDR_ACTIONS = ['RE-ATTEMPT', 'PICKUP_RESCHEDULE'] as const
+export type DelhiveryNdrActionType = (typeof DELHIVERY_NDR_ACTIONS)[number]
+
+export const DELHIVERY_NDR_NSL_CODES: Record<DelhiveryNdrActionType, readonly string[]> = {
+  'RE-ATTEMPT': [
+    'EOD-74',
+    'EOD-15',
+    'EOD-104',
+    'EOD-43',
+    'EOD-86',
+    'EOD-11',
+    'EOD-69',
+    'EOD-6',
+  ],
+  PICKUP_RESCHEDULE: ['EOD-777', 'EOD-21'],
+}
+
+export type DelhiveryNdrAction = {
+  waybill: string
+  act: DelhiveryNdrActionType
+  current_nsl?: string
+  attempt_count?: number
+}
+
 export type DelhiveryPickupRequest = {
   pickup_time: string
   pickup_date: string
@@ -761,6 +785,33 @@ const findDelhiveryDocumentUrls = (value: unknown): string[] => {
   return Array.from(new Set(urls))
 }
 
+const extractDelhiveryUplIds = (value: unknown): string[] => {
+  const uplIds: string[] = []
+  const append = (candidate: unknown) => {
+    if (Array.isArray(candidate)) {
+      candidate.forEach(append)
+      return
+    }
+    if (typeof candidate === 'string' || typeof candidate === 'number') {
+      const normalized = String(candidate).trim()
+      if (normalized) uplIds.push(normalized)
+    }
+  }
+  const visit = (candidate: unknown) => {
+    if (Array.isArray(candidate)) {
+      candidate.forEach(visit)
+      return
+    }
+    if (!candidate || typeof candidate !== 'object') return
+    for (const [key, nested] of Object.entries(candidate as Record<string, unknown>)) {
+      if (/upl(?:oad)?[_-]?(?:id|wbn|number)?/i.test(key)) append(nested)
+      else visit(nested)
+    }
+  }
+  visit(value)
+  return Array.from(new Set(uplIds))
+}
+
 const isTimeoutError = (err: any) => {
   const message = String(err?.message || '')
     .trim()
@@ -955,6 +1006,10 @@ export class DelhiveryService {
   private readonly shippingCostTimeoutMs = parseTimeout(
     process.env.DELHIVERY_SHIPPING_COST_TIMEOUT_MS,
     70000,
+  )
+  private readonly ndrActionTimeoutMs = parseTimeout(
+    process.env.DELHIVERY_NDR_ACTION_TIMEOUT_MS,
+    135000,
   )
   private readonly warehouseUpdateTimeoutMs = parseTimeout(
     process.env.DELHIVERY_WAREHOUSE_UPDATE_TIMEOUT_MS,
@@ -2499,6 +2554,119 @@ export class DelhiveryService {
   }
 
   // 🔹 8. NDR Action (RE-ATTEMPT / PICKUP_RESCHEDULE)
+  async submitB2CNdrAction(actions: DelhiveryNdrAction[]) {
+    if (!Array.isArray(actions) || actions.length === 0 || actions.length > 100) {
+      throw new HttpError(400, 'actions must contain between 1 and 100 entries')
+    }
+
+    const seenWaybills = new Set<string>()
+    const normalizedActions = actions.map((rawAction, index) => {
+      if (!rawAction || typeof rawAction !== 'object' || Array.isArray(rawAction)) {
+        throw new HttpError(400, `actions[${index}] must be an object`)
+      }
+      const action = rawAction as unknown as Record<string, unknown>
+      const allowedFields = new Set(['waybill', 'act', 'current_nsl', 'attempt_count'])
+      const unsupportedFields = Object.keys(action).filter((field) => !allowedFields.has(field))
+      if (unsupportedFields.length > 0) {
+        throw new HttpError(
+          400,
+          `Unsupported actions[${index}] field(s): ${unsupportedFields.join(', ')}`,
+        )
+      }
+
+      const waybill = String(action.waybill || '').trim()
+      if (!/^\d+$/.test(waybill)) {
+        throw new HttpError(400, `actions[${index}].waybill must be numeric`)
+      }
+      if (seenWaybills.has(waybill)) {
+        throw new HttpError(400, `Duplicate NDR waybill: ${waybill}`)
+      }
+      seenWaybills.add(waybill)
+
+      const act = String(action.act || '').trim().toUpperCase() as DelhiveryNdrActionType
+      if (!DELHIVERY_NDR_ACTIONS.includes(act)) {
+        throw new HttpError(
+          400,
+          `actions[${index}].act must be RE-ATTEMPT or PICKUP_RESCHEDULE`,
+        )
+      }
+
+      const hasNsl = action.current_nsl !== undefined && action.current_nsl !== null
+      const hasAttemptCount = action.attempt_count !== undefined && action.attempt_count !== null
+      if (hasNsl !== hasAttemptCount) {
+        throw new HttpError(
+          400,
+          `actions[${index}].current_nsl and attempt_count must be provided together`,
+        )
+      }
+      if (hasNsl && hasAttemptCount) {
+        const currentNsl = String(action.current_nsl || '').trim().toUpperCase()
+        const attemptCount = Number(action.attempt_count)
+        if (!DELHIVERY_NDR_NSL_CODES[act].includes(currentNsl)) {
+          throw new HttpError(
+            409,
+            `${act} is not allowed for current NSL ${currentNsl || '(blank)'}`,
+          )
+        }
+        if (![1, 2].includes(attemptCount)) {
+          throw new HttpError(409, `${act} requires attempt_count to be 1 or 2`)
+        }
+      }
+
+      return { waybill, act }
+    })
+
+    try {
+      await this.ensureCredentials()
+      const url = `${this.apiBase}/api/p/update`
+      const res = await this.postWithTimeout(
+        url,
+        { data: normalizedActions },
+        { headers: this.headers },
+        this.ndrActionTimeoutMs,
+      )
+      const providerStatus = String(res.data?.status || '').trim().toLowerCase()
+      const providerError = res.data?.error ?? res.data?.errors
+      if (
+        res.data?.success === false ||
+        res.data?.status === false ||
+        ['fail', 'failed', 'failure', 'error', 'rejected'].includes(providerStatus) ||
+        hasProviderErrorValue(providerError)
+      ) {
+        throw new HttpError(
+          502,
+          extractProviderErrorMessage(res.data) || 'Delhivery NDR action was rejected',
+        )
+      }
+
+      const uplIds = extractDelhiveryUplIds(res.data)
+      if (uplIds.length === 0) {
+        throw new HttpError(502, 'Delhivery NDR action returned no UPL ID')
+      }
+
+      return {
+        success: true,
+        upl_id: uplIds[0],
+        upl_ids: uplIds,
+        accepted_count: normalizedActions.length,
+        actions: normalizedActions,
+        provider_response: res.data,
+      }
+    } catch (err: any) {
+      if (err instanceof HttpError) throw err
+      console.error('Delhivery NDR action error:', err.response?.data || err.message)
+      throw new HttpError(
+        Number(err.response?.status) || (isTimeoutError(err) ? 504 : 502),
+        extractProviderErrorMessage(err.response?.data) ||
+          (isTimeoutError(err)
+            ? 'Delhivery NDR action timed out before returning a UPL ID'
+            : err.message || 'Failed to submit Delhivery NDR action'),
+      )
+    }
+  }
+
+  // Legacy dashboard workflow also uses edit/defer actions that are outside the
+  // documented B2C NDR proxy contract. Keep it isolated from submitB2CNdrAction.
   async submitNdrAction(
     actions: Array<{
       waybill: string
@@ -2516,9 +2684,7 @@ export class DelhiveryService {
         if (mappedAct === 'DEFER_DLV') {
           const normalizedDeferredDate =
             actionData.deferred_date || actionData.deferment_date || actionData.defermentDate
-          if (normalizedDeferredDate) {
-            actionData.deferred_date = normalizedDeferredDate
-          }
+          if (normalizedDeferredDate) actionData.deferred_date = normalizedDeferredDate
           delete actionData.deferment_date
           delete actionData.defermentDate
         }
@@ -2530,7 +2696,7 @@ export class DelhiveryService {
         }
       })
       const res = await this.postWithTimeout(url, { data: payload }, { headers: this.headers })
-      return res.data // contains UPL id(s)
+      return res.data
     } catch (err: any) {
       console.error('Delhivery NDR action error:', err.response?.data || err.message)
       throw new Error('Failed to submit Delhivery NDR action')

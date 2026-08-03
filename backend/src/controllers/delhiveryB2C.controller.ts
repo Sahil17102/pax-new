@@ -226,7 +226,7 @@ export const submitNdrActionController = (req: Request, res: Response) => {
       message: 'actions must contain between 1 and 100 entries',
     })
   }
-  return sendResult(res, service.submitNdrAction(actions))
+  return sendResult(res, service.submitB2CNdrAction(actions))
 }
 
 export const ndrStatusController = (req: Request, res: Response) =>

@@ -64,6 +64,19 @@ Delhivery state are skipped by default. Set `allowMutating=true` only when you
 deliberately want to run those requests against the configured Delhivery
 account.
 
+NDR actions are available at `POST /api/delhivery/b2c/ndr/actions`. The proxy
+accepts only Delhivery's documented `RE-ATTEMPT` and `PICKUP_RESCHEDULE`
+actions and forwards exactly `{ waybill, act }` in the provider `data` array.
+The asynchronous provider UPL ID is normalized as `upl_id`, saved by both
+Postman requests, and can then be checked with **NDR Upload Status**. Optional
+`current_nsl` and `attempt_count` values are local safety metadata: when one is
+provided both are required, the attempt must be 1 or 2, and the NSL must be in
+the documented action-specific allowlist. These metadata fields are never sent
+to Delhivery. For Pickup rescheduling, confirm the shipment is non-OTP
+cancelled. Delhivery recommends applying both actions after 9 PM. Mutating NDR
+requests remain skipped unless `allowMutating=true`. The action request uses a
+135-second configurable timeout to cover the documented 126.38-second P99.
+
 Expected TAT supports `tatMode` values `S`, `E`, and `N`, optional `B2B`/`B2C`
 product type, and `expectedPickupDate` in `YYYY-MM-DD` or `YYYY-MM-DD HH:mm`
 format. Clear the pickup-date value to let Delhivery calculate from the current
