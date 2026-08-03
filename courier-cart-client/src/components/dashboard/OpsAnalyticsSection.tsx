@@ -854,20 +854,21 @@ function AnalyticsCard({
       sx={{
         position: 'relative',
         height: '100%',
-        borderRadius: 3,
+        borderRadius: 2.5,
         overflow: 'hidden',
-        boxShadow: '0 14px 34px rgba(6, 42, 91, 0.08)',
-        border: `1px solid ${alpha(BRAND.colors.teal, 0.14)}`,
+        background: `linear-gradient(145deg, ${BRAND.colors.paper} 0%, ${BRAND.colors.tealSoft} 100%)`,
+        boxShadow: '0 12px 30px rgba(6, 42, 91, 0.07)',
+        border: `1px solid ${alpha(BRAND.colors.teal, 0.16)}`,
         '&::before': {
           content: '""',
           position: 'absolute',
-          inset: '0 0 auto 0',
-          height: 4,
-          background: `linear-gradient(90deg, ${BRAND.colors.teal}, ${BRAND.colors.orange})`,
+          inset: '0 auto 0 0',
+          width: 5,
+          background: `linear-gradient(180deg, ${BRAND.colors.orange}, ${BRAND.colors.bridge}, ${BRAND.colors.teal})`,
         },
       }}
     >
-      <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
+      <CardContent sx={{ p: { xs: 2, md: 2.5 }, pl: { xs: 2.5, md: 3 } }}>
         <Stack spacing={1.6}>
           <Box>
             <Typography variant="h6" fontWeight={900} color="text.primary">

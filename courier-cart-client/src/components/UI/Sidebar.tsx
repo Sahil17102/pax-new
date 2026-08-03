@@ -43,7 +43,7 @@ import {
   TbWallet,
 } from 'react-icons/tb'
 import { NavLink, useLocation } from 'react-router-dom'
-import { BRAND, brandStripe } from '../../config/brand'
+import { BRAND } from '../../config/brand'
 import useEmployeePermissions from '../../hooks/User/useEmployeePermissions'
 import { isActive } from '../../utils/functions'
 
@@ -332,23 +332,15 @@ export default function Sidebar({
         left: fixed ? 0 : 'auto',
         display: 'flex',
         flexDirection: 'column',
-        background: BRAND_SURFACE,
+        background: `linear-gradient(180deg, ${BRAND_SURFACE} 0%, ${BRAND.colors.tealSoft} 100%)`,
         color: BRAND_INK,
         borderRight: `1px solid ${BRAND_BORDER}`,
-        boxShadow: '10px 0 30px rgba(6, 26, 51, 0.06)',
+        boxShadow: '8px 0 24px rgba(6, 42, 91, 0.07)',
         zIndex: 1200,
         overflowY: 'auto',
         overflowX: 'hidden',
         transition:
           'width 300ms cubic-bezier(0.4, 0, 0.2, 1), min-width 300ms cubic-bezier(0.4, 0, 0.2, 1)',
-        '&::before': {
-          content: '""',
-          position: 'absolute',
-          inset: '0 0 auto 0',
-          height: 3,
-          background: brandStripe,
-          zIndex: 1,
-        },
       }}
     >
       <Stack
@@ -359,6 +351,8 @@ export default function Sidebar({
           px: shouldShowExpanded ? 1.5 : 1,
           py: shouldShowExpanded ? 1.5 : 0.75,
           borderBottom: `1px solid ${BRAND_BORDER}`,
+          background: alpha(BRAND_SURFACE, 0.86),
+          backdropFilter: 'blur(12px)',
           flexShrink: 0,
         }}
       >
@@ -446,23 +440,32 @@ export default function Sidebar({
                     flexDirection: shouldShowExpanded ? 'row' : 'column',
                     gap: shouldShowExpanded ? 0 : 0.4,
                     background: isActive_
-                      ? `linear-gradient(135deg, ${BRAND_ORANGE} 0%, ${BRAND.colors.tealDark} 100%)`
+                      ? `linear-gradient(135deg, ${BRAND_SURFACE} 0%, ${BRAND.colors.aquaSoft} 100%)`
                       : 'transparent',
-                    border: `1px solid ${isActive_ ? BRAND_ORANGE : 'transparent'}`,
-                    color: isActive_ ? '#FFFFFF' : BRAND.colors.text,
-                    boxShadow: isActive_ ? `0 8px 18px ${alpha(BRAND_ORANGE, 0.2)}` : 'none',
+                    border: `1px solid ${isActive_ ? alpha(BRAND_ORANGE, 0.22) : 'transparent'}`,
+                    color: isActive_ ? BRAND_INK : BRAND.colors.text,
+                    boxShadow: isActive_ ? `0 8px 20px ${alpha(BRAND_ORANGE, 0.12)}` : 'none',
                     transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
                     position: 'relative',
                     overflow: 'hidden',
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      inset: '8px auto 8px 0',
+                      width: isActive_ ? 4 : 0,
+                      borderRadius: '0 999px 999px 0',
+                      background: BRAND_ACCENT,
+                      transition: 'width 180ms ease',
+                    },
                     '&:hover': {
                       background: isActive_
-                        ? `linear-gradient(135deg, ${BRAND_ORANGE} 0%, ${BRAND.colors.tealDark} 100%)`
-                        : alpha(BRAND_ORANGE, 0.055),
+                        ? `linear-gradient(135deg, ${BRAND_SURFACE} 0%, ${BRAND.colors.aquaSoft} 100%)`
+                        : alpha(BRAND_ORANGE, 0.07),
                       borderColor: isActive_ ? BRAND_ORANGE : alpha(BRAND_INK, 0.12),
-                      color: isActive_ ? '#FFFFFF' : BRAND_INK,
+                      color: BRAND_INK,
                       transform: 'translateX(2px)',
                       boxShadow: isActive_
-                        ? `0 8px 18px ${alpha(BRAND_ORANGE, 0.24)}`
+                        ? `0 10px 24px ${alpha(BRAND_ORANGE, 0.16)}`
                         : `0 4px 12px ${alpha(BRAND_INK, 0.07)}`,
                     },
                   }}
