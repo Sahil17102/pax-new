@@ -31,6 +31,7 @@ const buildServiceabilityOptions = (body: any): Record<string, any> => {
   copyStringOption(['deliveryAddress', 'delivery_address'], 'deliveryAddress')
   copyStringOption(['deliveryCity', 'delivery_city'], 'deliveryCity')
   copyStringOption(['deliveryState', 'delivery_state'], 'deliveryState')
+  copyStringOption(['product_type', 'productType'], 'product_type')
   copyStringOption(['shadowfax_forward_mode', 'shadowfaxForwardMode'], 'shadowfax_forward_mode')
   copyStringOption(['shadowfax_service_mode', 'shadowfaxServiceMode'], 'shadowfax_service_mode')
 

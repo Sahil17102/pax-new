@@ -19,6 +19,17 @@ export type DelhiveryPincodeSummary = {
   reversePickup: boolean
 }
 
+export type DelhiveryHeavyPincodeSummary = {
+  pincode: string | null
+  productType: 'Heavy'
+  serviceable: boolean
+  nsz: boolean
+  paymentTypes: string[]
+  prepaid: boolean
+  cod: boolean
+  providerStatus: string
+}
+
 export const summarizeDelhiveryPincodeServiceability = (
   response: any,
 ): DelhiveryPincodeSummary => {
@@ -40,6 +51,68 @@ export const summarizeDelhiveryPincodeServiceability = (
     prepaid: Boolean(postalCode) && !embargoed && postalCode.pre_paid === 'Y',
     cod: Boolean(postalCode) && !embargoed && postalCode.cod === 'Y',
     reversePickup: Boolean(postalCode) && !embargoed && postalCode.repl === 'Y',
+  }
+}
+
+const isEnabledHeavyPaymentValue = (value: unknown) => {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number') return value > 0
+  const normalized = String(value || '').trim().toLowerCase()
+  return ['y', 'yes', 'true', '1', 'serviceable', 'available'].includes(normalized)
+}
+
+export const summarizeDelhiveryHeavyPincodeServiceability = (
+  response: any,
+): DelhiveryHeavyPincodeSummary => {
+  const responseData = response?.data ?? response?.response ?? response
+  const record = Array.isArray(responseData) ? responseData[0] ?? null : responseData
+  const paymentValue =
+    record?.payment_type ?? record?.payment_types ?? record?.paymentType ?? record?.payments ?? null
+  const rawPaymentTypes = Array.isArray(paymentValue)
+    ? paymentValue.map(String)
+    : paymentValue && typeof paymentValue === 'object'
+      ? Object.entries(paymentValue)
+          .filter(([, value]) => isEnabledHeavyPaymentValue(value))
+          .map(([key]) => key)
+      : String(paymentValue || '').split(/[,|/]/)
+  const paymentTypes = Array.from(
+    new Set(
+      rawPaymentTypes
+        .map((value) => String(value).trim())
+        .filter(Boolean)
+        .map((value) => {
+          const normalized = value.toLowerCase()
+          if (normalized.includes('cod') || normalized.includes('cash')) return 'COD'
+          if (normalized.includes('pre') || normalized.includes('ppd')) return 'Pre-paid'
+          return value
+        }),
+    ),
+  )
+  const providerStatus = String(
+    record?.status ??
+      record?.serviceability ??
+      record?.serviceable ??
+      record?.message ??
+      response?.status ??
+      '',
+  ).trim()
+  const responseText = JSON.stringify(record ?? response ?? '').toLowerCase()
+  const nsz = /(^|[^a-z])nsz([^a-z]|$)/i.test(responseText)
+  const explicitServiceable =
+    record?.serviceable === true ||
+    ['y', 'yes', 'true', 'serviceable', 'available', 'success', 'sz'].includes(
+      providerStatus.toLowerCase(),
+    )
+
+  return {
+    pincode: record?.pincode || record?.pin ? String(record.pincode || record.pin) : null,
+    productType: 'Heavy',
+    serviceable: Boolean(record) && !nsz && (paymentTypes.length > 0 || explicitServiceable),
+    nsz,
+    paymentTypes,
+    prepaid: paymentTypes.includes('Pre-paid'),
+    cod: paymentTypes.includes('COD'),
+    providerStatus,
   }
 }
 
@@ -319,6 +392,46 @@ export class DelhiveryService {
     }
   }
 
+  async checkHeavyServiceability(pincode: string, productType: 'Heavy' = 'Heavy') {
+    const normalizedPincode = String(pincode || '').trim()
+    if (!/^\d{6}$/.test(normalizedPincode)) {
+      throw new HttpError(400, 'A valid 6-digit pincode is required')
+    }
+    if (productType !== 'Heavy') {
+      throw new HttpError(400, 'product_type must be Heavy')
+    }
+
+    try {
+      await this.ensureCredentials()
+      const query = qs.stringify({ product_type: productType, pincode: normalizedPincode })
+      const url = `${this.apiBase}/api/dc/fetch/serviceability/pincode?${query}`
+      const res = await this.getWithTimeout(url, { headers: this.headers })
+      const summary = summarizeDelhiveryHeavyPincodeServiceability(res.data)
+
+      console.log('[Delhivery] Heavy pincode serviceability checked', {
+        pincode: normalizedPincode,
+        status: res.status,
+        serviceable: summary.serviceable,
+        nsz: summary.nsz,
+        paymentTypes: summary.paymentTypes,
+      })
+
+      return res.data
+    } catch (err: any) {
+      if (err instanceof HttpError) throw err
+      console.error('[Delhivery] Heavy serviceability request failed', {
+        pincode: normalizedPincode,
+        status: err.response?.status,
+        message: err.message,
+      })
+      throw new HttpError(
+        typeof err.response?.status === 'number' ? err.response.status : 502,
+        extractProviderErrorMessage(err.response?.data) ||
+          'Failed to fetch Delhivery Heavy serviceability',
+      )
+    }
+  }
+
   // 🔹 2. Expected TAT (Transit Time)
   async getExpectedTAT(
     origin: string,
@@ -571,6 +684,7 @@ export class DelhiveryService {
         pickup_date: pickupDate || undefined,
         pickup_time: pickupTime || undefined,
         shipping_mode: shippingMode,
+        product_type: params.product_type || params.productType || undefined,
         client_name: this.clientName || sellerName,
         client_gst_tin: sellerGst,
         waybill: waybill || undefined,

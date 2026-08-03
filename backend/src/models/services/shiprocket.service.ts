@@ -106,6 +106,7 @@ import {
 } from './courierCredentials.service'
 import {
   DelhiveryService,
+  summarizeDelhiveryHeavyPincodeServiceability,
   summarizeDelhiveryPincodeServiceability,
 } from './couriers/delhivery.service'
 import {
@@ -2866,6 +2867,8 @@ interface NimbusServiceabilityParams {
   weight?: number
   length?: number
   shipment_type?: 'b2b' | 'b2c'
+  product_type?: string
+  productType?: string
   breadth?: number
   height?: number
   isReverse?: boolean
@@ -4031,6 +4034,10 @@ export const fetchAvailableCouriersWithRates = async (
       .trim()
       .toLowerCase()
     const delhiveryRequiresCOD = normalizedPaymentType === 'cod'
+    const delhiveryHeavyProduct =
+      String(params.product_type || params.productType || '')
+        .trim()
+        .toLowerCase() === 'heavy'
 
     if (shouldRunLiveServiceability && enabledProviders.has('delhivery')) {
       const delhivery = new DelhiveryService()
@@ -4047,16 +4054,29 @@ export const fetchAvailableCouriersWithRates = async (
 
       if (originPincode && destinationPincode) {
         try {
-          const [originResp, destinationResp] = await Promise.all([
-            delhivery.checkServiceability(originPincode),
-            delhivery.checkServiceability(destinationPincode),
-          ])
+          const [originResp, destinationResp] = await Promise.all(
+            delhiveryHeavyProduct
+              ? [
+                  delhivery.checkHeavyServiceability(originPincode),
+                  delhivery.checkHeavyServiceability(destinationPincode),
+                ]
+              : [
+                  delhivery.checkServiceability(originPincode),
+                  delhivery.checkServiceability(destinationPincode),
+                ],
+          )
           delhiveryResp = destinationResp
 
-          const originService = summarizeDelhiveryPincodeServiceability(originResp)
-          const destinationService = summarizeDelhiveryPincodeServiceability(destinationResp)
+          const originService = delhiveryHeavyProduct
+            ? summarizeDelhiveryHeavyPincodeServiceability(originResp)
+            : summarizeDelhiveryPincodeServiceability(originResp)
+          const destinationService = delhiveryHeavyProduct
+            ? summarizeDelhiveryHeavyPincodeServiceability(destinationResp)
+            : summarizeDelhiveryPincodeServiceability(destinationResp)
 
-          delhiveryOriginServiceable = originService.pickup
+          delhiveryOriginServiceable = delhiveryHeavyProduct
+            ? originService.serviceable
+            : 'pickup' in originService && originService.pickup
           delhiveryDestinationServiceable = delhiveryRequiresCOD
             ? destinationService.cod
             : destinationService.prepaid
@@ -4065,14 +4085,23 @@ export const fetchAvailableCouriersWithRates = async (
             mode: isCalculator ? 'calculator' : 'standard',
             origin: originPincode,
             destination: destinationPincode,
+            productType: delhiveryHeavyProduct ? 'Heavy' : 'B2C',
             paymentType: normalizedPaymentType,
             requiresCOD: delhiveryRequiresCOD,
-            originAvailableRecords: originResp?.delivery_codes?.length ?? 0,
-            destinationAvailableRecords: destinationResp?.delivery_codes?.length ?? 0,
-            originPickup: originService.pickup,
+            originAvailableRecords: delhiveryHeavyProduct
+              ? Number(Boolean(originResp))
+              : originResp?.delivery_codes?.length ?? 0,
+            destinationAvailableRecords: delhiveryHeavyProduct
+              ? Number(Boolean(destinationResp))
+              : destinationResp?.delivery_codes?.length ?? 0,
+            originPickup:
+              'pickup' in originService ? originService.pickup : originService.serviceable,
             destinationPrePaid: destinationService.prepaid,
             destinationCod: destinationService.cod,
-            destinationRemark: destinationService.remark,
+            destinationRemark:
+              'remark' in destinationService
+                ? destinationService.remark
+                : destinationService.providerStatus,
           })
 
           delhiveryAvailable = delhiveryOriginServiceable && delhiveryDestinationServiceable
@@ -4111,7 +4140,9 @@ export const fetchAvailableCouriersWithRates = async (
     }
 
     if (delhiveryAvailable) {
-      const destinationSummary = summarizeDelhiveryPincodeServiceability(delhiveryResp)
+      const destinationSummary = delhiveryHeavyProduct
+        ? summarizeDelhiveryHeavyPincodeServiceability(delhiveryResp)
+        : summarizeDelhiveryPincodeServiceability(delhiveryResp)
       registerServiceableProvider('delhivery', {
         providerId: 'delhivery',
         providerName: 'Delhivery',
@@ -5666,6 +5697,8 @@ export const fetchAvailableCouriersWithRatesB2B = async (
 export interface ShipmentParams {
   order_number: string // corresponds to b2c_orders.id
   payment_type?: 'cod' | 'prepaid' | 'reverse' | 'replacement'
+  product_type?: string
+  productType?: string
   package_weight?: number
   package_length?: number
   package_breadth?: number
@@ -6405,16 +6438,57 @@ export const createB2CShipmentService = async (
     originPin,
     destinationPin,
     paymentType,
+    productType,
     orderNumber,
   }: {
     delhivery: DelhiveryService
     originPin: string
     destinationPin: string
     paymentType?: ShipmentParams['payment_type']
+    productType?: string
     orderNumber?: string
   }) => {
     const requiresCOD = (paymentType || 'prepaid').toLowerCase() === 'cod'
+    const isHeavyProduct = String(productType || '').trim().toLowerCase() === 'heavy'
     try {
+      if (isHeavyProduct) {
+        const [originResp, destinationResp] = await Promise.all([
+          delhivery.checkHeavyServiceability(originPin),
+          delhivery.checkHeavyServiceability(destinationPin),
+        ])
+        const originSummary = summarizeDelhiveryHeavyPincodeServiceability(originResp)
+        const destinationSummary = summarizeDelhiveryHeavyPincodeServiceability(destinationResp)
+
+        if (!originSummary.serviceable) {
+          throw new HttpError(
+            400,
+            `Delhivery Heavy pickup pincode ${originPin} is NSZ for order ${orderNumber ?? 'unknown'}.`,
+          )
+        }
+        const destinationReady = requiresCOD
+          ? destinationSummary.cod
+          : destinationSummary.prepaid
+        if (!destinationReady) {
+          throw new HttpError(
+            400,
+            `Delhivery Heavy destination pincode ${destinationPin} is not serviceable for ${
+              requiresCOD ? 'COD' : 'Prepaid'
+            } orders.`,
+          )
+        }
+
+        console.log('[Delhivery] Heavy serviceability pre-check passed', {
+          order_number: orderNumber,
+          origin_pin: originPin,
+          destination_pin: destinationPin,
+          requires_cod: requiresCOD,
+          origin_nsz: originSummary.nsz,
+          destination_nsz: destinationSummary.nsz,
+          destination_payment_types: destinationSummary.paymentTypes,
+        })
+        return { originResp, destinationResp }
+      }
+
       const [originResp, destinationResp] = await Promise.all([
         delhivery.checkServiceability(originPin),
         delhivery.checkServiceability(destinationPin),
@@ -7556,6 +7630,7 @@ export const createB2CShipmentService = async (
           originPin,
           destinationPin,
           paymentType: params.payment_type,
+          productType: params.product_type || params.productType,
           orderNumber: params.order_number,
         })
 

@@ -69,6 +69,26 @@
           }
         },
         {
+          "name": "Heavy Product Pincode Serviceability",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "var body = pm.response.json();",
+              "pm.test('Heavy serviceability is normalized', function () {",
+              "  pm.expect(body.data.productType).to.eql('Heavy');",
+              "  pm.expect(body.data).to.have.property('serviceable');",
+              "  pm.expect(body.data).to.have.property('nsz');",
+              "  pm.expect(body.data.paymentTypes).to.be.an('array');",
+              "});"
+            ] }
+          }],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/delhivery/b2c/serviceability/heavy/{{heavyPincode}}",
+            "description": "Calls Delhivery's Heavy product pincode API with product_type=Heavy. NSZ is normalized as non-serviceable and paymentTypes exposes COD/Pre-paid eligibility."
+          }
+        },
+        {
           "name": "Expected TAT",
           "request": {
             "method": "GET",

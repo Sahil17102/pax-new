@@ -7,6 +7,7 @@ import {
   createWarehouseController,
   fetchWaybillsController,
   generateLabelController,
+  heavyServiceabilityController,
   ndrStatusController,
   serviceabilityController,
   shippingCostController,
@@ -23,6 +24,7 @@ const router = Router()
 
 router.use(requireAuth, isAdminMiddleware)
 
+router.get('/serviceability/heavy/:pincode', heavyServiceabilityController)
 router.get('/serviceability/:pincode', serviceabilityController)
 router.get('/tat', tatController)
 router.get('/shipping-cost', shippingCostController)

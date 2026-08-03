@@ -3,6 +3,7 @@ import { ShipmentParams } from '../models/services/shiprocket.service'
 import {
   DelhiveryService,
   DelhiveryShippingCostParams,
+  summarizeDelhiveryHeavyPincodeServiceability,
   summarizeDelhiveryPincodeServiceability,
 } from '../models/services/couriers/delhivery.service'
 
@@ -41,6 +42,25 @@ export const serviceabilityController = async (req: Request, res: Response) => {
     return res.status(statusCode >= 400 && statusCode < 600 ? statusCode : 500).json({
       success: false,
       message: error?.message || 'Delhivery B2C serviceability request failed',
+    })
+  }
+}
+
+export const heavyServiceabilityController = async (req: Request, res: Response) => {
+  try {
+    const providerResponse = await service.checkHeavyServiceability(req.params.pincode, 'Heavy')
+    return res.json({
+      success: true,
+      data: {
+        ...summarizeDelhiveryHeavyPincodeServiceability(providerResponse),
+        provider_response: providerResponse,
+      },
+    })
+  } catch (error: any) {
+    const statusCode = Number(error?.statusCode || error?.response?.status || 500)
+    return res.status(statusCode >= 400 && statusCode < 600 ? statusCode : 500).json({
+      success: false,
+      message: error?.message || 'Delhivery Heavy serviceability request failed',
     })
   }
 }

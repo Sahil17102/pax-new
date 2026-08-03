@@ -56,8 +56,10 @@ Set the Postman admin login values locally; no courier or admin secret belongs i
 the exported files. Run **Admin Login** first so its test script stores the Pax
 admin access token.
 
-The read-only folder covers pincode serviceability (including empty/Embargo
-normalization), expected TAT, shipping cost, tracking, label metadata, and NDR
-status. Requests that allocate waybills or change Delhivery state are skipped by
-default. Set `allowMutating=true` only when you deliberately want to run those
-requests against the configured Delhivery account.
+The read-only folder covers standard pincode serviceability (including
+empty/Embargo normalization), Heavy product pincode serviceability (including
+NSZ and payment-mode normalization), expected TAT, shipping cost, tracking,
+label metadata, and NDR status. Requests that allocate waybills or change
+Delhivery state are skipped by default. Set `allowMutating=true` only when you
+deliberately want to run those requests against the configured Delhivery
+account.

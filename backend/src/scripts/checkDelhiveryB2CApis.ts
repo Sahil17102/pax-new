@@ -7,6 +7,7 @@ const run = async () => {
   process.env.DATABASE_URL = 'postgresql://test:test@127.0.0.1:5432/test'
   const {
     DelhiveryService,
+    summarizeDelhiveryHeavyPincodeServiceability,
     summarizeDelhiveryPincodeServiceability,
   } = await import('../models/services/couriers/delhivery.service')
 
@@ -39,6 +40,27 @@ const run = async () => {
   assert.equal(serviceable.cod, false)
   assert.equal(serviceable.reversePickup, true)
 
+  const heavyNsz = summarizeDelhiveryHeavyPincodeServiceability({
+    data: { pincode: 400086, status: 'NSZ', payment_type: [] },
+  })
+  assert.equal(heavyNsz.productType, 'Heavy')
+  assert.equal(heavyNsz.serviceable, false)
+  assert.equal(heavyNsz.nsz, true)
+  assert.deepEqual(heavyNsz.paymentTypes, [])
+
+  const heavyServiceable = summarizeDelhiveryHeavyPincodeServiceability({
+    data: {
+      pincode: 400086,
+      status: 'Serviceable',
+      payment_type: { COD: 'Y', Prepaid: true, Reverse: 'N' },
+    },
+  })
+  assert.equal(heavyServiceable.serviceable, true)
+  assert.equal(heavyServiceable.nsz, false)
+  assert.equal(heavyServiceable.cod, true)
+  assert.equal(heavyServiceable.prepaid, true)
+  assert.deepEqual(heavyServiceable.paymentTypes, ['COD', 'Pre-paid'])
+
   const originalGet = axios.get
   const originalPost = axios.post
   const captured: Array<{ method: string; url: string; data?: unknown; headers?: any }> = []
@@ -46,9 +68,11 @@ const run = async () => {
     captured.push({ method: 'GET', url, headers: config?.headers })
     return {
       status: 200,
-      data: url.includes('/pin-codes/')
-        ? { delivery_codes: [{ postal_code: { pin: 194103, pickup: 'Y', pre_paid: 'Y', cod: 'N', remark: '' } }] }
-        : [{ total_amount: 75 }],
+      data: url.includes('/fetch/serviceability/pincode')
+        ? { data: { pincode: 400086, status: 'Serviceable', payment_type: ['Pre-paid', 'COD'] } }
+        : url.includes('/pin-codes/')
+          ? { delivery_codes: [{ postal_code: { pin: 194103, pickup: 'Y', pre_paid: 'Y', cod: 'N', remark: '' } }] }
+          : [{ total_amount: 75 }],
     }
   }
   ;(axios as any).post = async (url: string, data: unknown, config: any) => {
@@ -67,6 +91,13 @@ const run = async () => {
     'https://staging-express.delhivery.com/c/api/pin-codes/json/?filter_codes=194103',
   )
   assert.equal(captured.at(-1)?.headers?.Authorization, 'Token test-token')
+
+  await mockedService.checkHeavyServiceability('400086')
+  assert.equal(
+    captured.at(-1)?.url,
+    'https://staging-express.delhivery.com/api/dc/fetch/serviceability/pincode?product_type=Heavy&pincode=400086',
+  )
+  assert.equal(captured.at(-1)?.headers?.Accept, 'application/json')
 
   await mockedService.calculateShippingCost({
     originPincode: '122001',
@@ -87,6 +118,7 @@ const run = async () => {
 
   const service = new DelhiveryService()
   await assert.rejects(() => service.checkServiceability('19410'), /6-digit/)
+  await assert.rejects(() => service.checkHeavyServiceability('40008'), /6-digit/)
   await assert.rejects(
     () => service.calculateShippingCost({
       originPincode: '12200',
@@ -119,7 +151,15 @@ const run = async () => {
   )
   const collection = JSON.parse(fs.readFileSync(collectionPath, 'utf8'))
   assert.equal(collection.info.name, 'Pax Logistics - Delhivery B2C')
-  assert(collection.item.some((folder: any) => folder.name === 'Read-only smoke tests'))
+  const readOnlyFolder = collection.item.find(
+    (folder: any) => folder.name === 'Read-only smoke tests',
+  )
+  assert(readOnlyFolder)
+  assert(
+    readOnlyFolder.item.some(
+      (request: any) => request.name === 'Heavy Product Pincode Serviceability',
+    ),
+  )
   const mutatingFolder = collection.item.find(
     (folder: any) => folder.name === 'Mutating lifecycle requests',
   )
