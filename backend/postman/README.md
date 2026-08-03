@@ -82,3 +82,11 @@ stores the normalized response in the Postman `fetchedSingleWaybill` variable.
 The production limit is 750 requests per five-minute IP window. Copy that value
 to `manifestWaybill` only for the shipment that should consume it; every single
 fetch request allocates a new AWB.
+
+Shipment Creation accepts both Pax's existing nested order payload and the
+Delhivery-native field names used in the provider examples. The Postman folder
+contains forward SPS, Pickup/RVP, REPL, and MPS examples. For MPS, populate
+`mpsWaybill1` and `mpsWaybill2` with distinct prefetched AWBs; each box is sent
+with its own unique order ID. `pickup_location` must exactly match the registered
+warehouse name. The proxy form-encodes the provider payload, including addresses
+that contain `&`, `#`, `%`, `;`, or backslashes.

@@ -739,22 +739,19 @@ export class DelhiveryService {
   // 🔹 4. Create Shipment (Manifestation)
   async createShipment(params: ShipmentParams, waybill?: string) {
     try {
+      const input = params as ShipmentParams & Record<string, any>
       const normalizedCourierId = normalizeCourierId(params.courier_id)
-      if (normalizedCourierId === null) {
-        throw new HttpError(
-          400,
-          'Delhivery courier_id is required for Air/Express or Surface bookings.',
-        )
-      }
+      const requestedShippingMode =
+        input.shipping_mode ?? input.shippingMode ?? input.courier_partner
       const shippingMode = resolveDelhiveryShippingMode({
         courierId: normalizedCourierId,
-        mode: params.shipping_mode,
+        mode: requestedShippingMode,
         courierName: params.courier_partner,
-      })
-      if (!shippingMode) {
+      }) || (!normalizedCourierId && !requestedShippingMode ? 'Surface' : null)
+      if (shippingMode === null) {
         throw new HttpError(
           400,
-          `Invalid Delhivery courier selection: courier_id ${normalizedCourierId} does not map to Air/Express or Surface.`,
+          'shipping_mode must be Surface or Express, or courier_id must map to a Delhivery service.',
         )
       }
 
@@ -777,26 +774,57 @@ export class DelhiveryService {
         return ['true', '1', 'yes', 'y'].includes(normalized)
       }
 
-      const pickup = params.pickup || ({} as ShipmentParams['pickup'])
-      const consignee = params.consignee || ({} as ShipmentParams['consignee'])
+      const nativePickupLocation =
+        typeof input.pickup_location === 'string'
+          ? input.pickup_location
+          : input.pickup_location?.name
+      const pickup = params.pickup || ({
+        warehouse_name: nativePickupLocation,
+        name: input.seller_name,
+        address: input.seller_add,
+        city: input.seller_city,
+        state: input.seller_state,
+        country: input.seller_country,
+        pincode: input.seller_pin,
+        phone: input.seller_phone,
+      } as ShipmentParams['pickup'])
+      const consignee = params.consignee || ({
+        name: input.name,
+        address: input.add,
+        city: input.city,
+        state: input.state,
+        country: input.country,
+        pincode: input.pin,
+        phone: input.phone,
+      } as ShipmentParams['consignee'])
       const boxes = Array.isArray(params.boxes) ? params.boxes : []
-      const orderNumber = sanitizeString(params.order_number)
-      const invoiceNumber = sanitizeString(params.invoice_number)
+      const orderNumber = sanitizeString(params.order_number || input.order)
+      const invoiceNumber = sanitizeString(params.invoice_number || input.seller_inv)
       const pickupDate = sanitizeString(params.pickup_date || pickup.pickup_date)
       const pickupTime = sanitizeString(params.pickup_time || pickup.pickup_time)
       const resolvedInvoiceNumber = invoiceNumber || orderNumber
-      const orderAmount = Number(params.order_amount ?? 0)
+      const orderAmount = Number(params.order_amount ?? input.total_amount ?? 0)
       const orderItems = Array.isArray(params.order_items) ? params.order_items : []
-      const hsnCodes = Array.from(
+      const itemHsnCodes = Array.from(
         new Set(
           orderItems
             .map((item) => (item?.hsn || item?.hsnCode || '').toString().trim())
             .filter((code) => code.length > 0),
         ),
       )
+      const directHsnCodes = Array.isArray(input.hsn_code)
+        ? input.hsn_code
+        : String(input.hsn_code || '').split(',')
+      const hsnCodes = Array.from(
+        new Set(
+          [...itemHsnCodes, ...directHsnCodes.map(String)]
+            .map((code) => code.trim())
+            .filter(Boolean),
+        ),
+      )
 
       if (!orderNumber) {
-        throw new HttpError(400, 'order_number is required to create a Delhivery shipment.')
+        throw new HttpError(400, 'order/order_number is required to create a Delhivery shipment.')
       }
       if (!invoiceNumber) {
         console.warn(
@@ -815,17 +843,21 @@ export class DelhiveryService {
       //     'Delhivery requires HSN/SAC codes for at least one of the products you are shipping. Attach HSN codes to your order items.',
       //   )
       // }
-      if (orderAmount <= 0 || Number.isNaN(orderAmount)) {
+      if (!Number.isFinite(orderAmount) || orderAmount < 0) {
         throw new HttpError(
           400,
-          'order_amount is required and must be a positive number when booking with Delhivery.',
+          'total_amount/order_amount must be a non-negative number.',
         )
       }
-      if ((params.mps || boxes.length > 1) && !waybill) {
+      const isMultiPiece = Boolean(params.mps || boxes.length > 1)
+      if (isMultiPiece && boxes.length < 2) {
         throw new HttpError(
           400,
-          'Delhivery multi-piece shipment is not supported in the current B2C flow. Use a single-package shipment.',
+          'At least two boxes are required when mps is true.',
         )
+      }
+      if (isMultiPiece && boxes.some((box: any) => !sanitizeString(box?.waybill))) {
+        throw new HttpError(400, 'Every Delhivery MPS box must have its own waybill.')
       }
 
       const pickupAddressParts = [
@@ -833,27 +865,48 @@ export class DelhiveryService {
         sanitizeString(pickup.address_2),
       ].filter((part) => part.length > 0)
       const pickupAddress =
-        pickupAddressParts.length > 0
+        sanitizeString(input.seller_add) ||
+        (pickupAddressParts.length > 0
           ? pickupAddressParts.join(', ')
-          : sanitizeString(pickup.warehouse_name)
+          : sanitizeString(pickup.warehouse_name))
 
-      const sellerName = sanitizeString(params.company?.name || pickup.name || 'Shiplifi')
+      const sellerName = sanitizeString(
+        params.company?.name || input.seller_name || pickup.name || 'Shiplifi',
+      )
       const sellerGst = sanitizeString(params.company?.gst || pickup.gst_number || '')
       const productNames = orderItems
         .map((item) => sanitizeString(item?.name))
         .filter((name) => name.length > 0)
-      const productsDesc = productNames.length ? productNames.join(', ') : 'General Merchandise'
+      const productsDesc =
+        sanitizeString(input.products_desc) ||
+        (productNames.length ? productNames.join(', ') : 'General Merchandise')
 
       const consigneePhone = sanitizePhone(consignee.phone)
-      if (!consigneePhone) {
+      const consigneeName = sanitizeString(consignee.name)
+      const consigneeAddress = sanitizeString(consignee.address)
+      const consigneePincode = sanitizePincode(consignee.pincode)
+      if (!consigneeName) {
+        throw new HttpError(400, 'Consignee name is required for Delhivery shipments.')
+      }
+      if (!consigneeAddress) {
+        throw new HttpError(400, 'Consignee address is required for Delhivery shipments.')
+      }
+      if (!/^\d{6}$/.test(consigneePincode)) {
+        throw new HttpError(400, 'Consignee pin must be a valid 6-digit pincode.')
+      }
+      if (consigneePhone.length !== 10) {
         throw new HttpError(
           400,
           'Consignee phone must contain at least 10 digits for Delhivery shipments.',
         )
       }
       const pickupPhone = sanitizePhone(pickup.phone)
-      if (!pickupPhone) {
-        throw new HttpError(400, 'Valid pickup phone is required for Delhivery manifests.')
+      const pickupLocationName = sanitizeString(pickup.warehouse_name || nativePickupLocation)
+      if (!pickupLocationName) {
+        throw new HttpError(
+          400,
+          'pickup_location is required and must exactly match the registered warehouse name.',
+        )
       }
 
       const orderDate =
@@ -864,36 +917,59 @@ export class DelhiveryService {
         params.invoice_date && sanitizeString(params.invoice_date)
           ? sanitizeString(params.invoice_date)
           : orderDate
+      const rawPaymentMode = sanitizeString(input.payment_mode || params.payment_type || 'prepaid')
+        .toLowerCase()
       const paymentMode =
-        params.payment_type === 'cod'
+        rawPaymentMode === 'cod'
           ? 'COD'
-          : params.payment_type === 'reverse'
+          : ['pickup', 'reverse'].includes(rawPaymentMode)
             ? 'Pickup'
-            : params.payment_type === 'replacement'
+            : ['repl', 'replacement'].includes(rawPaymentMode)
               ? 'REPL'
-              : 'Prepaid'
-      const codAmount = paymentMode === 'COD' ? orderAmount : 0
-      const packageWeightGrams = normalizeDelhiveryWeightGrams(params.package_weight)
+              : rawPaymentMode === 'prepaid'
+                ? 'Prepaid'
+                : null
+      if (!paymentMode) {
+        throw new HttpError(400, 'payment_mode must be Pickup, COD, Prepaid, or REPL.')
+      }
+      if (isMultiPiece && paymentMode === 'REPL') {
+        throw new HttpError(400, 'REPL shipments must use a single waybill.')
+      }
+
+      const rawCodAmount = Number(input.cod_amount ?? orderAmount)
+      if (!Number.isFinite(rawCodAmount) || rawCodAmount < 0) {
+        throw new HttpError(400, 'cod_amount must be a non-negative number.')
+      }
+      const codAmount = paymentMode === 'COD' ? rawCodAmount : 0
+      const packageWeightGrams = normalizeDelhiveryWeightGrams(
+        params.package_weight ?? input.weight,
+      )
+      const destinationCountry = sanitizeString(consignee.country || input.country) || 'India'
+      const transportSpeed = sanitizeString(params.transport_speed || input.transport_speed)
+        .toUpperCase()
+      if (transportSpeed && !['F', 'D'].includes(transportSpeed)) {
+        throw new HttpError(400, 'transport_speed must be F (NDD) or D (standard delivery).')
+      }
 
       const manifestShipment: Record<string, any> = {
         order: orderNumber,
         order_date: orderDate,
-        name: sanitizeString(consignee.name),
+        name: consigneeName,
         phone: consigneePhone,
-        add: sanitizeString(consignee.address),
+        add: consigneeAddress,
         city: sanitizeString(consignee.city),
         state: sanitizeString(consignee.state),
-        pin: sanitizePincode(consignee.pincode),
-        country: 'India',
+        pin: consigneePincode,
+        country: destinationCountry,
         payment_mode: paymentMode,
         cod_amount: codAmount,
         total_amount: orderAmount,
         products_desc: productsDesc,
         hsn_code: hsnCodes.join(', '),
         weight: packageWeightGrams,
-        shipment_length: Number(params.package_length ?? 10),
-        shipment_width: Number(params.package_breadth ?? 10),
-        shipment_height: Number(params.package_height ?? 10),
+        shipment_length: Number(params.package_length ?? input.shipment_length ?? 10),
+        shipment_width: Number(params.package_breadth ?? input.shipment_width ?? 10),
+        shipment_height: Number(params.package_height ?? input.shipment_height ?? 10),
         seller_name: sellerName,
         seller_add: pickupAddress,
         seller_city: sanitizeString(pickup.city),
@@ -904,7 +980,7 @@ export class DelhiveryService {
         seller_inv: resolvedInvoiceNumber,
         invoice_reference: resolvedInvoiceNumber,
         invoice_date: invoiceDate,
-        pickup_location: sanitizeString(pickup.warehouse_name) || 'Default Warehouse',
+        pickup_location: pickupLocationName,
         pickup_address: pickupAddress,
         pickup_city: sanitizeString(pickup.city),
         pickup_state: sanitizeString(pickup.state),
@@ -917,11 +993,11 @@ export class DelhiveryService {
         product_type: params.product_type || params.productType || undefined,
         client_name: this.clientName || sellerName,
         client_gst_tin: sellerGst,
-        waybill: waybill || undefined,
+        waybill: waybill || sanitizeString(input.waybill) || undefined,
       }
 
-      if (params.transport_speed) {
-        manifestShipment.transport_speed = sanitizeString(params.transport_speed)
+      if (transportSpeed) {
+        manifestShipment.transport_speed = transportSpeed
       }
       if (params.address_type) {
         manifestShipment.address_type = sanitizeString(params.address_type)
@@ -940,37 +1016,112 @@ export class DelhiveryService {
       if (params.plastic_packaging !== undefined) {
         manifestShipment.plastic_packaging = sanitizeBoolean(params.plastic_packaging)
       }
-      if (params.quantity !== undefined && params.quantity !== null) {
-        manifestShipment.quantity = sanitizeString(String(params.quantity))
-      }
-      if (params.country) {
-        manifestShipment.country = sanitizeString(params.country)
+      const directQuantity = params.quantity ?? input.quantity
+      if (directQuantity !== undefined && directQuantity !== null) {
+        manifestShipment.quantity = sanitizeString(String(directQuantity))
       }
 
+      const hasNativeReturnAddress = [
+        input.return_name,
+        input.return_add,
+        input.return_address,
+        input.return_city,
+        input.return_state,
+        input.return_pin,
+        input.return_phone,
+        input.return_country,
+      ].some((value) => sanitizeString(value))
+      const nativeReturnAddress = hasNativeReturnAddress
+        ? {
+            name: input.return_name,
+            address: input.return_add || input.return_address,
+            city: input.return_city,
+            state: input.return_state,
+            pincode: input.return_pin,
+            phone: input.return_phone,
+            country: input.return_country,
+          }
+        : null
+      const explicitReturnAddress = params.rto || nativeReturnAddress
       const resolvedReturnAddress =
-        params.rto && params.is_rto_different === 'yes'
-          ? params.rto
-          : paymentMode === 'REPL'
-            ? (params.rto ?? params.pickup)
+        explicitReturnAddress
+          ? explicitReturnAddress
+          : ['Pickup', 'REPL'].includes(paymentMode)
+            ? pickup
             : null
 
       if (resolvedReturnAddress) {
+        const usesRegisteredPickupAsReturn = resolvedReturnAddress === pickup
         Object.assign(manifestShipment, {
-          return_name: resolvedReturnAddress.name,
-          return_add: resolvedReturnAddress.address,
-          return_address: resolvedReturnAddress.address,
-          return_city: resolvedReturnAddress.city,
-          return_state: resolvedReturnAddress.state,
-          return_pin: resolvedReturnAddress.pincode,
-          return_phone: resolvedReturnAddress.phone,
-          return_country: 'India',
+          return_name:
+            sanitizeString(resolvedReturnAddress.name) ||
+            (usesRegisteredPickupAsReturn ? pickupLocationName : ''),
+          return_add:
+            sanitizeString(resolvedReturnAddress.address) ||
+            (usesRegisteredPickupAsReturn ? pickupAddress : ''),
+          return_address:
+            sanitizeString(resolvedReturnAddress.address) ||
+            (usesRegisteredPickupAsReturn ? pickupAddress : ''),
+          return_city: sanitizeString(resolvedReturnAddress.city),
+          return_state: sanitizeString(resolvedReturnAddress.state),
+          return_pin: sanitizePincode(resolvedReturnAddress.pincode),
+          return_phone: sanitizePhone(resolvedReturnAddress.phone),
+          return_country: sanitizeString(resolvedReturnAddress.country) || 'India',
         })
       }
 
+      const manifestShipments: Record<string, any>[] = isMultiPiece
+        ? boxes.map((box: any, index: number) => ({
+            ...manifestShipment,
+            order:
+              sanitizeString(box?.order_number || box?.order) || `${orderNumber}-${index + 1}`,
+            waybill: sanitizeString(box?.waybill),
+            weight: normalizeDelhiveryWeightGrams(
+              box?.weight ?? box?.package_weight ?? packageWeightGrams,
+            ),
+            shipment_length: Number(
+              box?.shipment_length ?? box?.package_length ?? manifestShipment.shipment_length,
+            ),
+            shipment_width: Number(
+              box?.shipment_width ?? box?.package_breadth ?? manifestShipment.shipment_width,
+            ),
+            shipment_height: Number(
+              box?.shipment_height ?? box?.package_height ?? manifestShipment.shipment_height,
+            ),
+            products_desc: sanitizeString(box?.products_desc) || manifestShipment.products_desc,
+            hsn_code: sanitizeString(box?.hsn_code) || manifestShipment.hsn_code,
+            quantity:
+              box?.quantity === undefined
+                ? manifestShipment.quantity
+                : sanitizeString(String(box.quantity)),
+          }))
+        : [manifestShipment]
+
+      const duplicateWaybills = manifestShipments
+        .map((shipment) => sanitizeString(shipment.waybill))
+        .filter(Boolean)
+        .filter((awb, index, all) => all.indexOf(awb) !== index)
+      if (duplicateWaybills.length > 0) {
+        throw new HttpError(400, 'Every Delhivery MPS box waybill must be unique.')
+      }
+      const manifestOrders = manifestShipments.map((shipment) => sanitizeString(shipment.order))
+      if (new Set(manifestOrders).size !== manifestOrders.length) {
+        throw new HttpError(400, 'Every Delhivery MPS box order must be unique.')
+      }
+      const hasInvalidDimensions = manifestShipments.some((shipment) =>
+        ['weight', 'shipment_length', 'shipment_width', 'shipment_height'].some((field) => {
+          const value = Number(shipment[field])
+          return !Number.isFinite(value) || value <= 0
+        }),
+      )
+      if (hasInvalidDimensions) {
+        throw new HttpError(400, 'Shipment weight and dimensions must be positive numbers.')
+      }
+
       const payload = {
-        shipments: [manifestShipment],
+        shipments: manifestShipments,
         pickup_location: {
-          name: sanitizeString(pickup.warehouse_name) || 'Default Warehouse',
+          name: pickupLocationName,
         },
       }
 
@@ -985,6 +1136,7 @@ export class DelhiveryService {
         invoice_number: invoiceNumber,
         shipping_mode: shippingMode,
         cod_amount: codAmount,
+        package_count: manifestShipments.length,
       })
 
       const res = await this.postFormEncoded('/api/cmu/create.json', payload)
@@ -1032,6 +1184,8 @@ export class DelhiveryService {
         overallStatus === 'fail' ||
         responseData?.success === false ||
         responseData?.serviceable === false ||
+        packageFailures.length > 0 ||
+        packages.length < manifestShipments.length ||
         !successPackage
       ) {
         console.error('❌ Delhivery manifest rejected', {

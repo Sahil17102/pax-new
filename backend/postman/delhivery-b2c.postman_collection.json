@@ -214,7 +214,38 @@
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{baseUrl}}/api/delhivery/b2c/shipments",
-            "body": { "mode": "raw", "raw": "{\n  \"waybill\": \"{{manifestWaybill}}\",\n  \"order_number\": \"POSTMAN-{{$timestamp}}\",\n  \"order_date\": \"{{$isoTimestamp}}\",\n  \"payment_type\": \"prepaid\",\n  \"order_amount\": 1000,\n  \"package_weight\": {{weightGrams}},\n  \"package_length\": 10,\n  \"package_breadth\": 10,\n  \"package_height\": 10,\n  \"courier_id\": 100,\n  \"invoice_number\": \"POSTMAN-{{$timestamp}}\",\n  \"consignee\": {\"name\": \"Postman Customer\", \"address\": \"Test consignee address\", \"city\": \"Mumbai\", \"state\": \"Maharashtra\", \"pincode\": \"{{destinationPincode}}\", \"phone\": \"9999999999\"},\n  \"pickup\": {\"warehouse_name\": \"{{warehouseName}}\", \"name\": \"Pax Logistics\", \"address\": \"Test warehouse address\", \"city\": \"Gurugram\", \"state\": \"Haryana\", \"pincode\": \"{{originPincode}}\", \"phone\": \"9999999999\"},\n  \"company\": {\"name\": \"Pax Logistics\"},\n  \"order_items\": [{\"name\": \"Test Product\", \"sku\": \"TEST-1\", \"qty\": 1, \"price\": 1000, \"hsn\": \"610910\", \"discount\": 0, \"tax_rate\": 18}]\n}" }
+            "body": { "mode": "raw", "raw": "{\n  \"waybill\": \"{{manifestWaybill}}\",\n  \"order_number\": \"POSTMAN-{{$timestamp}}\",\n  \"order_date\": \"{{$isoTimestamp}}\",\n  \"payment_type\": \"prepaid\",\n  \"order_amount\": 1000,\n  \"package_weight\": {{weightGrams}},\n  \"package_length\": 10,\n  \"package_breadth\": 10,\n  \"package_height\": 10,\n  \"shipping_mode\": \"Surface\",\n  \"transport_speed\": \"D\",\n  \"address_type\": \"home\",\n  \"fragile_shipment\": false,\n  \"dangerous_good\": false,\n  \"plastic_packaging\": false,\n  \"quantity\": 1,\n  \"invoice_number\": \"POSTMAN-{{$timestamp}}\",\n  \"consignee\": {\"name\": \"Postman Customer\", \"address\": \"Test consignee address\", \"city\": \"Mumbai\", \"state\": \"Maharashtra\", \"country\": \"India\", \"pincode\": \"{{destinationPincode}}\", \"phone\": \"9999999999\"},\n  \"pickup\": {\"warehouse_name\": \"{{warehouseName}}\", \"name\": \"Pax Logistics\", \"address\": \"Test warehouse address\", \"city\": \"Gurugram\", \"state\": \"Haryana\", \"pincode\": \"{{originPincode}}\", \"phone\": \"9999999999\"},\n  \"company\": {\"name\": \"Pax Logistics\"},\n  \"order_items\": [{\"name\": \"Test Product\", \"sku\": \"TEST-1\", \"qty\": 1, \"price\": 1000, \"hsn\": \"610910\", \"discount\": 0, \"tax_rate\": 18}]\n}" },
+            "description": "Creates a forward SPS shipment. waybill is optional; payment_type may be prepaid or cod. The backend URL-encodes Delhivery's format/data payload so &, #, %, ; and backslash in addresses are transmitted safely."
+          }
+        },
+        {
+          "name": "Create Pickup Shipment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/delhivery/b2c/shipments",
+            "body": { "mode": "raw", "raw": "{\n  \"order\": \"POSTMAN-PICKUP-{{$timestamp}}\",\n  \"payment_mode\": \"Pickup\",\n  \"name\": \"Pickup Customer\",\n  \"phone\": \"9999999999\",\n  \"add\": \"Customer pickup address\",\n  \"pin\": \"{{destinationPincode}}\",\n  \"city\": \"Mumbai\",\n  \"state\": \"Maharashtra\",\n  \"pickup_location\": \"{{warehouseName}}\",\n  \"return_name\": \"Pax Logistics\",\n  \"return_address\": \"Test warehouse address\",\n  \"return_city\": \"Gurugram\",\n  \"return_state\": \"Haryana\",\n  \"return_pin\": \"{{originPincode}}\",\n  \"return_phone\": \"9999999999\",\n  \"total_amount\": 1000,\n  \"weight\": {{weightGrams}},\n  \"shipping_mode\": \"Surface\"\n}" },
+            "description": "Creates a pickup/RVP shipment. Customer fields are the pickup address and return_* fields are the delivery address."
+          }
+        },
+        {
+          "name": "Create REPL Shipment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/delhivery/b2c/shipments",
+            "body": { "mode": "raw", "raw": "{\n  \"waybill\": \"{{manifestWaybill}}\",\n  \"order\": \"POSTMAN-REPL-{{$timestamp}}\",\n  \"payment_mode\": \"REPL\",\n  \"name\": \"Exchange Customer\",\n  \"phone\": \"9999999999\",\n  \"add\": \"Customer exchange address\",\n  \"pin\": \"{{destinationPincode}}\",\n  \"pickup_location\": \"{{warehouseName}}\",\n  \"return_address\": \"Test warehouse address\",\n  \"return_city\": \"Gurugram\",\n  \"return_state\": \"Haryana\",\n  \"return_pin\": \"{{originPincode}}\",\n  \"return_phone\": \"9999999999\",\n  \"total_amount\": 1000,\n  \"weight\": {{weightGrams}},\n  \"shipping_mode\": \"Surface\"\n}" },
+            "description": "Creates a replacement shipment. A single waybill is used for the full exchange journey; return_* is the final delivery address."
+          }
+        },
+        {
+          "name": "Create Multi Piece Shipment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/delhivery/b2c/shipments",
+            "body": { "mode": "raw", "raw": "{\n  \"order_number\": \"POSTMAN-MPS-{{$timestamp}}\",\n  \"payment_type\": \"prepaid\",\n  \"order_amount\": 1000,\n  \"mps\": true,\n  \"boxes\": [\n    {\"waybill\": \"{{mpsWaybill1}}\", \"weight\": 500, \"quantity\": 1},\n    {\"waybill\": \"{{mpsWaybill2}}\", \"weight\": 600, \"quantity\": 1}\n  ],\n  \"shipping_mode\": \"Surface\",\n  \"consignee\": {\"name\": \"Postman Customer\", \"address\": \"Test consignee address\", \"city\": \"Mumbai\", \"state\": \"Maharashtra\", \"pincode\": \"{{destinationPincode}}\", \"phone\": \"9999999999\"},\n  \"pickup\": {\"warehouse_name\": \"{{warehouseName}}\", \"name\": \"Pax Logistics\", \"address\": \"Test warehouse address\", \"city\": \"Gurugram\", \"state\": \"Haryana\", \"pincode\": \"{{originPincode}}\", \"phone\": \"9999999999\"},\n  \"company\": {\"name\": \"Pax Logistics\"}\n}" },
+            "description": "Creates an MPS manifest. Every box must have a distinct prefetched waybill; derived box order IDs are unique."
           }
         },
         {

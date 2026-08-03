@@ -109,6 +109,22 @@ const run = async () => {
   }
   ;(axios as any).post = async (url: string, data: unknown, config: any) => {
     captured.push({ method: 'POST', url, data, headers: config?.headers })
+    if (url.includes('/api/cmu/create.json')) {
+      const form = new URLSearchParams(String(data))
+      const payload = JSON.parse(form.get('data') || '{}')
+      return {
+        status: 200,
+        data: {
+          success: true,
+          status: 'Success',
+          packages: payload.shipments.map((shipment: any, index: number) => ({
+            status: 'Success',
+            serviceable: true,
+            waybill: shipment.waybill || `MOCK-AWB-${index + 1}`,
+          })),
+        },
+      }
+    }
     return { status: 200, data: { success: true } }
   }
 
@@ -176,6 +192,116 @@ const run = async () => {
   assert(captured.at(-1)?.url.includes('d_pin=400093'))
   assert(captured.at(-1)?.url.includes('cgm=500'))
 
+  await mockedService.createShipment({
+    order: 'DOC-COD-1',
+    payment_mode: 'COD',
+    cod_amount: 350,
+    total_amount: 500,
+    name: 'Postman Customer',
+    add: 'Market & Block #5',
+    pin: '400093',
+    city: 'Mumbai',
+    state: 'Maharashtra',
+    country: 'India',
+    phone: '9999999999',
+    pickup_location: { name: 'Test Warehouse' },
+    seller_name: 'Pax Logistics',
+    seller_add: 'Warehouse Road',
+    products_desc: 'T-shirt; Shoes',
+    hsn_code: '610910, 640411',
+    weight: 750,
+    shipment_length: 20,
+    shipment_width: 15,
+    shipment_height: 10,
+    shipping_mode: 'Express',
+    transport_speed: 'F',
+    address_type: 'home',
+    fragile_shipment: true,
+    dangerous_good: false,
+    plastic_packaging: false,
+  } as any, 'DOC-AWB-1')
+  assert.equal(captured.at(-1)?.url, 'https://staging-express.delhivery.com/api/cmu/create.json')
+  assert.equal(captured.at(-1)?.headers?.Authorization, 'Token test-token')
+  assert.equal(captured.at(-1)?.headers?.['Content-Type'], 'application/x-www-form-urlencoded')
+  const codForm = new URLSearchParams(String(captured.at(-1)?.data))
+  assert.equal(codForm.get('format'), 'json')
+  const codPayload = JSON.parse(codForm.get('data') || '{}')
+  assert.equal(codPayload.pickup_location.name, 'Test Warehouse')
+  assert.equal(codPayload.shipments[0].order, 'DOC-COD-1')
+  assert.equal(codPayload.shipments[0].payment_mode, 'COD')
+  assert.equal(codPayload.shipments[0].cod_amount, 350)
+  assert.equal(codPayload.shipments[0].shipping_mode, 'Express')
+  assert.equal(codPayload.shipments[0].transport_speed, 'F')
+  assert.equal(codPayload.shipments[0].add, 'Market & Block #5')
+  assert.equal(codPayload.shipments[0].waybill, 'DOC-AWB-1')
+
+  await mockedService.createShipment({
+    order: 'DOC-PICKUP-1',
+    payment_mode: 'Pickup',
+    total_amount: 0,
+    name: 'Pickup Customer',
+    add: 'Customer pickup address',
+    pin: '400093',
+    phone: '9999999999',
+    pickup_location: 'Test Warehouse',
+    return_name: 'Pax Returns',
+    return_address: 'Return Hub',
+    return_city: 'Gurugram',
+    return_state: 'Haryana',
+    return_pin: '122001',
+    return_phone: '9888888888',
+  } as any)
+  const pickupForm = new URLSearchParams(String(captured.at(-1)?.data))
+  const pickupPayload = JSON.parse(pickupForm.get('data') || '{}')
+  assert.equal(pickupPayload.shipments[0].payment_mode, 'Pickup')
+  assert.equal(pickupPayload.shipments[0].return_add, 'Return Hub')
+  assert.equal(pickupPayload.shipments[0].return_pin, '122001')
+
+  await mockedService.createShipment({
+    order: 'DOC-REPL-1',
+    payment_mode: 'REPL',
+    total_amount: 500,
+    name: 'Exchange Customer',
+    add: 'Exchange address',
+    pin: '400093',
+    phone: '9999999999',
+    pickup_location: 'Test Warehouse',
+  } as any, 'REPL-AWB-1')
+  const replForm = new URLSearchParams(String(captured.at(-1)?.data))
+  const replPayload = JSON.parse(replForm.get('data') || '{}')
+  assert.equal(replPayload.shipments.length, 1)
+  assert.equal(replPayload.shipments[0].payment_mode, 'REPL')
+  assert.equal(replPayload.shipments[0].waybill, 'REPL-AWB-1')
+  assert.equal(replPayload.shipments[0].return_add, 'Test Warehouse')
+
+  await mockedService.createShipment({
+    order: 'DOC-MPS-1',
+    payment_mode: 'Prepaid',
+    total_amount: 500,
+    name: 'Exchange Customer',
+    add: 'Exchange address',
+    pin: '400093',
+    phone: '9999999999',
+    pickup_location: 'Test Warehouse',
+    mps: true,
+    boxes: [
+      { waybill: 'MPS-AWB-1', weight: 500, quantity: 1 },
+      { waybill: 'MPS-AWB-2', weight: 600, quantity: 2 },
+    ],
+  } as any)
+  const mpsForm = new URLSearchParams(String(captured.at(-1)?.data))
+  const mpsPayload = JSON.parse(mpsForm.get('data') || '{}')
+  assert.equal(mpsPayload.shipments.length, 2)
+  assert.deepEqual(mpsPayload.shipments.map((shipment: any) => shipment.waybill), [
+    'MPS-AWB-1',
+    'MPS-AWB-2',
+  ])
+  assert.deepEqual(mpsPayload.shipments.map((shipment: any) => shipment.order), [
+    'DOC-MPS-1-1',
+    'DOC-MPS-1-2',
+  ])
+  assert.equal(mpsPayload.shipments[0].payment_mode, 'Prepaid')
+
   await mockedService.updateShipment('TEST-AWB', { phone: '919999999999' })
   assert.equal(captured.at(-1)?.url, 'https://staging-express.delhivery.com/api/p/edit')
   assert.deepEqual(captured.at(-1)?.data, { waybill: 'TEST-AWB', phone: '9999999999' })
@@ -184,6 +310,40 @@ const run = async () => {
   ;(axios as any).post = originalPost
 
   const service = new DelhiveryService()
+  const nativeShipmentBase = {
+    order: 'INVALID-CHECK',
+    payment_mode: 'Prepaid',
+    total_amount: 100,
+    name: 'Test Customer',
+    add: 'Test address',
+    pin: '400093',
+    phone: '9999999999',
+    pickup_location: 'Test Warehouse',
+  }
+  await assert.rejects(
+    () => service.createShipment({ ...nativeShipmentBase, name: '' } as any),
+    /Consignee name is required/,
+  )
+  await assert.rejects(
+    () => service.createShipment({ ...nativeShipmentBase, transport_speed: 'X' } as any),
+    /transport_speed must be F.*or D/,
+  )
+  await assert.rejects(
+    () => service.createShipment({
+      ...nativeShipmentBase,
+      mps: true,
+      boxes: [{ waybill: 'MPS-ONE' }],
+    } as any),
+    /At least two boxes/,
+  )
+  await assert.rejects(
+    () => service.createShipment({
+      ...nativeShipmentBase,
+      mps: true,
+      boxes: [{ waybill: 'MPS-ONE' }, { weight: 500 }],
+    } as any),
+    /Every Delhivery MPS box must have its own waybill/,
+  )
   await assert.rejects(() => service.checkServiceability('19410'), /6-digit/)
   await assert.rejects(() => service.checkHeavyServiceability('40008'), /6-digit/)
   await assert.rejects(
@@ -267,6 +427,14 @@ const run = async () => {
     (request: any) => request.name === 'Create Forward Shipment',
   )
   assert(createShipmentRequest.request.body.raw.includes('{{manifestWaybill}}'))
+  assert(createShipmentRequest.request.body.raw.includes('transport_speed'))
+  assert(mutatingFolder.item.some((request: any) => request.name === 'Create Pickup Shipment'))
+  assert(mutatingFolder.item.some((request: any) => request.name === 'Create REPL Shipment'))
+  const createMpsRequest = mutatingFolder.item.find(
+    (request: any) => request.name === 'Create Multi Piece Shipment',
+  )
+  assert(createMpsRequest.request.body.raw.includes('{{mpsWaybill1}}'))
+  assert(createMpsRequest.request.body.raw.includes('{{mpsWaybill2}}'))
 
   console.log('Delhivery B2C integration checks passed')
 }
