@@ -10,8 +10,7 @@ export default function BrandMark({
 }) {
   const titleColor = useColorModeValue(BRAND.colors.ink, 'white')
   const subtitleColor = useColorModeValue(BRAND.colors.muted, 'gray.400')
-  const pillBg = useColorModeValue('rgba(6, 42, 91, 0.08)', 'rgba(255, 255, 255, 0.08)')
-  const logoBlendMode = useColorModeValue('multiply', 'normal')
+  const logoBorder = useColorModeValue('rgba(6, 42, 91, 0.14)', 'rgba(255, 255, 255, 0.22)')
 
   const fittedLogo = (dimension, withBackground = false) => (
     <Box
@@ -21,7 +20,10 @@ export default function BrandMark({
       position="relative"
       overflow="hidden"
       borderRadius={withBackground ? '14px' : '10px'}
-      bg={withBackground ? pillBg : 'transparent'}
+      bg="white"
+      border="1px solid"
+      borderColor={logoBorder}
+      boxShadow={withBackground ? '0 5px 14px rgba(6, 42, 91, 0.08)' : 'none'}
     >
       <Box
         as="img"
@@ -35,7 +37,6 @@ export default function BrandMark({
         objectPosition="center"
         transform="scale(1.42)"
         transformOrigin="center"
-        mixBlendMode={logoBlendMode}
       />
     </Box>
   )

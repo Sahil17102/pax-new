@@ -2,11 +2,11 @@
 import fs from 'fs'
 import path from 'path'
 import XLSX from 'xlsx'
-import { db } from '../models/client'
+import { db, pool } from '../models/client'
 import { locations } from '../schema/schema'
 
 const DATA_DIR = path.resolve('src/scripts/data')
-const CHUNK_SIZE = 10
+const CHUNK_SIZE = 500
 
 // ---------- Types ----------
 type Row = {
@@ -90,13 +90,17 @@ async function importXlsx(filename: string) {
 
   console.log('Total rows parsed:', jsonRows.length)
 
+  const existingRows = await db.select({ pincode: locations.pincode }).from(locations)
+  const existingPincodes = new Set(existingRows.map((row) => row.pincode))
   let batch: Row[] = []
   let processed = 0
 
   for (const raw of jsonRows) {
     const mapped = mapRow(raw)
     if (!mapped) continue
+    if (existingPincodes.has(mapped.pincode)) continue
 
+    existingPincodes.add(mapped.pincode)
     batch.push(mapped)
 
     if (batch.length >= CHUNK_SIZE) {
@@ -128,5 +132,7 @@ async function importXlsx(filename: string) {
   } catch (err) {
     console.error('Import failed:', (err as Error).message)
     process.exitCode = 1
+  } finally {
+    await pool.end()
   }
 })()

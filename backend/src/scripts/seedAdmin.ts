@@ -1,6 +1,6 @@
 // seedAdmin.ts
 import bcrypt from 'bcryptjs'
-import { eq } from 'drizzle-orm'
+import { eq, or } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { db } from '../models/client'
 import { User } from '../models/services/userService'
@@ -20,7 +20,10 @@ export const seedAdmin = async ({
   role = 'admin',
 }: SeedAdminProps): Promise<User> => {
   // check if user already exists
-  const existing = await db.select().from(users).where(eq(users.phone, phone))
+  const existing = await db
+    .select()
+    .from(users)
+    .where(email ? or(eq(users.phone, phone), eq(users.email, email)) : eq(users.phone, phone))
   if (existing.length > 0) return existing[0] as User
 
   // hash password
@@ -52,7 +55,12 @@ seedAdmin({
   role: 'admin',
 })
   .then((user) => {
-    console.log('Admin user created or already exists:', user)
+    console.log('Admin user created or already exists:', {
+      id: user.id,
+      role: user.role,
+      emailVerified: user.emailVerified,
+      phoneVerified: user.phoneVerified,
+    })
     process.exit(0)
   })
   .catch((err) => {
