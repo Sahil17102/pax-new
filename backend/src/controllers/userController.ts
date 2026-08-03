@@ -94,11 +94,18 @@ export const completeRegistration = async (req: any, res: Response): Promise<any
           }
         }
 
+        const canonicalEmail = emailLower || user.email || ''
+        const canonicalPhone = phoneDigits || user.phone || ''
+
         updates = {
           companyInfo: {
+            ...userProfile?.companyInfo,
             contactPerson: `${data?.basicInfo?.firstName} ${data?.basicInfo?.lastName}`,
-            contactEmail: emailLower || user.email,
-            contactNumber: phoneDigits || user.phone,
+            contactEmail: canonicalEmail,
+            contactNumber: canonicalPhone,
+            companyEmail: userProfile?.companyInfo?.companyEmail || canonicalEmail,
+            companyContactNumber:
+              userProfile?.companyInfo?.companyContactNumber || canonicalPhone,
             pincode: data?.basicInfo?.pincode,
             state: data?.basicInfo?.state,
             POCEmailVerified: user?.emailVerified,
@@ -108,7 +115,7 @@ export const completeRegistration = async (req: any, res: Response): Promise<any
             profilePicture: user?.profilePicture,
           },
           onboardingStep: 1,
-          profileCompletion: false,
+          profileComplete: false,
           onboardingComplete: false,
         }
         break
@@ -133,6 +140,7 @@ export const completeRegistration = async (req: any, res: Response): Promise<any
         updates = {
           onboardingStep: -1,
           onboardingComplete: true,
+          profileComplete: true,
           companyInfo: {
             ...userProfile?.companyInfo,
             website: data?.basicInfo?.personalWebsite,

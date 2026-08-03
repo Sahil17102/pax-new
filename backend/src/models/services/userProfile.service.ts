@@ -14,6 +14,7 @@ import {
 } from '../../utils/functions'
 import { db } from '../client'
 import { employees } from '../schema/employees'
+import { kyc } from '../schema/kyc'
 import { plans } from '../schema/plans'
 import { userProfiles } from '../schema/userProfile'
 import { userPlans } from '../schema/userPlans'
@@ -33,10 +34,13 @@ export const getProfileByUserId = async (userId: string) => {
       employeeRole: employees.role,
       employeeIsActive: employees.isActive,
       moduleAccess: employees.moduleAccess,
+      kycStatus: kyc.status,
+      kycUpdatedAt: kyc.updatedAt,
     })
     .from(userProfiles)
     .leftJoin(users, eq(users.id, userProfiles.userId))
     .leftJoin(employees, eq(employees.userId, userProfiles.userId))
+    .leftJoin(kyc, eq(kyc.userId, userProfiles.userId))
     .leftJoin(userPlans, eq(userPlans.userId, userProfiles.userId))
     .leftJoin(plans, eq(plans.id, userPlans.plan_id))
     .where(eq(userProfiles.userId, userId))
@@ -46,6 +50,13 @@ export const getProfileByUserId = async (userId: string) => {
 
   return {
     ...rows[0].profile,
+    domesticKyc: rows[0].kycStatus
+      ? {
+          ...(rows[0].profile.domesticKyc ?? {}),
+          status: rows[0].kycStatus,
+          updatedAt: rows[0].kycUpdatedAt ?? null,
+        }
+      : rows[0].profile.domesticKyc,
     currentPlanId: rows[0].currentPlanId ?? null,
     currentPlanName: rows[0].currentPlanName ?? null,
     role: rows[0].role ?? null,

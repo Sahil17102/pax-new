@@ -166,7 +166,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const activeUser = (user ?? sessionUser ?? { ...emptyUserProfile }) as IUserProfileDB
-  const hasResolvedUser = Boolean(user?.id || sessionUser?.id)
+  // A stored session user is only a fast display fallback. Route guards must wait
+  // for the canonical profile so stale onboarding/KYC flags cannot reopen setup.
+  const hasResolvedUser = Boolean(user?.id)
   const value: AuthCtx = {
     user: activeUser,
     loading:
