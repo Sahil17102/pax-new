@@ -7,7 +7,6 @@ const rootDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   ".."
 );
-const landingDir = path.join(rootDir, "landing");
 const clientDir = path.join(rootDir, "courier-cart-client");
 const outputDir = path.join(rootDir, "combined-dist");
 const isWindows = process.platform === "win32";
@@ -37,52 +36,17 @@ const run = (cwd, args, envOverrides = {}) => {
 };
 
 if (!skipInstall) {
-  run(landingDir, ["ci"]);
   run(clientDir, ["ci"]);
 }
 
-run(landingDir, ["run", "build"], {
-  VITE_API_URL:
-    String(process.env.PAX_LANDING_API_URL || "").trim() ||
-    "https://pax-new.onrender.com",
-  VITE_APP_MODE: "client",
-  VITE_ENABLE_PREVIEW_MODE: "false",
-});
-run(clientDir, ["run", "build", "--", "--base=/app/"]);
+run(clientDir, ["run", "build", "--", "--base=/"]);
 
 rmSync(outputDir, { force: true, recursive: true });
 mkdirSync(outputDir, { recursive: true });
-cpSync(path.join(landingDir, "dist"), outputDir, { recursive: true });
-cpSync(path.join(clientDir, "dist"), path.join(outputDir, "app"), {
-  recursive: true,
-});
+cpSync(path.join(clientDir, "dist"), outputDir, { recursive: true });
 
-// Existing client code intentionally references public files from the origin
-// root. Hoist those files when the client is mounted at /app so the browser
-// does not request missing /app-relative copies.
-const clientPublicEntries = [
-  "images",
-  "logo",
-  "animations",
-  "API_DOCUMENTATION.pdf",
-];
-
-for (const entry of clientPublicEntries) {
-  const appEntry = path.join(outputDir, "app", entry);
-  if (!existsSync(appEntry)) continue;
-
-  cpSync(appEntry, path.join(outputDir, entry), {
-    force: true,
-    recursive: true,
-  });
-  rmSync(appEntry, { force: true, recursive: true });
+if (!existsSync(path.join(outputDir, "index.html"))) {
+  throw new Error("Client site build is incomplete");
 }
 
-if (
-  !existsSync(path.join(outputDir, "index.html")) ||
-  !existsSync(path.join(outputDir, "app", "index.html"))
-) {
-  throw new Error("Unified site build is incomplete");
-}
-
-console.log(`Unified site created at ${outputDir}`);
+console.log(`Client site created at ${outputDir}`);

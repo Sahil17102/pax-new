@@ -1,7 +1,7 @@
 # Pax Logistics deployment
 
-Pax Logistics uses Render as its primary deployment platform. The public landing
-and merchant client are packaged into one free Static Site. The manual GitHub
+Pax Logistics uses Render as its primary deployment platform. The merchant
+client is published directly from one free Static Site. The manual GitHub
 Actions workflows remain available only for the separate Linux VPS deployment path.
 
 ## Render deployment
@@ -10,23 +10,24 @@ The Render configuration defines these services:
 
 | Component | URL | Root directory | Type |
 | --- | --- | --- | --- |
-| Landing + client | `https://pax-log.onrender.com` | repository root | Static Site |
+| Merchant client | `https://pax-log.onrender.com` | repository root | Static Site |
 | Admin panel | `https://pax-log-admin.onrender.com` | `admin-dashboard` | Static Site |
 | Backend API | `https://pax-new.onrender.com` | `backend` | Web Service |
 
 No Blueprint or second client service is required. Configure the existing
 `pax-log` Static Site with an empty Root Directory (repository root), Build
 Command `npm run build`, and Publish Directory `combined-dist`. The root build
-packages the Feather landing at `/` and the merchant app at `/app/`.
+publishes the merchant app directly at `/`; the marketing landing is not served
+from the client domain.
 
 Keep backend secrets in their existing Render service. Do not replace the current
 database URL or encryption keys with placeholders. The checked-in `render.yaml`
 is an optional configuration reference; Blueprint deployment is not required.
 
-### Combined landing and client settings
+### Client settings
 
 The merchant login URL is
-`https://pax-log.onrender.com/app/#/login`. Client routing uses the URL hash,
+`https://pax-log.onrender.com/#/login`. Client routing uses the URL hash,
 so login/dashboard reloads do not require a paid feature or host rewrite.
 
 - Root directory: leave blank
@@ -75,7 +76,7 @@ Set these environment variables in the backend service:
 | `DATABASE_URL` | The **new Internal Database URL** copied from the Render Postgres **Connect** menu after rotating the exposed database password. Do not use a URL committed to Git. |
 | `API_URL` | `https://pax-new.onrender.com` (no `/api`) |
 | `CORS_ALLOWED_ORIGINS` | `https://pax-log.onrender.com,https://pax-log-admin.onrender.com` |
-| `FRONTEND_URL` | `https://pax-log.onrender.com/app` |
+| `FRONTEND_URL` | `https://pax-log.onrender.com` |
 | `ACCESS_TOKEN_SECRET` | A unique random secret of at least 32 bytes. Generate it locally with `openssl rand -base64 48`. |
 | `REFRESH_TOKEN_SECRET` | A different unique random secret of at least 32 bytes. |
 | `COURIER_SECRET_KEY` | A third unique random secret used to encrypt stored courier credentials. Keep this stable after production data exists. |

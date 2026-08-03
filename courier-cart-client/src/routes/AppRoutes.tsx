@@ -14,7 +14,6 @@ import GlobalRedirectHandler from './WalletRedirectHandler'
 const Layout = lazy(() => import('../components/UI/Layout'))
 const CreateOrderWrapper = lazy(() => import('../components/orders/CreateOrderWrapper'))
 const Login = lazy(() => import('../pages/auth/Login'))
-const ExpressMagicLanding = lazy(() => import('../pages/marketing/ExpressMagicLanding'))
 
 // Onboarding & Dashboard
 const UserOnboarding = lazy(() => import('../pages/onboarding/UserOnboarding'))
@@ -122,6 +121,14 @@ function PublicTrackingRoute() {
   return <OrderTrackingForm />
 }
 
+function AppEntryRoute() {
+  const { isAuthenticated, loading } = useAuth()
+
+  if (loading) return <FullScreenLoader />
+
+  return <Navigate to={isAuthenticated ? '/home' : '/login'} replace />
+}
+
 export default function AppRoutes() {
   return (
     <HashRouter>
@@ -129,7 +136,7 @@ export default function AppRoutes() {
       <Suspense fallback={<FullScreenLoader />}>
         <Routes>
           {/* public */}
-          <Route path="/" element={<ExpressMagicLanding />} />
+          <Route path="/" element={<AppEntryRoute />} />
           <Route path="/login" element={<Login />} />
           <Route path="/tracking" element={<PublicTrackingRoute />} />
           <Route path="/tracking/:awb" element={<PublicTrackingRoute />} />
@@ -230,7 +237,7 @@ export default function AppRoutes() {
             <Route path="/ops/rto" element={<RtoList />} />
           </Route>
           {/* fallback */}
-          <Route path="*" element={<ExpressMagicLanding />} />
+          <Route path="*" element={<AppEntryRoute />} />
         </Routes>
       </Suspense>
     </HashRouter>
