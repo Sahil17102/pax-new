@@ -6,7 +6,6 @@ import {
   Card,
   CardContent,
   Chip,
-  Divider,
   Grid,
   Stack,
   Table,
@@ -49,10 +48,7 @@ const formatDays = (value?: number | null) => `${Number(value || 0).toFixed(1)} 
 const formatNumber = (value?: number | null) => Number(value || 0).toLocaleString('en-IN')
 
 const chartColors = ['#062A5B', '#ED1C24', '#1E88E5', '#8E24AA', '#E53935', '#43A047']
-const tableHeaderGradient = `linear-gradient(135deg, ${alpha(BRAND.colors.teal, 0.16)} 0%, ${alpha(
-  BRAND.colors.skySoft,
-  0.82,
-)} 56%, ${alpha(BRAND.colors.orange, 0.1)} 100%)`
+const tableHeaderBackground = alpha(BRAND.colors.teal, 0.075)
 
 export default function OpsAnalyticsSection() {
   const theme = useTheme()
@@ -434,18 +430,43 @@ export default function OpsAnalyticsSection() {
                   )}
                 />
 
-                <Divider sx={{ my: 2.2 }} />
-
-                <Stack spacing={1}>
-                  <Typography fontWeight={800} color="text.primary">
+                <Box
+                  sx={{
+                    mt: 2,
+                    p: 1.6,
+                    borderRadius: 2.5,
+                    border: `1px solid ${alpha(BRAND.colors.teal, 0.1)}`,
+                    backgroundColor: alpha(BRAND.colors.tealSoft, 0.56),
+                  }}
+                >
+                  <Typography
+                    variant="overline"
+                    sx={{
+                      display: 'block',
+                      mb: 1,
+                      color: BRAND.colors.teal,
+                      fontWeight: 900,
+                      letterSpacing: '0.1em',
+                    }}
+                  >
                     Seller guidance
                   </Typography>
                   <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                     {guidance.map((line) => (
-                      <Chip key={line} label={line} color="primary" variant="outlined" />
+                      <Chip
+                        key={line}
+                        label={line.replace(/\s*->\s*/g, ' → ')}
+                        variant="outlined"
+                        sx={{
+                          bgcolor: BRAND.colors.paper,
+                          borderColor: alpha(BRAND.colors.teal, 0.22),
+                          color: BRAND.colors.ink,
+                          fontWeight: 750,
+                        }}
+                      />
                     ))}
                   </Stack>
-                </Stack>
+                </Box>
               </AnalyticsCard>
             </Grid>
 
@@ -853,33 +874,55 @@ function AnalyticsCard({
     <Card
       sx={{
         position: 'relative',
-        height: '100%',
-        borderRadius: 2.5,
+        alignSelf: 'flex-start',
+        width: '100%',
+        borderRadius: 3,
         overflow: 'hidden',
-        background: `linear-gradient(145deg, ${BRAND.colors.paper} 0%, ${BRAND.colors.tealSoft} 100%)`,
-        boxShadow: '0 12px 30px rgba(6, 42, 91, 0.07)',
-        border: `1px solid ${alpha(BRAND.colors.teal, 0.16)}`,
-        '&::before': {
-          content: '""',
-          position: 'absolute',
-          inset: '0 auto 0 0',
-          width: 5,
-          background: BRAND.colors.teal,
-        },
+        backgroundColor: BRAND.colors.paper,
+        boxShadow: '0 12px 34px rgba(6, 42, 91, 0.065)',
+        border: `1px solid ${alpha(BRAND.colors.teal, 0.12)}`,
       }}
     >
-      <CardContent sx={{ p: { xs: 2, md: 2.5 }, pl: { xs: 2.5, md: 3 } }}>
-        <Stack spacing={1.6}>
-          <Box>
-            <Typography variant="h6" fontWeight={900} color="text.primary">
-              {title}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.4,
+          px: { xs: 2, md: 2.4 },
+          py: { xs: 1.7, md: 2 },
+          backgroundColor: alpha(BRAND.colors.tealSoft, 0.58),
+          borderBottom: `1px solid ${alpha(BRAND.colors.teal, 0.1)}`,
+        }}
+      >
+        <Box
+          sx={{
+            width: 38,
+            height: 38,
+            flexShrink: 0,
+            display: 'grid',
+            placeItems: 'center',
+            borderRadius: 2,
+            color: BRAND.colors.teal,
+            bgcolor: BRAND.colors.paper,
+            border: `1px solid ${alpha(BRAND.colors.teal, 0.13)}`,
+            boxShadow: '0 5px 14px rgba(6, 42, 91, 0.07)',
+          }}
+        >
+          <MdAnalytics size={21} />
+        </Box>
+        <Box minWidth={0}>
+          <Typography variant="h6" fontWeight={850} color="text.primary" lineHeight={1.25}>
+            {title}
+          </Typography>
+          {subtitle ? (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+              {subtitle}
             </Typography>
-            {subtitle ? (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.4 }}>
-                {subtitle}
-              </Typography>
-            ) : null}
-          </Box>
+          ) : null}
+        </Box>
+      </Box>
+      <CardContent sx={{ p: { xs: 1.8, md: 2.2 }, '&:last-child': { pb: { xs: 1.8, md: 2.2 } } }}>
+        <Stack spacing={1.6}>
           {children}
         </Stack>
       </CardContent>
@@ -892,13 +935,10 @@ function ChartPanel({ children, height }: { children: ReactNode; height: number 
     <Box
       sx={{
         minHeight: height,
-        borderRadius: 3,
-        p: 1,
-        border: `1px solid ${alpha(BRAND.colors.teal, 0.08)}`,
-        background: `linear-gradient(180deg, ${alpha(BRAND.colors.tealSoft, 0.74)} 0%, ${alpha(
-          BRAND.colors.paper,
-          0.98,
-        )} 100%)`,
+        borderRadius: 2.5,
+        p: 1.2,
+        border: `1px solid ${alpha(BRAND.colors.teal, 0.1)}`,
+        backgroundColor: alpha(BRAND.colors.surface, 0.72),
       }}
     >
       {children}
@@ -906,23 +946,39 @@ function ChartPanel({ children, height }: { children: ReactNode; height: number 
   )
 }
 
-function EmptyPanel({ text }: { text: string }) {
+function EmptyPanel({ text, compact = false }: { text: string; compact?: boolean }) {
   return (
     <Box
       sx={{
-        minHeight: 280,
-        display: 'grid',
-        placeItems: 'center',
-        borderRadius: 3,
-        border: `1px dashed ${alpha(BRAND.colors.teal, 0.18)}`,
-        color: BRAND.colors.text,
-        background: `linear-gradient(135deg, ${alpha(BRAND.colors.tealSoft, 0.8)} 0%, ${alpha(
-          BRAND.colors.paper,
-          0.94,
-        )} 58%, ${alpha(BRAND.colors.amberSoft, 0.48)} 100%)`,
+        minHeight: compact ? 126 : 292,
+        px: 2.5,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 1,
+        textAlign: 'center',
+        borderRadius: 2.2,
+        border: `1px dashed ${alpha(BRAND.colors.teal, 0.2)}`,
+        color: BRAND.colors.muted,
+        backgroundColor: alpha(BRAND.colors.tealSoft, 0.38),
       }}
     >
-      <Typography variant="body2" fontWeight={700}>
+      <Box
+        sx={{
+          width: 34,
+          height: 34,
+          display: 'grid',
+          placeItems: 'center',
+          borderRadius: '50%',
+          color: BRAND.colors.teal,
+          bgcolor: BRAND.colors.paper,
+          border: `1px solid ${alpha(BRAND.colors.teal, 0.12)}`,
+        }}
+      >
+        <MdAnalytics size={18} />
+      </Box>
+      <Typography variant="body2" fontWeight={750} sx={{ maxWidth: 420 }}>
         {text}
       </Typography>
     </Box>
@@ -940,21 +996,23 @@ function CompactTable<T extends Record<string, unknown>>({
   renderRow: (row: T) => ReactNode
   emptyMessage: string
 }) {
+  if (rows.length === 0) {
+    return <EmptyPanel text={emptyMessage} compact />
+  }
+
   return (
     <TableContainer
       sx={{
         borderRadius: 2.5,
-        border: `1px solid ${alpha(BRAND.colors.teal, 0.16)}`,
-        boxShadow: `inset 0 0 0 1px ${alpha(BRAND.colors.paper, 0.72)}`,
+        border: `1px solid ${alpha(BRAND.colors.teal, 0.12)}`,
         overflowX: 'auto',
       }}
     >
-      <Table size="small" sx={{ minWidth: 500 }}>
+      <Table size="small" sx={{ minWidth: headers.length >= 5 ? 640 : '100%' }}>
         <TableHead>
           <TableRow
             sx={{
-              background: tableHeaderGradient,
-              boxShadow: `inset 0 -2px 0 ${alpha(BRAND.colors.orange, 0.28)}`,
+              backgroundColor: tableHeaderBackground,
             }}
           >
             {headers.map((header) => (
@@ -964,8 +1022,9 @@ function CompactTable<T extends Record<string, unknown>>({
                   fontWeight: 800,
                   whiteSpace: 'nowrap',
                   color: BRAND.colors.ink,
-                  letterSpacing: '0.08em',
-                  borderBottomColor: alpha(BRAND.colors.orange, 0.2),
+                  fontSize: '0.74rem',
+                  letterSpacing: '0.055em',
+                  borderBottomColor: alpha(BRAND.colors.teal, 0.12),
                 }}
               >
                 {header}
@@ -983,24 +1042,7 @@ function CompactTable<T extends Record<string, unknown>>({
             },
           }}
         >
-          {rows.length > 0 ? (
-            rows.map((row, index) => <Fragment key={index}>{renderRow(row)}</Fragment>)
-          ) : (
-            <TableRow>
-              <TableCell
-                colSpan={headers.length}
-                align="center"
-                sx={{
-                  py: 4,
-                  color: BRAND.colors.text,
-                  fontWeight: 700,
-                  background: alpha(BRAND.colors.tealSoft, 0.54),
-                }}
-              >
-                {emptyMessage}
-              </TableCell>
-            </TableRow>
-          )}
+          {rows.map((row, index) => <Fragment key={index}>{renderRow(row)}</Fragment>)}
         </TableBody>
       </Table>
     </TableContainer>
