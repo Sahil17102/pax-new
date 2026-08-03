@@ -10,9 +10,6 @@ import { HttpError } from './classes'
 
 const REQUIRED_COMPANY_FIELDS = [
   'businessName',
-  'companyAddress',
-  'companyEmail',
-  'companyContactNumber',
   'contactNumber',
   'contactEmail',
   'state',

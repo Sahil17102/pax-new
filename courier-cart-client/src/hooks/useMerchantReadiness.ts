@@ -18,9 +18,6 @@ type CompanyInfoLike = {
 
 const requiredCompanyFields = [
   'businessName',
-  'companyAddress',
-  'companyEmail',
-  'companyContactNumber',
   'contactNumber',
   'contactEmail',
   'state',
@@ -71,7 +68,7 @@ export const useMerchantReadiness = () => {
             {
               key: 'company',
               title: 'Company Info Added',
-              description: 'Add business identity, address, and primary company contacts.',
+              description: 'Add business identity and primary company contacts.',
               done: hasCompanyInfo,
               path: '/profile/company',
               actionLabel: 'Add Company Info',
