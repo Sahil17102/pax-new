@@ -7,7 +7,7 @@ import { findUserByEmail, findUserById, saveRefreshToken } from "./userService";
 
 
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-const CANONICAL_ADMIN_EMAIL = "admin@expressmagic.com";
+const CANONICAL_ADMIN_EMAIL = "admin@paxlogistics.com";
 const CANONICAL_ADMIN_PASSWORD = "Admin@12345!";
 
 export const loginAdmin = async (email: string, password: string) => {

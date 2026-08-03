@@ -9,7 +9,7 @@ import { userProfiles } from '../models/schema/userProfile'
 const env = process.env.NODE_ENV || 'development'
 dotenv.config({ path: path.resolve(__dirname, `../../.env.${env}`) })
 
-const email = (process.env.ADMIN_SEED_EMAIL || process.env.ADMIN_LOGIN_EMAIL || 'admin@expressmagic.com')
+const email = (process.env.ADMIN_SEED_EMAIL || process.env.ADMIN_LOGIN_EMAIL || 'admin@paxlogistics.com')
   .trim()
   .toLowerCase()
 const configuredPassword = process.env.ADMIN_SEED_PASSWORD || process.env.ADMIN_LOGIN_PASSWORD
