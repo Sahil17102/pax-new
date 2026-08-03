@@ -38,40 +38,85 @@ function DeliveryVisual() {
       sx={{
         position: 'relative',
         width: 'min(100%, 610px)',
-        height: { md: 238, lg: 285 },
         mt: { md: 2.4, lg: 4.2 },
-        overflow: 'hidden',
-        border: '7px solid rgba(255,255,255,.92)',
-        borderRadius: '25px',
-        boxShadow: '0 28px 65px rgba(37,64,112,.2)',
+        perspective: '1200px',
+        transformStyle: 'preserve-3d',
         isolation: 'isolate',
-        transition: 'transform .6s ease, box-shadow .6s ease',
-        '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: '0 36px 75px rgba(37,64,112,.28)',
+        '&::after': {
+          content: '""',
+          position: 'absolute',
+          zIndex: -1,
+          left: '9%',
+          right: '9%',
+          bottom: -22,
+          height: 34,
+          borderRadius: '50%',
+          background: 'rgba(24,52,105,.24)',
+          filter: 'blur(18px)',
+          animation: 'paxSceneShadow 7s ease-in-out infinite',
+        },
+        '@media (prefers-reduced-motion: reduce)': {
+          '&::after': { animation: 'none' },
         },
       }}
     >
       <Box
-        component="img"
-        src="/images/pax-courier-hero.png"
-        alt="Pax courier scanning a shipment at the delivery hub"
+        className="pax-delivery-scene"
         sx={{
+          position: 'relative',
+          height: { md: 238, lg: 285 },
+          overflow: 'hidden',
+          border: '7px solid rgba(255,255,255,.94)',
+          borderRadius: '25px',
+          boxShadow: '0 28px 65px rgba(37,64,112,.2), inset 0 0 0 1px rgba(255,255,255,.38)',
+          isolation: 'isolate',
+          transformStyle: 'preserve-3d',
+          transformOrigin: 'center 68%',
+          animation: 'paxSceneOrbit 7s ease-in-out infinite',
+          willChange: 'transform',
+          transition: 'box-shadow .5s ease',
+          '&:hover': {
+            boxShadow: '0 38px 82px rgba(37,64,112,.3), inset 0 0 0 1px rgba(255,255,255,.5)',
+          },
+        }}
+      >
+        <Box
+          component="img"
+          src="/images/pax-courier-hero.png"
+          alt="Pax courier scanning a shipment at the delivery hub"
+          sx={{
           position: 'absolute',
           inset: 0,
           width: '100%',
           height: '100%',
           objectFit: 'cover',
           objectPosition: 'center 52%',
+          transform: 'translateZ(0) scale(1.045)',
           transition: 'transform 1s ease',
-          '.MuiBox-root:hover > &': { transform: 'scale(1.035)' },
-        }}
-      />
+          '.pax-delivery-scene:hover > &': { transform: 'translateZ(0) scale(1.075)' },
+          }}
+        />
       <Box
         sx={{
           position: 'absolute',
           inset: 0,
           background: 'linear-gradient(90deg, rgba(7,25,58,.86), rgba(16,53,96,.25) 63%, rgba(7,25,58,.55))',
+          transform: 'translateZ(2px)',
+        }}
+      />
+
+      <Box
+        aria-hidden="true"
+        sx={{
+          position: 'absolute',
+          zIndex: 1,
+          inset: '-35% auto -35% -28%',
+          width: '36%',
+          transform: 'translateZ(18px) rotate(14deg)',
+          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,.22), transparent)',
+          filter: 'blur(2px)',
+          animation: 'paxSceneGlint 5.8s ease-in-out infinite',
+          pointerEvents: 'none',
         }}
       />
 
@@ -90,6 +135,8 @@ function DeliveryVisual() {
           fontWeight: 900,
           letterSpacing: '.09em',
           textTransform: 'uppercase',
+          transform: 'translateZ(34px)',
+          textShadow: '0 4px 14px rgba(3,18,45,.42)',
         }}
       >
         <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.8 }}>
@@ -114,6 +161,7 @@ function DeliveryVisual() {
           backdropFilter: 'blur(13px)',
           boxShadow: '0 18px 34px rgba(9,28,62,.2)',
           animation: 'paxCardFloat 4.4s ease-in-out infinite',
+          transformStyle: 'preserve-3d',
         }}
       >
         <Typography sx={{ color: '#77849a', fontSize: 9, fontWeight: 950, letterSpacing: '.09em' }}>SHIPMENT IN MOTION</Typography>
@@ -137,11 +185,30 @@ function DeliveryVisual() {
           fontSize: 11,
           fontWeight: 950,
           animation: 'paxRouteFloat 4.4s ease-in-out infinite .45s',
+          textShadow: '0 5px 16px rgba(3,18,45,.5)',
         }}
       >
         Pickup <Box sx={{ width: 28, height: 1, background: 'rgba(255,255,255,.55)' }} />
         <Box sx={{ display: 'grid', placeItems: 'center', width: 30, height: 30, borderRadius: '50%', background: blue }}><FiMapPin /></Box>
         Delivery
+      </Box>
+      <Box
+        aria-hidden="true"
+        sx={{
+          position: 'absolute',
+          zIndex: 2,
+          right: 58,
+          top: '38%',
+          width: 11,
+          height: 11,
+          borderRadius: '50%',
+          border: '2px solid rgba(255,255,255,.9)',
+          background: blue,
+          boxShadow: `0 0 0 0 ${alpha(blue, 0.48)}`,
+          animation: 'paxScenePulse 2.2s ease-out infinite',
+          transform: 'translateZ(46px)',
+        }}
+      />
       </Box>
     </Box>
   )
@@ -159,12 +226,37 @@ export default function LoginForm() {
         background:
           'radial-gradient(circle at 9% 13%, rgba(202,221,255,.8), transparent 30%), radial-gradient(circle at 88% 86%, rgba(188,220,244,.5), transparent 28%), linear-gradient(180deg,#f8fbff 0%,#eef4fc 100%)',
         '@keyframes paxCardFloat': {
-          '0%,100%': { transform: 'translateY(0)' },
-          '50%': { transform: 'translateY(-5px)' },
+          '0%,100%': { transform: 'translate3d(0,0,54px) rotateY(-1deg)' },
+          '50%': { transform: 'translate3d(0,-7px,64px) rotateY(1deg)' },
         },
         '@keyframes paxRouteFloat': {
-          '0%,100%': { transform: 'translateY(0)' },
-          '50%': { transform: 'translateY(-4px)' },
+          '0%,100%': { transform: 'translate3d(0,0,42px)' },
+          '50%': { transform: 'translate3d(0,-5px,50px)' },
+        },
+        '@keyframes paxSceneOrbit': {
+          '0%,100%': { transform: 'rotateX(2.1deg) rotateY(-3.2deg) translateY(0)' },
+          '50%': { transform: 'rotateX(-1.1deg) rotateY(3.1deg) translateY(-8px)' },
+        },
+        '@keyframes paxSceneShadow': {
+          '0%,100%': { opacity: 0.72, transform: 'scaleX(.94)' },
+          '50%': { opacity: 0.46, transform: 'scaleX(.82)' },
+        },
+        '@keyframes paxSceneGlint': {
+          '0%,18%': { transform: 'translate3d(-20%,0,18px) rotate(14deg)', opacity: 0 },
+          '42%': { opacity: 0.82 },
+          '68%,100%': { transform: 'translate3d(430%,0,18px) rotate(14deg)', opacity: 0 },
+        },
+        '@keyframes paxScenePulse': {
+          '0%': { boxShadow: `0 0 0 0 ${alpha(blue, 0.48)}` },
+          '75%,100%': { boxShadow: `0 0 0 16px ${alpha(blue, 0)}` },
+        },
+        '@media (prefers-reduced-motion: reduce)': {
+          '& .pax-delivery-scene, & .pax-delivery-scene *': {
+            animation: 'none !important',
+          },
+          '& .pax-delivery-scene': {
+            transform: 'none !important',
+          },
         },
       }}
     >
