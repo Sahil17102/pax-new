@@ -200,6 +200,11 @@ export type DelhiveryShipmentUpdate = {
   package_length?: number
 }
 
+export type DelhiveryCancellationContext = {
+  current_payment_mode?: string
+  current_status?: string
+}
+
 export type DelhiveryCredentialsOverride = {
   apiBase: string
   apiKey: string
@@ -384,8 +389,12 @@ export const isDelhiveryCancellationAccepted = (value: unknown) => {
     responseText.includes('failure') ||
     responseText.includes('error')
 
+  if (alreadyCancelled) return true
+  if (rejectedText || result?.success === false || result?.Success === false || result?.status === false) {
+    return false
+  }
+
   return (
-    alreadyCancelled ||
     result?.success === true ||
     result?.Success === true ||
     result?.status === true ||
@@ -393,7 +402,7 @@ export const isDelhiveryCancellationAccepted = (value: unknown) => {
     String(result?.Status || '').toLowerCase() === 'success' ||
     (Number.isFinite(numericStatus) && numericStatus >= 200 && numericStatus < 300) ||
     result?.response?.status === true ||
-    (acceptedText && !rejectedText)
+    acceptedText
   )
 }
 
@@ -1384,11 +1393,70 @@ export class DelhiveryService {
   }
 
   // 🔹 6. Cancel Shipment
-  async cancelShipment(waybill: string) {
+  async cancelShipment(
+    waybill: string,
+    context: DelhiveryCancellationContext = {},
+  ) {
     const normalizedWaybill = String(waybill || '').trim()
     if (!normalizedWaybill) {
       throw new HttpError(400, 'Delhivery AWB number is required for cancellation')
     }
+
+    const normalizePaymentMode = (
+      value: unknown,
+    ): 'COD' | 'Pre-paid' | 'Pickup' | 'REPL' | null => {
+      const normalized = String(value || '').trim().toLowerCase()
+      if (!normalized) return null
+      if (normalized === 'cod') return 'COD'
+      if (['prepaid', 'pre-paid'].includes(normalized)) return 'Pre-paid'
+      if (['pickup', 'reverse'].includes(normalized)) return 'Pickup'
+      if (['repl', 'replacement'].includes(normalized)) return 'REPL'
+      return null
+    }
+    const currentPaymentMode = normalizePaymentMode(context.current_payment_mode)
+    if (context.current_payment_mode !== undefined && !currentPaymentMode) {
+      throw new HttpError(400, 'current_payment_mode is invalid')
+    }
+    const currentStatus = String(context.current_status || '').trim().toLowerCase()
+    if (currentStatus) {
+      const terminalStatuses = [
+        'dispatched',
+        'delivered',
+        'dto',
+        'rto',
+        'lost',
+        'closed',
+        'canceled',
+        'cancelled',
+      ]
+      if (terminalStatuses.includes(currentStatus)) {
+        throw new HttpError(
+          409,
+          `Shipment cancellation is not allowed in ${context.current_status} status`,
+        )
+      }
+      const allowedStatuses =
+        currentPaymentMode === 'Pickup'
+          ? ['scheduled']
+          : currentPaymentMode
+            ? ['manifested', 'in transit', 'pending']
+            : ['manifested', 'in transit', 'pending', 'scheduled']
+      if (!allowedStatuses.includes(currentStatus)) {
+        throw new HttpError(
+          409,
+          `Shipment cancellation is not allowed in ${context.current_status} status`,
+        )
+      }
+    }
+
+    const expectedOutcome =
+      currentStatus === 'manifested'
+        ? { status: 'Manifested', statusType: 'UD' }
+        : ['in transit', 'pending'].includes(currentStatus)
+          ? { status: 'In Transit', statusType: 'RT' }
+          : currentStatus === 'scheduled'
+            ? { status: 'Canceled', statusType: 'CN' }
+            : null
 
     try {
       await this.ensureCredentials()
@@ -1423,7 +1491,7 @@ export class DelhiveryService {
           getDelhiveryCancellationMessage(res.data) ||
           extractProviderErrorMessage(res.data) ||
           'Delhivery cancellation not accepted'
-        throw new Error(providerMessage)
+        throw new HttpError(409, providerMessage)
       }
 
       return {
@@ -1437,9 +1505,13 @@ export class DelhiveryService {
           (isDelhiveryAlreadyCancelledResponse(res.data)
             ? 'Delhivery shipment was already cancelled'
             : 'Delhivery cancellation accepted'),
+        expected_status: expectedOutcome?.status ?? null,
+        expected_status_type: expectedOutcome?.statusType ?? null,
         provider_response: res.data,
       }
     } catch (err: any) {
+      if (err instanceof HttpError) throw err
+
       console.error('❌ Delhivery cancellation error:', {
         waybill: normalizedWaybill,
         status: err.response?.status,
@@ -1449,10 +1521,9 @@ export class DelhiveryService {
       })
       const providerMessage =
         extractProviderErrorMessage(err.response?.data) ||
-        err.response?.data?.message ||
         err.message ||
         'Delhivery cancellation failed'
-      throw new Error(providerMessage)
+      throw new HttpError(Number(err.response?.status) || 502, providerMessage)
     }
   }
 

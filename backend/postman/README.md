@@ -103,3 +103,12 @@ examples cover forward, Pickup, and REPL status rules. `current_payment_mode` an
 Pre-paid can convert only to each other; Pre-paid-to-COD requires a positive
 `cod` amount. Dispatched and terminal statuses are rejected before the provider
 request.
+
+Shipment Cancellation sends exactly `waybill` plus `cancellation="true"` to
+Delhivery's edit endpoint. Postman includes Forward, Pickup/RVP, and REPL
+examples. Optional `current_payment_mode` and `current_status` query parameters
+are used only for local eligibility checks. The normalized response reports the
+expected provider outcome: Manifested/UD before pickup, In Transit/RT for In
+Transit or Pending, and Canceled/CN for a Scheduled Pickup shipment. Delhivery's
+documented production limit for this endpoint is 12,200 requests per five
+minutes per IP.

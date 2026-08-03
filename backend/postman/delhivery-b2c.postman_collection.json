@@ -306,8 +306,28 @@
           }
         },
         {
-          "name": "Cancel Shipment",
-          "request": { "method": "DELETE", "url": "{{baseUrl}}/api/delhivery/b2c/shipments/{{awb}}" }
+          "name": "Cancel Forward Shipment",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/delhivery/b2c/shipments/{{awb}}?current_payment_mode={{cancelPaymentMode}}&current_status={{cancelStatus}}",
+            "description": "Cancels a COD/Prepaid shipment in Manifested, In Transit, or Pending. Manifested remains Manifested/UD; In Transit or Pending becomes In Transit/RT. Query metadata validates eligibility locally and is not sent to Delhivery."
+          }
+        },
+        {
+          "name": "Cancel Pickup Shipment",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/delhivery/b2c/shipments/{{pickupAwb}}?current_payment_mode=Pickup&current_status=Scheduled",
+            "description": "Cancels a scheduled Pickup/RVP shipment. The expected outcome is Canceled with status type CN."
+          }
+        },
+        {
+          "name": "Cancel REPL Shipment",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/delhivery/b2c/shipments/{{replAwb}}?current_payment_mode=REPL&current_status=Pending",
+            "description": "Cancels a REPL shipment in Manifested, In Transit, or Pending. Pending cancellation remains In Transit with status type RT."
+          }
         }
       ]
     }

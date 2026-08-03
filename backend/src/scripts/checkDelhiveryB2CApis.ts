@@ -7,11 +7,22 @@ const run = async () => {
   process.env.DATABASE_URL = 'postgresql://test:test@127.0.0.1:5432/test'
   const {
     DelhiveryService,
+    isDelhiveryCancellationAccepted,
     normalizeDelhiveryWaybills,
     summarizeDelhiveryExpectedTat,
     summarizeDelhiveryHeavyPincodeServiceability,
     summarizeDelhiveryPincodeServiceability,
   } = await import('../models/services/couriers/delhivery.service')
+
+  assert.equal(isDelhiveryCancellationAccepted({ success: true }), true)
+  assert.equal(
+    isDelhiveryCancellationAccepted({ success: true, message: 'Cancellation not accepted' }),
+    false,
+  )
+  assert.equal(
+    isDelhiveryCancellationAccepted({ success: false, message: 'Shipment already cancelled' }),
+    true,
+  )
 
   assert.deepEqual(
     normalizeDelhiveryWaybills({ waybills: '123456789012, 123456789013\n123456789012' }),
@@ -388,6 +399,33 @@ const run = async () => {
     pt: 'COD',
   })
 
+  const manifestedCancellation = await mockedService.cancelShipment('CANCEL-AWB-1', {
+    current_payment_mode: 'Prepaid',
+    current_status: 'Manifested',
+  })
+  assert.equal(captured.at(-1)?.url, 'https://staging-express.delhivery.com/api/p/edit')
+  assert.deepEqual(captured.at(-1)?.data, {
+    waybill: 'CANCEL-AWB-1',
+    cancellation: 'true',
+  })
+  assert.equal(captured.at(-1)?.headers?.Authorization, 'Token test-token')
+  assert.equal(manifestedCancellation.expected_status, 'Manifested')
+  assert.equal(manifestedCancellation.expected_status_type, 'UD')
+
+  const pickupCancellation = await mockedService.cancelShipment('CANCEL-AWB-2', {
+    current_payment_mode: 'Pickup',
+    current_status: 'Scheduled',
+  })
+  assert.equal(pickupCancellation.expected_status, 'Canceled')
+  assert.equal(pickupCancellation.expected_status_type, 'CN')
+
+  const replCancellation = await mockedService.cancelShipment('CANCEL-AWB-3', {
+    current_payment_mode: 'REPL',
+    current_status: 'Pending',
+  })
+  assert.equal(replCancellation.expected_status, 'In Transit')
+  assert.equal(replCancellation.expected_status_type, 'RT')
+
   ;(axios as any).get = originalGet
   ;(axios as any).post = originalPost
 
@@ -517,6 +555,28 @@ const run = async () => {
     () => service.updateShipment('TEST-AWB', { gm: 0 }),
     /gm must be a positive number/,
   )
+  await assert.rejects(() => service.cancelShipment(''), /AWB number is required/)
+  await assert.rejects(
+    () => service.cancelShipment('TEST-AWB', {
+      current_payment_mode: 'Pickup',
+      current_status: 'Pending',
+    }),
+    /cancellation is not allowed in Pending status/,
+  )
+  await assert.rejects(
+    () => service.cancelShipment('TEST-AWB', {
+      current_payment_mode: 'Prepaid',
+      current_status: 'Scheduled',
+    }),
+    /cancellation is not allowed in Scheduled status/,
+  )
+  await assert.rejects(
+    () => service.cancelShipment('TEST-AWB', {
+      current_payment_mode: 'COD',
+      current_status: 'Delivered',
+    }),
+    /cancellation is not allowed in Delivered status/,
+  )
 
   const collectionPath = path.resolve(
     __dirname,
@@ -576,6 +636,13 @@ const run = async () => {
   assert(updateForwardRequest.request.body.raw.includes('shipment_height'))
   assert(mutatingFolder.item.some((request: any) => request.name === 'Update Pickup Shipment'))
   assert(mutatingFolder.item.some((request: any) => request.name === 'Update REPL Shipment'))
+  const cancelForwardRequest = mutatingFolder.item.find(
+    (request: any) => request.name === 'Cancel Forward Shipment',
+  )
+  assert(cancelForwardRequest.request.url.includes('current_payment_mode={{cancelPaymentMode}}'))
+  assert(cancelForwardRequest.request.url.includes('current_status={{cancelStatus}}'))
+  assert(mutatingFolder.item.some((request: any) => request.name === 'Cancel Pickup Shipment'))
+  assert(mutatingFolder.item.some((request: any) => request.name === 'Cancel REPL Shipment'))
 
   console.log('Delhivery B2C integration checks passed')
 }

@@ -155,7 +155,15 @@ export const updateShipmentController = (req: Request, res: Response) =>
   sendResult(res, service.updateShipment(req.params.awb, req.body || {}))
 
 export const cancelShipmentController = (req: Request, res: Response) =>
-  sendResult(res, service.cancelShipment(req.params.awb))
+  sendResult(
+    res,
+    service.cancelShipment(req.params.awb, {
+      current_payment_mode: req.query.current_payment_mode
+        ? String(req.query.current_payment_mode)
+        : undefined,
+      current_status: req.query.current_status ? String(req.query.current_status) : undefined,
+    }),
+  )
 
 export const trackShipmentController = (req: Request, res: Response) =>
   sendResult(res, service.trackShipment(req.params.awb))
