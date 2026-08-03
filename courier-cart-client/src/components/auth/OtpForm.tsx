@@ -11,13 +11,12 @@ import { toast } from '../UI/Toast'
 const OTP_LENGTH = 6
 const OTP_RESEND_DELAY_MS = 30000
 const BRAND_DARK = BRAND.colors.ink
-const BRAND_TEAL = BRAND.colors.teal
-const BRAND_RED = BRAND.colors.orange
+const BRAND_TEAL = '#3454d1'
 
 const primaryButtonStyles = {
   width: '100%',
   borderRadius: 1,
-  background: `linear-gradient(135deg, ${BRAND_TEAL} 0%, #041A38 70%, ${BRAND_RED} 100%)`,
+  background: `linear-gradient(135deg, ${BRAND_TEAL} 0%, #2947ae 100%)`,
   boxShadow: '0 16px 26px rgba(6, 42, 91, 0.18)',
   minHeight: 52,
 }

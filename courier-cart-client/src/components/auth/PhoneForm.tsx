@@ -2,7 +2,6 @@ import {
   Box,
   Button,
   CircularProgress,
-  Divider,
   FormControlLabel,
   InputAdornment,
   Link,
@@ -12,7 +11,7 @@ import {
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { useCallback, useEffect, useState } from 'react'
-import { FiFileText, FiLock, FiMail, FiSend, FiShield } from 'react-icons/fi'
+import { FiLock, FiMail, FiSend } from 'react-icons/fi'
 import { BRAND } from '../../config/brand'
 import { useRequestOtp } from '../../hooks/useOTP'
 import { extractScreenOtp, type OtpResponseLike } from '../../utils/authOtp'
@@ -23,7 +22,11 @@ import { toast } from '../UI/Toast'
 import OtpForm from './OtpForm'
 import PasswordLoginForm from './PasswordLoginForm'
 
-const { teal, tealDark, orange, ink, paper, tealSoft } = BRAND.colors
+const { ink, paper } = BRAND.colors
+const teal = '#3454d1'
+const tealDark = '#2947ae'
+const orange = '#ef6c00'
+const tealSoft = '#edf2ff'
 
 type AuthMode = 'otp' | 'password'
 
@@ -189,37 +192,13 @@ export default function PhoneForm() {
     <Stack spacing={{ xs: 1.35, md: 1.45 }} alignItems="stretch" sx={{ minWidth: 0 }}>
       <Box
         sx={{
-          width: 'fit-content',
-          maxWidth: '100%',
-          alignSelf: 'center',
-          textAlign: 'center',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 1,
-          px: 1.55,
-          py: 0.9,
-          borderRadius: 1,
-          color: orange,
-          border: `1px solid ${alpha(orange, 0.14)}`,
-          background: 'linear-gradient(135deg, rgba(237,28,36,0.12), rgba(255,255,255,0.66))',
-          fontSize: { xs: 13, sm: 14 },
-          fontWeight: 900,
-        }}
-      >
-        <FiShield size={18} />
-        Same-screen OTP login enabled
-      </Box>
-
-      <Box
-        sx={{
           display: 'grid',
           gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
           minWidth: 0,
-          gap: 0.65,
-          p: 0.3,
-          borderRadius: 1.35,
-          border: `1px solid ${alpha('#9eb2c8', 0.32)}`,
-          background: alpha(paper, 0.64),
+          gap: 0,
+          overflow: 'hidden',
+          borderRadius: 1.4,
+          background: '#f2f5fb',
         }}
       >
         <Button
@@ -227,27 +206,47 @@ export default function PhoneForm() {
           onClick={() => setAuthMode('otp')}
           sx={{
             ...tabButtonSx,
-            color: authMode === 'otp' ? teal : '#102344',
-            border: `1px solid ${authMode === 'otp' ? teal : 'transparent'}`,
+            position: 'relative',
+            color: authMode === 'otp' ? orange : '#596582',
+            border: 0,
             background: authMode === 'otp' ? paper : 'transparent',
-            boxShadow: authMode === 'otp' ? `0 12px 22px ${alpha(teal, 0.08)}` : 'none',
+            boxShadow: 'none',
+            '&::after': authMode === 'otp' ? {
+              content: '""',
+              position: 'absolute',
+              right: 0,
+              bottom: 0,
+              left: 0,
+              height: 3,
+              background: orange,
+            } : {},
             '&:hover': {
               background: authMode === 'otp' ? paper : alpha(tealSoft, 0.44),
             },
           }}
         >
           <FiMail size={20} />
-          Email OTP
+          Login with OTP
         </Button>
         <Button
           type="button"
           onClick={() => setAuthMode('password')}
           sx={{
             ...tabButtonSx,
-            color: authMode === 'password' ? teal : '#102344',
-            border: `1px solid ${authMode === 'password' ? teal : 'transparent'}`,
+            position: 'relative',
+            color: authMode === 'password' ? orange : '#596582',
+            border: 0,
             background: authMode === 'password' ? paper : 'transparent',
-            boxShadow: authMode === 'password' ? `0 12px 22px ${alpha(teal, 0.08)}` : 'none',
+            boxShadow: 'none',
+            '&::after': authMode === 'password' ? {
+              content: '""',
+              position: 'absolute',
+              right: 0,
+              bottom: 0,
+              left: 0,
+              height: 3,
+              background: orange,
+            } : {},
             '&:hover': {
               background: authMode === 'password' ? paper : alpha(tealSoft, 0.44),
             },
@@ -255,7 +254,7 @@ export default function PhoneForm() {
         >
           <FiLock size={19} />
           <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
-            Email + Password
+            Login with Password
           </Box>
           <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
             Password
@@ -268,7 +267,7 @@ export default function PhoneForm() {
           <Stack spacing={{ xs: 1.35, md: 1.45 }}>
             <Box>
               <Typography sx={{ color: '#081932', fontSize: 14, fontWeight: 900, mb: 0.9 }}>
-                Work Email <Box component="span" sx={{ color: '#e1261c' }}>*</Box>
+                Email address <Box component="span" sx={{ color: orange }}>*</Box>
               </Typography>
               <TextField
                 type="email"
@@ -320,10 +319,10 @@ export default function PhoneForm() {
                 fontSize: 15.5,
                 fontWeight: 900,
                 gap: 1.1,
-                background: `linear-gradient(135deg, ${teal} 0%, ${tealDark} 70%, ${orange} 100%)`,
-                boxShadow: `0 16px 26px ${alpha(teal, 0.18)}`,
+                background: `linear-gradient(135deg, ${teal} 0%, ${tealDark} 100%)`,
+                boxShadow: `0 13px 28px ${alpha(teal, 0.22)}`,
                 '&:hover': {
-                  background: `linear-gradient(135deg, ${tealDark} 0%, ${teal} 72%, ${orange} 100%)`,
+                  background: `linear-gradient(135deg, ${tealDark} 0%, ${teal} 100%)`,
                 },
                 '&:disabled': {
                   color: paper,
@@ -333,45 +332,11 @@ export default function PhoneForm() {
               }}
             >
               {isPending ? <CircularProgress size={18} thickness={4} sx={{ color: 'currentColor' }} /> : <FiSend size={20} />}
-              {isPending ? 'Generating...' : 'Send verification code'}
+              {isPending ? 'Generating...' : 'Send OTP'}
             </Button>
-
-            <Divider
-              sx={{
-                color: '#263a59',
-                fontSize: 14,
-                '&::before, &::after': {
-                  borderColor: alpha('#9eb2c8', 0.34),
-                },
-              }}
-            >
-              or
-            </Divider>
-
-            <Button
-              type="button"
-              onClick={() => setOpenTerms(true)}
-              sx={{
-                width: '100%',
-                minHeight: 50,
-                borderRadius: 1,
-                textTransform: 'none',
-                color: '#102344',
-                fontSize: 15.5,
-                fontWeight: 900,
-                gap: 1,
-                border: `1px solid ${alpha('#9eb2c8', 0.42)}`,
-                background: paper,
-                '&:hover': {
-                  borderColor: alpha(teal, 0.45),
-                  background: alpha(tealSoft, 0.32),
-                },
-              }}
-            >
-              <FiFileText size={20} />
-              View terms and policies
-            </Button>
-
+            <Typography sx={{ color: '#7a8799', fontSize: 12.5, lineHeight: 1.5, textAlign: 'center' }}>
+              New to Pax? Use OTP and your customer workspace will be created securely.
+            </Typography>
           </Stack>
         </Box>
       ) : (

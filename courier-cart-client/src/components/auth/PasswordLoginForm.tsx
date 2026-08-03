@@ -23,7 +23,11 @@ import { toast } from '../UI/Toast'
 import EmailVerificationForm from './EmailVerificationForm'
 import PasswordResetDialog from './PasswordResetDialog'
 
-const { teal, tealDark, orange, ink, muted, paper, tealSoft } = BRAND.colors
+const { ink, muted, paper } = BRAND.colors
+const teal = '#3454d1'
+const tealDark = '#2947ae'
+const orange = '#ef6c00'
+const tealSoft = '#edf2ff'
 
 const fieldSx = {
   '& .MuiOutlinedInput-root': {
@@ -183,7 +187,7 @@ export default function PasswordLoginForm({ setStep, step, setOpenTerms }: IPass
         <Stack component="form" onSubmit={handleSubmit} width="100%" spacing={{ xs: 1.55, md: 1.75 }}>
           <Box
             sx={{
-              display: 'grid',
+              display: 'none',
               gridTemplateColumns: '58px 1fr',
               gap: 1.55,
               alignItems: 'center',
@@ -220,7 +224,7 @@ export default function PasswordLoginForm({ setStep, step, setOpenTerms }: IPass
 
           <Box>
             <Typography sx={{ color: '#081932', fontSize: 14, fontWeight: 900, mb: 0.9 }}>
-              Work Email <Box component="span" sx={{ color: '#e1261c' }}>*</Box>
+              Email address <Box component="span" sx={{ color: orange }}>*</Box>
             </Typography>
             <TextField
               type="email"
@@ -249,7 +253,7 @@ export default function PasswordLoginForm({ setStep, step, setOpenTerms }: IPass
 
           <Box>
             <Typography sx={{ color: '#081932', fontSize: 14, fontWeight: 900, mb: 0.9 }}>
-              Password <Box component="span" sx={{ color: '#e1261c' }}>*</Box>
+              Password <Box component="span" sx={{ color: orange }}>*</Box>
             </Typography>
             <TextField
               name="password"
@@ -335,10 +339,10 @@ export default function PasswordLoginForm({ setStep, step, setOpenTerms }: IPass
               fontSize: 15.5,
               fontWeight: 900,
               gap: 1.1,
-              background: `linear-gradient(135deg, ${teal} 0%, ${tealDark} 70%, ${orange} 100%)`,
+              background: `linear-gradient(135deg, ${teal} 0%, ${tealDark} 100%)`,
               boxShadow: `0 16px 26px ${alpha(teal, 0.18)}`,
               '&:hover': {
-                background: `linear-gradient(135deg, ${tealDark} 0%, ${teal} 72%, ${orange} 100%)`,
+                background: `linear-gradient(135deg, ${tealDark} 0%, ${teal} 100%)`,
               },
               '&:disabled': {
                 color: paper,
