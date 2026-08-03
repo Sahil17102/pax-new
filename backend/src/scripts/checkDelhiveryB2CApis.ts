@@ -362,6 +362,32 @@ const run = async () => {
   assert.equal(captured.at(-1)?.url, 'https://staging-express.delhivery.com/api/p/edit')
   assert.deepEqual(captured.at(-1)?.data, { waybill: 'TEST-AWB', phone: '9999999999' })
 
+  await mockedService.updateShipment('EDIT-AWB', {
+    current_payment_mode: 'Prepaid',
+    current_status: 'Manifested',
+    pt: 'COD',
+    cod: 100,
+    phone: ['919999999999', '918888888888'],
+    add: 'Updated address',
+    products_desc: 'Updated products',
+    gm: 100.2,
+    shipment_height: 40.2,
+    shipment_width: 30,
+    shipment_length: 20,
+  })
+  assert.deepEqual(captured.at(-1)?.data, {
+    waybill: 'EDIT-AWB',
+    phone: ['9999999999', '8888888888'],
+    add: 'Updated address',
+    products_desc: 'Updated products',
+    gm: 100.2,
+    shipment_height: 40.2,
+    shipment_width: 30,
+    shipment_length: 20,
+    cod: 100,
+    pt: 'COD',
+  })
+
   ;(axios as any).get = originalGet
   ;(axios as any).post = originalPost
 
@@ -443,12 +469,53 @@ const run = async () => {
   await assert.rejects(() => service.fetchWaybills(10001), /between 1 and 10000/)
   await assert.rejects(() => service.fetchWaybills(1.5), /between 1 and 10000/)
   await assert.rejects(
-    () => service.updateShipment('TEST-AWB', { pin: '40009' }),
-    /6-digit/,
+    () => service.updateShipment('TEST-AWB', { pin: '40009' } as any),
+    /Unsupported Delhivery shipment edit field.*pin/,
   )
   await assert.rejects(
     () => service.updateShipment('TEST-AWB', { phone: '12345' }),
-    /10 digits/,
+    /phone value must contain 10 digits/,
+  )
+  await assert.rejects(
+    () => service.updateShipment('TEST-AWB', {
+      current_payment_mode: 'Prepaid',
+      pt: 'Pre-paid',
+    }),
+    /conversion is not allowed/,
+  )
+  await assert.rejects(
+    () => service.updateShipment('TEST-AWB', {
+      current_payment_mode: 'Prepaid',
+      pt: 'Pickup',
+    }),
+    /only be converted between COD and Pre-paid/,
+  )
+  await assert.rejects(
+    () => service.updateShipment('TEST-AWB', {
+      current_payment_mode: 'Prepaid',
+      pt: 'COD',
+    }),
+    /cod is required/,
+  )
+  await assert.rejects(
+    () => service.updateShipment('TEST-AWB', {
+      current_payment_mode: 'Pickup',
+      current_status: 'Pending',
+      add: 'Updated address',
+    }),
+    /not allowed in Pending status/,
+  )
+  await assert.rejects(
+    () => service.updateShipment('TEST-AWB', {
+      current_payment_mode: 'COD',
+      current_status: 'Delivered',
+      add: 'Updated address',
+    }),
+    /not allowed in Delivered status/,
+  )
+  await assert.rejects(
+    () => service.updateShipment('TEST-AWB', { gm: 0 }),
+    /gm must be a positive number/,
   )
 
   const collectionPath = path.resolve(
@@ -502,6 +569,13 @@ const run = async () => {
   assert(createMpsRequest.request.body.raw.includes('master_id'))
   assert(createMpsRequest.request.body.raw.includes('mps_children'))
   assert(createMpsRequest.request.body.raw.includes('mps_amount'))
+  const updateForwardRequest = mutatingFolder.item.find(
+    (request: any) => request.name === 'Update Forward Shipment',
+  )
+  assert(updateForwardRequest.request.body.raw.includes('current_payment_mode'))
+  assert(updateForwardRequest.request.body.raw.includes('shipment_height'))
+  assert(mutatingFolder.item.some((request: any) => request.name === 'Update Pickup Shipment'))
+  assert(mutatingFolder.item.some((request: any) => request.name === 'Update REPL Shipment'))
 
   console.log('Delhivery B2C integration checks passed')
 }

@@ -95,3 +95,11 @@ Delhivery's native `{ pickup_location, shipments: [...] }` MPS structure.
 `pickup_location` must exactly match the registered warehouse name. The proxy
 form-encodes the provider payload, including addresses that contain `&`, `#`,
 `%`, `;`, or backslashes.
+
+Shipment Edit sends only Delhivery's documented editable keys: `name`, `phone`,
+`pt`, `cod`, `add`, `products_desc`, `gm`, and shipment dimensions. The Postman
+examples cover forward, Pickup, and REPL status rules. `current_payment_mode` and
+`current_status` are local validation metadata and are never forwarded. COD and
+Pre-paid can convert only to each other; Pre-paid-to-COD requires a positive
+`cod` amount. Dispatched and terminal statuses are rejected before the provider
+request.

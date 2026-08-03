@@ -179,12 +179,25 @@ export const summarizeDelhiveryExpectedTat = (
 
 export type DelhiveryShipmentUpdate = {
   name?: string
-  phone?: string
+  phone?: string | number | Array<string | number>
   add?: string
-  pin?: string
   products_desc?: string
+  pt?: string
+  cod?: number
+  gm?: number
+  shipment_height?: number
+  shipment_width?: number
+  shipment_length?: number
+  current_payment_mode?: string
+  current_status?: string
+  payment_mode?: string
+  payment_type?: string
   cod_amount?: number
-  total_amount?: number
+  weight?: number
+  package_weight?: number
+  package_height?: number
+  package_breadth?: number
+  package_length?: number
 }
 
 export type DelhiveryCredentialsOverride = {
@@ -1443,48 +1456,181 @@ export class DelhiveryService {
     }
   }
 
-  // Update editable forward-shipment fields before Delhivery locks them in transit.
+  // Update only fields accepted by Delhivery's B2C Shipment Edit API.
   async updateShipment(waybill: string, updates: DelhiveryShipmentUpdate) {
     const normalizedWaybill = String(waybill || '').trim()
     if (!normalizedWaybill) {
       throw new HttpError(400, 'Delhivery AWB number is required for shipment updates')
     }
 
-    const allowedFields: Array<keyof DelhiveryShipmentUpdate> = [
+    const updateRecord = (updates || {}) as Record<string, unknown>
+    const acceptedInputFields = new Set([
       'name',
       'phone',
       'add',
-      'pin',
       'products_desc',
+      'pt',
+      'cod',
+      'gm',
+      'shipment_height',
+      'shipment_width',
+      'shipment_length',
+      'current_payment_mode',
+      'current_status',
+      // Pax aliases normalized to documented Delhivery keys.
+      'payment_mode',
+      'payment_type',
       'cod_amount',
-      'total_amount',
-    ]
-    const payload: Record<string, string | number> = { waybill: normalizedWaybill }
-    for (const field of allowedFields) {
-      const value = updates?.[field]
-      if (value !== undefined && value !== null && String(value).trim() !== '') {
-        payload[field] = typeof value === 'number' ? value : String(value).trim()
+      'weight',
+      'package_weight',
+      'package_height',
+      'package_breadth',
+      'package_length',
+    ])
+    const unsupportedFields = Object.keys(updateRecord).filter(
+      (field) => !acceptedInputFields.has(field),
+    )
+    if (unsupportedFields.length > 0) {
+      throw new HttpError(
+        400,
+        `Unsupported Delhivery shipment edit field(s): ${unsupportedFields.join(', ')}`,
+      )
+    }
+
+    const normalizePaymentMode = (
+      value: unknown,
+    ): 'COD' | 'Pre-paid' | 'Pickup' | 'REPL' | null => {
+      const normalized = String(value || '').trim().toLowerCase()
+      if (!normalized) return null
+      if (normalized === 'cod') return 'COD'
+      if (['prepaid', 'pre-paid'].includes(normalized)) return 'Pre-paid'
+      if (['pickup', 'reverse'].includes(normalized)) return 'Pickup'
+      if (['repl', 'replacement'].includes(normalized)) return 'REPL'
+      return null
+    }
+    const rawTargetPaymentMode = updates.pt ?? updates.payment_mode ?? updates.payment_type
+    const targetPaymentMode = normalizePaymentMode(rawTargetPaymentMode)
+    if (rawTargetPaymentMode !== undefined && !targetPaymentMode) {
+      throw new HttpError(400, 'pt must be COD or Pre-paid')
+    }
+    if (targetPaymentMode && !['COD', 'Pre-paid'].includes(targetPaymentMode)) {
+      throw new HttpError(400, 'Payment mode can only be converted between COD and Pre-paid')
+    }
+
+    const currentPaymentMode = normalizePaymentMode(updates.current_payment_mode)
+    if (updates.current_payment_mode !== undefined && !currentPaymentMode) {
+      throw new HttpError(400, 'current_payment_mode is invalid')
+    }
+    if (targetPaymentMode && currentPaymentMode) {
+      if (targetPaymentMode === currentPaymentMode) {
+        throw new HttpError(
+          400,
+          `${currentPaymentMode} to ${targetPaymentMode} conversion is not allowed`,
+        )
+      }
+      if (['Pickup', 'REPL'].includes(currentPaymentMode)) {
+        throw new HttpError(400, `${currentPaymentMode} payment mode cannot be converted`)
       }
     }
 
+    const currentStatus = String(updates.current_status || '').trim().toLowerCase()
+    if (currentStatus) {
+      const terminalStatuses = ['dispatched', 'delivered', 'dto', 'rto', 'lost', 'closed']
+      if (terminalStatuses.includes(currentStatus)) {
+        throw new HttpError(
+          400,
+          `Shipment edit is not allowed in ${updates.current_status} status`,
+        )
+      }
+      const allowedStatuses =
+        currentPaymentMode === 'Pickup'
+          ? ['scheduled']
+          : currentPaymentMode
+            ? ['manifested', 'in transit', 'pending']
+            : ['manifested', 'in transit', 'pending', 'scheduled']
+      if (!allowedStatuses.includes(currentStatus)) {
+        throw new HttpError(
+          400,
+          `Shipment edit is not allowed in ${updates.current_status} status`,
+        )
+      }
+    }
+
+    const payload: Record<string, unknown> = { waybill: normalizedWaybill }
+    for (const field of ['name', 'add', 'products_desc'] as const) {
+      const value = updates[field]
+      if (value !== undefined && value !== null && String(value).trim()) {
+        payload[field] = String(value).trim()
+      }
+    }
+
+    if (updates.phone !== undefined && updates.phone !== null) {
+      const phoneValues = Array.isArray(updates.phone) ? updates.phone : [updates.phone]
+      const normalizedPhones = phoneValues.map((value) =>
+        String(value || '').replace(/\D/g, '').slice(-10),
+      )
+      if (
+        normalizedPhones.length === 0 ||
+        normalizedPhones.some((phone) => !/^\d{10}$/.test(phone))
+      ) {
+        throw new HttpError(400, 'Every phone value must contain 10 digits')
+      }
+      payload.phone = Array.isArray(updates.phone) ? normalizedPhones : normalizedPhones[0]
+    }
+
+    const numericFields: Array<{
+      providerField: 'gm' | 'shipment_height' | 'shipment_width' | 'shipment_length'
+      value: unknown
+    }> = [
+      { providerField: 'gm', value: updates.gm ?? updates.weight ?? updates.package_weight },
+      { providerField: 'shipment_height', value: updates.shipment_height ?? updates.package_height },
+      { providerField: 'shipment_width', value: updates.shipment_width ?? updates.package_breadth },
+      { providerField: 'shipment_length', value: updates.shipment_length ?? updates.package_length },
+    ]
+    for (const { providerField, value } of numericFields) {
+      if (value === undefined || value === null || value === '') continue
+      const numberValue = Number(value)
+      if (!Number.isFinite(numberValue) || numberValue <= 0) {
+        throw new HttpError(400, `${providerField} must be a positive number`)
+      }
+      payload[providerField] = numberValue
+    }
+
+    const codValue: unknown = updates.cod ?? updates.cod_amount
+    if (targetPaymentMode === 'COD') {
+      if (codValue === undefined || codValue === null || codValue === '') {
+        throw new HttpError(400, 'cod is required when converting Pre-paid to COD')
+      }
+      const normalizedCod = Number(codValue)
+      if (!Number.isFinite(normalizedCod) || normalizedCod <= 0) {
+        throw new HttpError(400, 'cod must be a positive number')
+      }
+      payload.cod = normalizedCod
+    } else if (codValue !== undefined && codValue !== null && codValue !== '') {
+      throw new HttpError(400, 'cod can only be sent when pt is COD')
+    }
+    if (targetPaymentMode) payload.pt = targetPaymentMode
+
     if (Object.keys(payload).length === 1) {
       throw new HttpError(400, 'At least one editable shipment field is required')
-    }
-    if (payload.pin && !/^\d{6}$/.test(String(payload.pin))) {
-      throw new HttpError(400, 'pin must be a valid 6-digit pincode')
-    }
-    if (payload.phone) {
-      const phone = String(payload.phone).replace(/\D/g, '').slice(-10)
-      if (!/^\d{10}$/.test(phone)) {
-        throw new HttpError(400, 'phone must contain 10 digits')
-      }
-      payload.phone = phone
     }
 
     await this.ensureCredentials()
     const res = await this.postWithTimeout(`${this.apiBase}/api/p/edit`, payload, {
       headers: this.headers,
     })
+    const normalizedResponseStatus = String(res.data?.status || '').trim().toLowerCase()
+    if (
+      res.data?.success === false ||
+      res.data?.Success === false ||
+      res.data?.status === false ||
+      ['fail', 'failed', 'failure', 'error'].includes(normalizedResponseStatus)
+    ) {
+      throw new HttpError(
+        502,
+        extractProviderErrorMessage(res.data) || 'Delhivery shipment update was rejected',
+      )
+    }
     return res.data
   }
 

@@ -254,7 +254,28 @@
             "method": "PATCH",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{baseUrl}}/api/delhivery/b2c/shipments/{{awb}}",
-            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"9999999999\",\n  \"add\": \"Updated consignee address\"\n}" }
+            "body": { "mode": "raw", "raw": "{\n  \"current_payment_mode\": \"{{editCurrentPaymentMode}}\",\n  \"current_status\": \"{{editCurrentStatus}}\",\n  \"pt\": \"{{editTargetPaymentMode}}\",\n  \"cod\": {{editCodAmount}},\n  \"phone\": [\"9999999999\"],\n  \"add\": \"Updated consignee address\",\n  \"products_desc\": \"Updated product description\",\n  \"gm\": 750,\n  \"shipment_height\": 20,\n  \"shipment_width\": 15,\n  \"shipment_length\": 10\n}" },
+            "description": "Forward edit example. Default variables demonstrate Prepaid-to-COD, which requires cod. Set target to Pre-paid and remove cod for COD-to-Prepaid. Same-mode and Pickup/REPL conversions are rejected."
+          }
+        },
+        {
+          "name": "Update Pickup Shipment",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/delhivery/b2c/shipments/{{awb}}",
+            "body": { "mode": "raw", "raw": "{\n  \"current_payment_mode\": \"Pickup\",\n  \"current_status\": \"Scheduled\",\n  \"name\": \"Updated Pickup Customer\",\n  \"phone\": \"9999999999\",\n  \"add\": \"Updated pickup address\"\n}" },
+            "description": "Pickup/RVP edits are allowed only while Scheduled. Payment-mode conversion is intentionally omitted because Pickup conversions are unsupported."
+          }
+        },
+        {
+          "name": "Update REPL Shipment",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/delhivery/b2c/shipments/{{awb}}",
+            "body": { "mode": "raw", "raw": "{\n  \"current_payment_mode\": \"REPL\",\n  \"current_status\": \"Pending\",\n  \"products_desc\": \"Updated replacement product\",\n  \"gm\": 650,\n  \"shipment_height\": 20\n}" },
+            "description": "REPL edits are allowed in Manifested, In Transit, or Pending. REPL payment-mode conversions are unsupported."
           }
         },
         {
