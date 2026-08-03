@@ -864,7 +864,7 @@ function AnalyticsCard({
           position: 'absolute',
           inset: '0 auto 0 0',
           width: 5,
-          background: `linear-gradient(180deg, ${BRAND.colors.orange}, ${BRAND.colors.bridge}, ${BRAND.colors.teal})`,
+          background: BRAND.colors.teal,
         },
       }}
     >

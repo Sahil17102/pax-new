@@ -46,7 +46,7 @@ function SignUp() {
         position="absolute"
         inset="0"
         bgImage={useColorModeValue(
-          'radial-gradient(circle at 12% 10%, rgba(6,42,91,0.08) 0%, transparent 36%), radial-gradient(circle at 90% 14%, rgba(237,28,36,0.08) 0%, transparent 30%)',
+          'radial-gradient(circle at 12% 10%, rgba(6,42,91,0.08) 0%, transparent 36%), radial-gradient(circle at 90% 14%, rgba(62,106,168,0.08) 0%, transparent 30%)',
           'radial-gradient(circle at 12% 10%, rgba(6,42,91,0.16) 0%, transparent 36%), radial-gradient(circle at 90% 14%, rgba(255,255,255,0.08) 0%, transparent 30%)',
         )}
       />

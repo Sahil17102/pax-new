@@ -142,10 +142,10 @@ const theme = createTheme({
           },
         },
         containedPrimary: {
-          background: `linear-gradient(135deg, ${teal} 0%, ${tealDark} 72%, ${orange} 100%)`,
+          background: teal,
           color: '#ffffff',
           '&:hover': {
-            background: `linear-gradient(135deg, ${tealDark} 0%, ${teal} 72%, ${orangeDark} 100%)`,
+            background: '#123763',
             boxShadow: `0 14px 30px ${alpha(teal, 0.24)}`,
           },
         },
@@ -303,7 +303,7 @@ const theme = createTheme({
         indicator: {
           height: 3,
           borderRadius: 2,
-          background: `linear-gradient(90deg, ${teal} 0%, ${orange} 100%)`,
+          background: teal,
         },
       },
     },

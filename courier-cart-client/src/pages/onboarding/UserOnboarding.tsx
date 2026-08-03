@@ -27,7 +27,6 @@ import type { UserInfoData } from '../../types/user.types'
 import { emptyErrors, hasValidationErrors, validateOnboardingFields } from '../../utils/functions'
 import { initialFormData } from '../../utils/utility'
 
-const BRAND_ORANGE = BRAND.colors.orange
 const BRAND_TEAL = BRAND.colors.teal
 const BRAND_TEAL_DARK = BRAND.colors.tealDark
 const BRAND_DARK = BRAND.colors.ink
@@ -232,7 +231,7 @@ export default function UserOnboarding() {
                 minWidth: 0,
                 p: { xs: 2.2, md: 3, lg: 3.4 },
                 background:
-                  `radial-gradient(circle at 16% 16%, rgba(255,255,255,0.12) 0%, transparent 24%), radial-gradient(circle at 80% 20%, ${alpha(BRAND_ORANGE, 0.26)} 0%, transparent 26%), linear-gradient(180deg, ${BRAND_TEAL_DARK} 0%, #012f38 100%)`,
+                  `radial-gradient(circle at 16% 16%, rgba(255,255,255,0.12) 0%, transparent 24%), radial-gradient(circle at 80% 20%, ${alpha(BRAND_TEAL, 0.26)} 0%, transparent 26%), linear-gradient(180deg, ${BRAND_TEAL_DARK} 0%, #012f38 100%)`,
                 color: '#fff',
                 borderBottom: { xs: '1px solid rgba(255,255,255,0.08)', lg: 'none' },
               }}
@@ -297,7 +296,7 @@ export default function UserOnboarding() {
                       bgcolor: alpha('#fff', 0.1),
                       '& .MuiLinearProgress-bar': {
                         borderRadius: 2,
-                        background: `linear-gradient(90deg, ${BRAND_TEAL} 0%, ${BRAND_ORANGE} 100%)`,
+                        background: BRAND_TEAL,
                       },
                     }}
                   />

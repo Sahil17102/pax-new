@@ -95,7 +95,7 @@ const GettingStarted = () => {
                       borderRadius: 0,
                       background: isKycDone
                         ? BRAND_PRIMARY
-                        : `linear-gradient(90deg, ${BRAND_PRIMARY} 0%, ${BRAND_ACCENT} 100%)`,
+                        : BRAND_PRIMARY,
                     },
                   }}
                 />

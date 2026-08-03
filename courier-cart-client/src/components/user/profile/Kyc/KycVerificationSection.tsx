@@ -189,7 +189,7 @@ const KYCVerificationStep: React.FC<{
                 left: 0,
                 right: 0,
                 height: '3px',
-                background: `linear-gradient(90deg, ${teal}, ${orange})`,
+                background: teal,
               },
             }}
           >

@@ -377,7 +377,7 @@ export default function Dashboard() {
         background:
           `linear-gradient(90deg, ${alpha(BRAND_PRIMARY, 0.045)} 1px, transparent 1px) 0 0 / 44px 44px, ` +
           `linear-gradient(${alpha(BRAND_PRIMARY, 0.04)} 1px, transparent 1px) 0 0 / 44px 44px, ` +
-          `linear-gradient(135deg, ${alpha(BRAND_ACCENT, 0.035)} 0%, transparent 26%, ${alpha(BRAND_PRIMARY, 0.045)} 100%)`,
+          `linear-gradient(135deg, ${alpha(BRAND_PRIMARY, 0.035)} 0%, transparent 26%, ${alpha(BRAND_PRIMARY, 0.045)} 100%)`,
       }}
     >
       {/* Header Section */}
@@ -502,7 +502,7 @@ export default function Dashboard() {
                   left: 0,
                   right: 0,
                   height: 3,
-                  background: `linear-gradient(90deg, ${BRAND_PRIMARY}, ${BRAND_ACCENT})`,
+                  background: BRAND_PRIMARY,
                 },
               }}
             >

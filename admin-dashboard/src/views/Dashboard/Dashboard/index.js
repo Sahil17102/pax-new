@@ -129,7 +129,7 @@ export default function Dashboard() {
 
   const pageBg = useColorModeValue(
     brandGradient,
-    'radial-gradient(circle at 100% 0%, rgba(237,28,36,0.12), transparent 28%), linear-gradient(180deg, #020D1F 0%, #041A38 48%, #020D1F 100%)',
+    'radial-gradient(circle at 100% 0%, rgba(62,106,168,0.12), transparent 28%), linear-gradient(180deg, #020D1F 0%, #041A38 48%, #020D1F 100%)',
   )
   const panelBg = useColorModeValue('white', '#101D36')
   const softPanelBg = useColorModeValue('rgba(238, 244, 251, 0.72)', 'rgba(134,168,211,0.08)')

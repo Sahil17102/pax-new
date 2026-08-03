@@ -78,7 +78,7 @@ const AccountSetup = () => {
             bgcolor: '#E5E7EB',
             '& .MuiLinearProgress-bar': {
               borderRadius: 0,
-              background: `linear-gradient(90deg, ${BRAND_PRIMARY} 0%, ${BRAND_ACCENT} 100%)`,
+              background: BRAND_PRIMARY,
             },
           }}
         />

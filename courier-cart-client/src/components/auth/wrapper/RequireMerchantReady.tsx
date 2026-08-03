@@ -68,7 +68,7 @@ export default function RequireMerchantReady({ children }: { children: ReactNode
                   bgcolor: alpha(BRAND_PRIMARY, 0.12),
                   '& .MuiLinearProgress-bar': {
                     borderRadius: 999,
-                    background: `linear-gradient(90deg, ${BRAND_PRIMARY} 0%, ${BRAND_ACCENT} 100%)`,
+                    background: BRAND_PRIMARY,
                   },
                 }}
               />

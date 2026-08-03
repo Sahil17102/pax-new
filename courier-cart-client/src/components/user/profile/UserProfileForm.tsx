@@ -28,7 +28,7 @@ import PhoneVerificationModal from './ProfilePhoneVerificationModal'
 
 export const BRAND_GREEN = '#062A5B'
 export const BRAND_ORANGE = '#ED1C24'
-export const BRAND_GRADIENT = `linear-gradient(135deg, ${BRAND_GREEN} 0%, ${BRAND_ORANGE} 100%)`
+export const BRAND_GRADIENT = BRAND_GREEN
 
 export default function UserProfileForm() {
   const { user, loading } = useAuth()
