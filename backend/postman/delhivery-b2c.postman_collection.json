@@ -245,11 +245,25 @@
         },
         {
           "name": "Create Warehouse",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "var body = pm.response.json();",
+              "pm.test('Warehouse creation response is normalized', function () {",
+              "  pm.expect(body.data.success).to.eql(true);",
+              "  pm.expect(body.data.warehouse_name).to.eql(pm.environment.get('warehouseName'));",
+              "  pm.expect(body.data.pin).to.eql(pm.environment.get('originPincode'));",
+              "  pm.expect(body.data).to.have.property('return_pin');",
+              "  pm.expect(body.data).to.have.property('provider_response');",
+              "});"
+            ] }
+          }],
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{baseUrl}}/api/delhivery/b2c/warehouses",
-            "body": { "mode": "raw", "raw": "{\n  \"name\": \"{{warehouseName}}\",\n  \"registered_name\": \"Pax Logistics\",\n  \"phone\": \"9999999999\",\n  \"email\": \"operations@example.com\",\n  \"address\": \"Test warehouse address\",\n  \"city\": \"Gurugram\",\n  \"pin\": \"{{originPincode}}\",\n  \"country\": \"India\",\n  \"return_address\": \"Test return address\",\n  \"return_city\": \"Gurugram\",\n  \"return_pin\": \"{{originPincode}}\",\n  \"return_state\": \"Haryana\",\n  \"return_country\": \"India\"\n}" }
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"{{warehouseName}}\",\n  \"registered_name\": \"Pax Logistics\",\n  \"phone\": \"9999999999\",\n  \"email\": \"operations@example.com\",\n  \"address\": \"Test warehouse address\",\n  \"city\": \"Gurugram\",\n  \"pin\": \"{{originPincode}}\",\n  \"country\": \"India\",\n  \"return_address\": \"Test return address\",\n  \"return_city\": \"Gurugram\",\n  \"return_pin\": \"{{originPincode}}\",\n  \"return_state\": \"Haryana\",\n  \"return_country\": \"India\"\n}" },
+            "description": "Registers a case-sensitive Delhivery pickup-location name and its return address before shipment creation. Required fields are name, phone, pin, and return_address; optional documented fields are forwarded only when non-empty. This mutation is locked unless allowMutating=true. Delhivery's production limit is 10 requests per minute per IP."
           }
         },
         {

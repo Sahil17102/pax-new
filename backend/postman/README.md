@@ -149,6 +149,17 @@ as raw PDF bytes. Label requests use a configurable 70-second timeout because
 of the documented provider tail latency. Delhivery documents a production limit
 of 3,000 requests per five-minute IP window.
 
+Client Warehouse Creation is available at `POST /api/delhivery/b2c/warehouses`.
+The proxy sends only Delhivery's documented fields and requires `name`, `phone`,
+`pin`, and `return_address`. Warehouse names retain their exact case because the
+same value must be used later as `pickup_location` during manifestation and
+pickup creation. Phone numbers are normalized to 10 digits, pickup and optional
+return pincodes are validated as six digits, optional email is validated, and
+blank optional fields are omitted. Responses include the normalized warehouse
+name and original `provider_response`. The Postman request is mutation-locked
+unless `allowMutating=true`. Delhivery documents a production limit of 10
+requests per minute per IP.
+
 Pickup Request Creation is available at `POST /api/delhivery/b2c/pickups` with
 exactly `pickup_date`, `pickup_time`, `pickup_location`, and
 `expected_package_count`. The location is the case-sensitive registered

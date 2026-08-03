@@ -381,6 +381,22 @@ export type DelhiveryPickupRequest = {
   expected_package_count: number
 }
 
+export type DelhiveryWarehouseCreateRequest = {
+  name: string
+  registered_name?: string
+  phone: string
+  email?: string
+  address?: string
+  city?: string
+  pin: string
+  country?: string
+  return_address: string
+  return_city?: string
+  return_pin?: string
+  return_state?: string
+  return_country?: string
+}
+
 export type DelhiveryCredentialsOverride = {
   apiBase: string
   apiKey: string
@@ -2257,21 +2273,88 @@ export class DelhiveryService {
   }
 
   // services/delhivery.service.ts
-  async createWarehouse(warehouse: {
-    name: string
-    registered_name?: string
-    phone: string
-    email?: string
-    address: string
-    city: string
-    pin: string
-    country?: string
-    return_address: string
-    return_city?: string
-    return_pin?: string
-    return_state?: string
-    return_country?: string
-  }) {
+  async createWarehouse(warehouseData: DelhiveryWarehouseCreateRequest) {
+    const input = (warehouseData || {}) as unknown as Record<string, unknown>
+    const allowedFields = new Set([
+      'name',
+      'registered_name',
+      'phone',
+      'email',
+      'address',
+      'city',
+      'pin',
+      'country',
+      'return_address',
+      'return_city',
+      'return_pin',
+      'return_state',
+      'return_country',
+    ])
+    const unsupportedFields = Object.keys(input).filter((key) => !allowedFields.has(key))
+    if (unsupportedFields.length > 0) {
+      throw new HttpError(
+        400,
+        `Unsupported Delhivery warehouse field(s): ${unsupportedFields.join(', ')}`,
+      )
+    }
+
+    const name = String(input.name || '').trim()
+    if (!name) {
+      throw new HttpError(400, 'Warehouse name is required and is case-sensitive')
+    }
+
+    const rawPhoneDigits = String(input.phone || '').replace(/\D/g, '')
+    const phone =
+      rawPhoneDigits.length === 12 && rawPhoneDigits.startsWith('91')
+        ? rawPhoneDigits.slice(2)
+        : rawPhoneDigits.length === 11 && rawPhoneDigits.startsWith('0')
+          ? rawPhoneDigits.slice(1)
+          : rawPhoneDigits
+    if (!/^\d{10}$/.test(phone)) {
+      throw new HttpError(400, 'Warehouse phone must contain a valid 10-digit number')
+    }
+
+    const pin = String(input.pin || '').trim()
+    if (!/^\d{6}$/.test(pin)) {
+      throw new HttpError(400, 'Warehouse pin must be a valid 6-digit pincode')
+    }
+
+    const returnAddress = String(input.return_address || '').trim()
+    if (!returnAddress) {
+      throw new HttpError(400, 'return_address is required for the Delhivery warehouse')
+    }
+
+    const email = String(input.email || '').trim()
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new HttpError(400, 'Warehouse email must be a valid email address')
+    }
+
+    const returnPin = String(input.return_pin || '').trim()
+    if (returnPin && !/^\d{6}$/.test(returnPin)) {
+      throw new HttpError(400, 'return_pin must be a valid 6-digit pincode')
+    }
+
+    const payload: Record<string, string> = {
+      name,
+      phone,
+      pin,
+      return_address: returnAddress,
+    }
+    const optionalFields: Array<[keyof DelhiveryWarehouseCreateRequest, string]> = [
+      ['registered_name', String(input.registered_name || '').trim()],
+      ['email', email],
+      ['address', String(input.address || '').trim()],
+      ['city', String(input.city || '').trim()],
+      ['country', String(input.country || '').trim()],
+      ['return_city', String(input.return_city || '').trim()],
+      ['return_pin', returnPin],
+      ['return_state', String(input.return_state || '').trim()],
+      ['return_country', String(input.return_country || '').trim()],
+    ]
+    for (const [field, value] of optionalFields) {
+      if (value) payload[field] = value
+    }
+
     try {
       await this.ensureCredentials()
       const url = `${this.apiBase}/api/backend/clientwarehouse/create/`
@@ -2281,12 +2364,66 @@ export class DelhiveryService {
         'Content-Type': 'application/json',
       }
 
-      const res = await this.postWithTimeout(url, warehouse, { headers })
-      return res.data
+      const res = await this.postWithTimeout(url, payload, { headers })
+      const responseData = res.data
+      const providerStatus = String(responseData?.status || '').trim().toLowerCase()
+      const rejected =
+        responseData?.success === false ||
+        responseData?.status === false ||
+        ['fail', 'failed', 'failure', 'error'].includes(providerStatus) ||
+        hasProviderErrorValue(responseData?.error) ||
+        hasProviderErrorValue(responseData?.errors)
+      if (rejected) {
+        const error = new Error(
+          extractProviderErrorMessage(responseData?.message) ||
+            extractProviderErrorMessage(responseData?.error) ||
+            extractProviderErrorMessage(responseData?.errors) ||
+            extractProviderErrorMessage(responseData) ||
+            'Delhivery warehouse creation was rejected',
+        )
+        ;(error as any).statusCode = 502
+        ;(error as any).details = responseData
+        ;(error as any).isWarehouseCreationError = true
+        throw error
+      }
+
+      return {
+        success: true,
+        warehouse_name: name,
+        registered_name: payload.registered_name || null,
+        pin,
+        return_pin: payload.return_pin || null,
+        message:
+          extractProviderErrorMessage(responseData?.message) ||
+          'Delhivery warehouse created successfully',
+        provider_response: responseData || null,
+      }
     } catch (err: any) {
+      if (err?.isWarehouseCreationError) throw err
+
+      const timeoutError = isTimeoutError(err)
+      const providerError = err.response?.data
+      const providerMessage =
+        extractProviderErrorMessage(providerError?.message) ||
+        extractProviderErrorMessage(providerError?.error) ||
+        extractProviderErrorMessage(providerError?.errors) ||
+        (!timeoutError && extractProviderErrorMessage(providerError)) ||
+        (typeof err.message === 'string' && err.message.trim() && !timeoutError
+          ? err.message.trim()
+          : 'Warehouse creation is taking longer than expected. Please try again.')
+
       console.error('❌ Delhivery warehouse creation error:', err.response?.data || err.message)
-      // Re-throw original error so upstream callers can inspect Delhivery's response
-      throw err
+      const error = new Error(providerMessage)
+      ;(error as any).statusCode = typeof err.response?.status === 'number'
+        ? err.response.status
+        : timeoutError
+          ? 504
+          : 502
+      ;(error as any).details = providerError || null
+      ;(error as any).isWarehouseCreationError = true
+      ;(error as any).providerStatus = err.response?.status ?? null
+      ;(error as any).code = err?.code ?? null
+      throw error
     }
   }
 

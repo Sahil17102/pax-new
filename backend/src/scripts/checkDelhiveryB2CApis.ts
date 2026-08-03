@@ -193,6 +193,12 @@ const run = async () => {
   }
   ;(axios as any).post = async (url: string, data: unknown, config: any) => {
     captured.push({ method: 'POST', url, data, headers: config?.headers })
+    if (url.includes('/api/backend/clientwarehouse/create/')) {
+      return {
+        status: 200,
+        data: { success: true, message: 'Warehouse created' },
+      }
+    }
     if (url.includes('/fm/request/new/')) {
       return {
         status: 200,
@@ -249,6 +255,61 @@ const run = async () => {
   )
   assert.equal(captured.at(-1)?.headers?.Accept, 'application/json')
   assert.equal(captured.at(-1)?.headers?.Authorization, undefined)
+
+  const warehouseRequestPayload = {
+    name: 'Case Sensitive Warehouse',
+    registered_name: ' Pax Logistics ',
+    phone: '+91 99999 99999',
+    email: ' operations@example.com ',
+    address: ' Warehouse Road ',
+    city: ' Kota ',
+    pin: '110042',
+    country: ' India ',
+    return_address: ' Return Warehouse Road ',
+    return_city: ' Kota ',
+    return_pin: '110043',
+    return_state: ' Delhi ',
+    return_country: ' India ',
+  }
+  const warehouseResult = await mockedService.createWarehouse(warehouseRequestPayload)
+  assert.equal(
+    captured.at(-1)?.url,
+    'https://staging-express.delhivery.com/api/backend/clientwarehouse/create/',
+  )
+  assert.deepEqual(captured.at(-1)?.data, {
+    name: 'Case Sensitive Warehouse',
+    phone: '9999999999',
+    pin: '110042',
+    return_address: 'Return Warehouse Road',
+    registered_name: 'Pax Logistics',
+    email: 'operations@example.com',
+    address: 'Warehouse Road',
+    city: 'Kota',
+    country: 'India',
+    return_city: 'Kota',
+    return_pin: '110043',
+    return_state: 'Delhi',
+    return_country: 'India',
+  })
+  assert.equal(captured.at(-1)?.headers?.Authorization, 'Token test-token')
+  assert.equal(captured.at(-1)?.headers?.Accept, 'application/json')
+  assert.equal(captured.at(-1)?.headers?.['Content-Type'], 'application/json')
+  assert.equal(warehouseResult.success, true)
+  assert.equal(warehouseResult.warehouse_name, 'Case Sensitive Warehouse')
+  assert.equal(warehouseResult.pin, '110042')
+  assert.equal(warehouseResult.return_pin, '110043')
+  assert.equal(warehouseResult.message, 'Warehouse created')
+
+  const successfulWarehousePostMock = (axios as any).post
+  ;(axios as any).post = async () => ({
+    status: 200,
+    data: { success: false, error: ['Warehouse registration rejected'] },
+  })
+  await assert.rejects(
+    () => mockedService.createWarehouse(warehouseRequestPayload),
+    /Warehouse registration rejected/,
+  )
+  ;(axios as any).post = successfulWarehousePostMock
 
   const waybillBatch = await mockedService.fetchWaybills(5)
   assert.deepEqual(waybillBatch, {
@@ -945,6 +1006,46 @@ const run = async () => {
     } as any),
     /Unsupported Delhivery pickup request field.*waybill/,
   )
+  const validWarehousePayload = {
+    name: 'Exact Warehouse Name',
+    phone: '9999999999',
+    pin: '110042',
+    return_address: 'Return warehouse address',
+  }
+  await assert.rejects(
+    () => service.createWarehouse({ ...validWarehousePayload, name: '   ' }),
+    /Warehouse name is required.*case-sensitive/,
+  )
+  await assert.rejects(
+    () => service.createWarehouse({ ...validWarehousePayload, phone: '12345' }),
+    /valid 10-digit number/,
+  )
+  await assert.rejects(
+    () => service.createWarehouse({ ...validWarehousePayload, pin: '11004' }),
+    /valid 6-digit pincode/,
+  )
+  await assert.rejects(
+    () => service.createWarehouse({ ...validWarehousePayload, return_address: '   ' }),
+    /return_address is required/,
+  )
+  await assert.rejects(
+    () => service.createWarehouse({
+      ...validWarehousePayload,
+      email: 'invalid-email',
+    }),
+    /valid email address/,
+  )
+  await assert.rejects(
+    () => service.createWarehouse({ ...validWarehousePayload, return_pin: '11004' }),
+    /return_pin must be a valid 6-digit pincode/,
+  )
+  await assert.rejects(
+    () => service.createWarehouse({
+      ...validWarehousePayload,
+      state: 'Delhi',
+    } as any),
+    /Unsupported Delhivery warehouse field.*state/,
+  )
   await assert.rejects(
     () => service.cancelShipment('TEST-AWB', {
       current_payment_mode: 'Pickup',
@@ -1072,6 +1173,15 @@ const run = async () => {
   assert(pickupRequestItem.request.body.raw.includes('{{pickupPackageCount}}'))
   assert(JSON.stringify(pickupRequestItem.event).includes('pickup_request_id'))
   assert(JSON.stringify(pickupRequestItem.event).includes('already_exists'))
+  const createWarehouseRequest = mutatingFolder.item.find(
+    (request: any) => request.name === 'Create Warehouse',
+  )
+  assert(createWarehouseRequest.request.url.endsWith('/delhivery/b2c/warehouses'))
+  assert(createWarehouseRequest.request.body.raw.includes('registered_name'))
+  assert(createWarehouseRequest.request.body.raw.includes('return_address'))
+  assert(createWarehouseRequest.request.body.raw.includes('return_pin'))
+  assert(JSON.stringify(createWarehouseRequest.event).includes('warehouse_name'))
+  assert(JSON.stringify(createWarehouseRequest.event).includes('provider_response'))
 
   console.log('Delhivery B2C integration checks passed')
 }
