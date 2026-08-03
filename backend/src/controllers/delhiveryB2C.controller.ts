@@ -196,24 +196,15 @@ export const trackShipmentController = (req: Request, res: Response) =>
     service.trackShipment(req.params.awb, parseQueryList(req.query.ref_ids)),
   )
 
-export const generateLabelController = async (req: Request, res: Response) => {
-  try {
-    const format = String(req.query.format || 'json').toLowerCase() === 'pdf' ? 'pdf' : 'json'
-    const data = await service.generateLabel(req.params.awb, { format })
-    if (format === 'pdf') {
-      res.setHeader('Content-Type', 'application/pdf')
-      res.setHeader('Content-Disposition', `inline; filename="delhivery-${req.params.awb}.pdf"`)
-      return res.send(data)
-    }
-    return res.json({ success: true, data })
-  } catch (error: any) {
-    const statusCode = Number(error?.statusCode || error?.response?.status || 500)
-    return res.status(statusCode >= 400 && statusCode < 600 ? statusCode : 500).json({
-      success: false,
-      message: error?.message || 'Delhivery B2C label request failed',
-    })
-  }
-}
+export const generateLabelController = (req: Request, res: Response) =>
+  sendResult(
+    res,
+    service.generateLabel(req.params.awb, {
+      pdf: req.query.pdf === undefined ? undefined : String(req.query.pdf),
+      pdfSize: String(req.query.pdf_size ?? req.query.size ?? ''),
+      format: String(req.query.format ?? ''),
+    }),
+  )
 
 export const createPickupController = (req: Request, res: Response) =>
   sendResult(res, service.createPickupRequest(req.body || {}))

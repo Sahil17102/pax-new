@@ -147,11 +147,41 @@
           }
         },
         {
-          "name": "Generate Label Metadata",
+          "name": "Generate Custom Label Metadata",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "var body = pm.response.json();",
+              "pm.test('Custom label metadata is returned', function () {",
+              "  pm.expect(body.data.pdf).to.eql(false);",
+              "  pm.expect(body.data.packages).to.be.an('array');",
+              "  pm.expect(body.data.label_url).to.eql(null);",
+              "});"
+            ] }
+          }],
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/api/delhivery/b2c/shipments/{{awb}}/label?format=json",
-            "description": "Returns packing-slip metadata for an existing AWB. Use format=pdf to stream a PDF."
+            "url": "{{baseUrl}}/api/delhivery/b2c/shipments/{{awb}}/label?pdf=false&pdf_size={{labelPdfSize}}",
+            "description": "Returns customizable JSON label metadata, including provider barcode fields. Render Code 128/barcode values in your own HTML layout. pdf_size accepts A4 or 4R."
+          }
+        },
+        {
+          "name": "Generate PDF Label Link",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "var body = pm.response.json();",
+              "pm.test('Provider PDF link is returned', function () {",
+              "  pm.expect(body.data.pdf).to.eql(true);",
+              "  pm.expect(body.data.pdf_size).to.eql(pm.environment.get('labelPdfSize'));",
+              "  pm.expect(body.data.label_url).to.be.a('string').and.not.empty;",
+              "});"
+            ] }
+          }],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/delhivery/b2c/shipments/{{awb}}/label?pdf=true&pdf_size={{labelPdfSize}}",
+            "description": "Requests Delhivery's hosted PDF label. The response contains an S3/download URL; it is not streamed as raw PDF bytes by the provider."
           }
         },
         {

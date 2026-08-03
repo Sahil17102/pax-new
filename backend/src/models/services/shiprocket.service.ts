@@ -11534,9 +11534,9 @@ export const generateManifestService = async (params: {
               .generateLabel(currentAwb, {
                 format: 'pdf',
               })
-              .then((providerLabelPdf) => {
+              .then((providerLabelResult) => {
                 console.log(
-                  `✅ [Delhivery] Provider label PDF fetched for AWB ${currentAwb} (${providerLabelPdf?.length || 0} bytes)`,
+                  `✅ [Delhivery] Provider label PDF generated for AWB ${currentAwb}: ${providerLabelResult?.label_url || 'link received'}`,
                 )
               })
               .catch((providerLabelErr: any) => {
@@ -13677,9 +13677,9 @@ export const generateManifestService = async (params: {
                   .generateLabel(currentAwb, {
                     format: 'pdf',
                   })
-                  .then((providerLabelPdf) => {
+                  .then((providerLabelResult) => {
                     console.log(
-                      `✅ [Delhivery] Provider label PDF fetched for AWB ${currentAwb} (${providerLabelPdf?.length || 0} bytes)`,
+                      `✅ [Delhivery] Provider label PDF generated for AWB ${currentAwb}: ${providerLabelResult?.label_url || 'link received'}`,
                     )
                   })
                   .catch((providerLabelErr: any) => {

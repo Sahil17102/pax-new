@@ -169,6 +169,10 @@ const run = async () => {
         ? { waybills: '123456789012,123456789013,123456789012' }
         : url.includes('/fetch/serviceability/pincode')
         ? { data: { pincode: 400086, status: 'Serviceable', payment_type: ['Pre-paid', 'COD'] } }
+        : url.includes('/api/p/packing_slip')
+          ? url.includes('pdf=true')
+            ? { packages: [{ pdf_download_link: 'https://labels.example.com/label.pdf' }] }
+            : { packages: [{ barcode: 'data:image/png;base64,MOCK', sort_code: 'DEL/B' }] }
         : url.includes('/api/v1/packages/json/')
           ? {
               ShipmentData: [{
@@ -331,6 +335,51 @@ const run = async () => {
     /Rate card unavailable/,
   )
   ;(axios as any).get = successfulShippingCostGetMock
+
+  const customLabel = await mockedService.generateLabel('LABEL-AWB-1', {
+    pdf: false,
+    pdfSize: 'A4',
+  })
+  const customLabelUrl = new URL(String(captured.at(-1)?.url))
+  assert.equal(customLabelUrl.pathname, '/api/p/packing_slip')
+  assert.equal(customLabelUrl.searchParams.get('wbns'), 'LABEL-AWB-1')
+  assert.equal(customLabelUrl.searchParams.get('pdf'), 'false')
+  assert.equal(customLabelUrl.searchParams.get('pdf_size'), 'A4')
+  assert.equal(captured.at(-1)?.headers?.Authorization, 'Token test-token')
+  assert.equal(customLabel.pdf, false)
+  assert.equal(customLabel.pdf_size, 'A4')
+  assert.equal(customLabel.label_url, null)
+  assert.equal(customLabel.packages[0].sort_code, 'DEL/B')
+
+  const pdfLabel = await mockedService.generateLabel('LABEL-AWB-2', {
+    pdf: 'true',
+    pdfSize: '4r',
+  })
+  const pdfLabelUrl = new URL(String(captured.at(-1)?.url))
+  assert.equal(pdfLabelUrl.searchParams.get('pdf'), 'true')
+  assert.equal(pdfLabelUrl.searchParams.get('pdf_size'), '4R')
+  assert.equal(pdfLabel.pdf, true)
+  assert.equal(pdfLabel.pdf_size, '4R')
+  assert.equal(pdfLabel.label_url, 'https://labels.example.com/label.pdf')
+
+  const legacyPdfLabel = await mockedService.generateLabel('LABEL-AWB-3', { format: 'pdf' })
+  const legacyPdfLabelUrl = new URL(String(captured.at(-1)?.url))
+  assert.equal(legacyPdfLabelUrl.searchParams.get('pdf'), 'true')
+  assert.equal(legacyPdfLabelUrl.searchParams.has('pdf_size'), false)
+  assert.equal(legacyPdfLabel.label_url, 'https://labels.example.com/label.pdf')
+
+  const successfulLabelGetMock = (axios as any).get
+  ;(axios as any).get = async () => ({ status: 200, data: { success: false, error: 'Invalid AWB' } })
+  await assert.rejects(
+    () => mockedService.generateLabel('UNKNOWN-AWB', { pdf: false }),
+    /Invalid AWB/,
+  )
+  ;(axios as any).get = async () => ({ status: 200, data: { success: true } })
+  await assert.rejects(
+    () => mockedService.generateLabel('UNKNOWN-AWB', { pdf: true }),
+    /returned no PDF label link/,
+  )
+  ;(axios as any).get = successfulLabelGetMock
 
   const bulkTracking = await mockedService.trackShipments(
     'TRACK-AWB-1, TRACK-AWB-2, TRACK-AWB-1',
@@ -765,6 +814,22 @@ const run = async () => {
   )
   await assert.rejects(() => service.cancelShipment(''), /AWB number is required/)
   await assert.rejects(
+    () => service.generateLabel(''),
+    /AWB number is required/,
+  )
+  await assert.rejects(
+    () => service.generateLabel('TEST-AWB', { pdf: 'yes' }),
+    /pdf must be true or false/,
+  )
+  await assert.rejects(
+    () => service.generateLabel('TEST-AWB', { pdfSize: 'Letter' }),
+    /pdf_size must be A4 or 4R/,
+  )
+  await assert.rejects(
+    () => service.generateLabel('TEST-AWB', { format: 'png' }),
+    /format must be json or pdf/,
+  )
+  await assert.rejects(
     () => service.trackShipments(),
     /At least one Delhivery waybill or ref_ids value is required/,
   )
@@ -850,6 +915,17 @@ const run = async () => {
   assert(trackingRequest.request.url.includes('waybill={{trackingWaybills}}'))
   assert(trackingRequest.request.url.includes('ref_ids={{trackingRefIds}}'))
   assert(JSON.stringify(trackingRequest.event).includes('shipmentCount'))
+  const customLabelRequest = readOnlyFolder.item.find(
+    (request: any) => request.name === 'Generate Custom Label Metadata',
+  )
+  assert(customLabelRequest.request.url.includes('pdf=false'))
+  assert(customLabelRequest.request.url.includes('pdf_size={{labelPdfSize}}'))
+  assert(JSON.stringify(customLabelRequest.event).includes('packages'))
+  const pdfLabelRequest = readOnlyFolder.item.find(
+    (request: any) => request.name === 'Generate PDF Label Link',
+  )
+  assert(pdfLabelRequest.request.url.includes('pdf=true'))
+  assert(JSON.stringify(pdfLabelRequest.event).includes('label_url'))
   const mutatingFolder = collection.item.find(
     (folder: any) => folder.name === 'Mutating lifecycle requests',
   )

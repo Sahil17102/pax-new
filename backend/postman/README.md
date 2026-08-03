@@ -138,3 +138,13 @@ type may be box or flyer. Dimensions must be supplied together as positive
 integers. The response includes normalized quotes and the original provider
 response. Delhivery documents a production limit of 50 requests per five-minute
 IP window.
+
+Generate Shipping Label supports
+`GET /api/delhivery/b2c/shipments/:awb/label?pdf=false&pdf_size=A4` for
+customizable JSON metadata and `pdf=true` for a provider-hosted PDF link. Label
+size accepts A4 or 4R and defaults to A4 when omitted. The legacy `format=json`
+and `format=pdf` aliases remain supported, but PDF mode now correctly returns
+JSON containing `label_url` instead of treating the provider's S3-link response
+as raw PDF bytes. Label requests use a configurable 70-second timeout because
+of the documented provider tail latency. Delhivery documents a production limit
+of 3,000 requests per five-minute IP window.

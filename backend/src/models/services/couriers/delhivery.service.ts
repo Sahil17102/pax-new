@@ -368,6 +368,12 @@ export type DelhiveryEwaybillUpdate = {
   ewbn: string | number
 }
 
+export type DelhiveryLabelOptions = {
+  pdf?: boolean | string
+  pdfSize?: 'A4' | '4R' | string
+  format?: 'json' | 'pdf' | string
+}
+
 export type DelhiveryCredentialsOverride = {
   apiBase: string
   apiKey: string
@@ -448,6 +454,45 @@ const extractProviderErrorMessage = (value: unknown): string | null => {
     }
   }
 
+  return null
+}
+
+const findDelhiveryLabelUrl = (value: unknown): string | null => {
+  if (typeof value === 'string') {
+    const normalized = value.trim()
+    return /^https?:\/\//i.test(normalized) ? normalized : null
+  }
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const url = findDelhiveryLabelUrl(entry)
+      if (url) return url
+    }
+    return null
+  }
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    const preferredKeys = [
+      'pdf_download_link',
+      'pdf_url',
+      'pdfUrl',
+      'label_url',
+      'labelUrl',
+      'download_url',
+      'downloadUrl',
+      'url',
+      'link',
+    ]
+    for (const key of preferredKeys) {
+      if (key in record) {
+        const url = findDelhiveryLabelUrl(record[key])
+        if (url) return url
+      }
+    }
+    for (const nested of Object.values(record)) {
+      const url = findDelhiveryLabelUrl(nested)
+      if (url) return url
+    }
+  }
   return null
 }
 
@@ -603,7 +648,7 @@ export class DelhiveryService {
   private clientName = ''
   private readonly credentialsOverride?: DelhiveryCredentialsOverride
   private readonly requestTimeoutMs = parseTimeout(process.env.DELHIVERY_REQUEST_TIMEOUT_MS, 30000)
-  private readonly labelTimeoutMs = parseTimeout(process.env.DELHIVERY_LABEL_TIMEOUT_MS, 15000)
+  private readonly labelTimeoutMs = parseTimeout(process.env.DELHIVERY_LABEL_TIMEOUT_MS, 70000)
   private readonly shippingCostTimeoutMs = parseTimeout(
     process.env.DELHIVERY_SHIPPING_COST_TIMEOUT_MS,
     70000,
@@ -2452,26 +2497,96 @@ export class DelhiveryService {
       throw error
     }
   }
-  // 🔹 9. Fetch Shipping Label from Delhivery packing_slip API
-  // format=json -> metadata (barcodes, sort code, etc.)
-  // format=pdf  -> raw PDF bytes (used to ensure provider-side label generation activity)
-  async generateLabel(awb: string, options: { format?: 'json' | 'pdf' } = { format: 'json' }) {
-    await this.ensureCredentials()
-    const format = options.format || 'json'
-    const url = `${this.apiBase}/api/p/packing_slip?wbns=${encodeURIComponent(awb)}${
-      format === 'pdf' ? '&pdf=true' : '&pdf=false'
-    }`
-    const responseType = format === 'pdf' ? 'arraybuffer' : 'json'
-    const res = await this.getWithTimeout(
-      url,
-      {
-      headers: this.headers,
-      responseType,
-      },
-      format === 'pdf' ? this.labelTimeoutMs : this.requestTimeoutMs,
-    )
+  // 🔹 9. Fetch custom-label JSON or a provider-hosted PDF link.
+  async generateLabel(awb: string, options: DelhiveryLabelOptions = {}) {
+    const normalizedWaybill = String(awb || '').trim()
+    if (!normalizedWaybill) {
+      throw new HttpError(400, 'Delhivery AWB number is required for label generation')
+    }
 
-    return format === 'pdf' ? Buffer.from(res.data) : res.data
+    const format = String(options.format || '').trim().toLowerCase()
+    if (format && !['json', 'pdf'].includes(format)) {
+      throw new HttpError(400, 'format must be json or pdf')
+    }
+    const rawPdf = options.pdf
+    let pdf = format === 'pdf'
+    if (rawPdf !== undefined && rawPdf !== null && rawPdf !== '') {
+      if (typeof rawPdf === 'boolean') {
+        pdf = rawPdf
+      } else {
+        const normalizedPdf = String(rawPdf).trim().toLowerCase()
+        if (!['true', 'false'].includes(normalizedPdf)) {
+          throw new HttpError(400, 'pdf must be true or false')
+        }
+        pdf = normalizedPdf === 'true'
+      }
+    }
+    const rawPdfSize = String(options.pdfSize || '').trim().toUpperCase()
+    const pdfSize = rawPdfSize || 'A4'
+    if (!['A4', '4R'].includes(pdfSize)) {
+      throw new HttpError(400, 'pdf_size must be A4 or 4R')
+    }
+
+    try {
+      await this.ensureCredentials()
+      const query = qs.stringify({
+        wbns: normalizedWaybill,
+        pdf,
+        ...(rawPdfSize ? { pdf_size: pdfSize } : {}),
+      })
+      const res = await this.getWithTimeout(
+        `${this.apiBase}/api/p/packing_slip?${query}`,
+        { headers: this.headers, responseType: 'json' },
+        this.labelTimeoutMs,
+      )
+      const providerErrorValue = res.data?.Error ?? res.data?.error ?? res.data?.errors
+      const hasProviderError =
+        res.data?.success === false ||
+        res.data?.Success === false ||
+        (typeof providerErrorValue === 'string' && providerErrorValue.trim().length > 0) ||
+        (Array.isArray(providerErrorValue) && providerErrorValue.length > 0) ||
+        (providerErrorValue &&
+          typeof providerErrorValue === 'object' &&
+          Object.keys(providerErrorValue).length > 0)
+      if (hasProviderError) {
+        throw new HttpError(
+          502,
+          extractProviderErrorMessage(res.data) || 'Delhivery label generation was rejected',
+        )
+      }
+
+      const providerRecord =
+        res.data && typeof res.data === 'object' && !Array.isArray(res.data) ? res.data : {}
+      const packages = Array.isArray(res.data?.packages)
+        ? res.data.packages
+        : res.data?.packages
+          ? [res.data.packages]
+          : Array.isArray(res.data)
+            ? res.data
+            : []
+      const labelUrl = pdf ? findDelhiveryLabelUrl(res.data) : null
+      if (pdf && !labelUrl) {
+        throw new HttpError(502, 'Delhivery returned no PDF label link')
+      }
+
+      return {
+        ...providerRecord,
+        waybill: normalizedWaybill,
+        pdf,
+        pdf_size: pdfSize,
+        label_url: labelUrl,
+        packages,
+        provider_response: res.data,
+      }
+    } catch (err: any) {
+      if (err instanceof HttpError) throw err
+      throw new HttpError(
+        Number(err.response?.status) || 502,
+        extractProviderErrorMessage(err.response?.data) ||
+          err.message ||
+          'Failed to generate Delhivery shipping label',
+      )
+    }
   }
 
   // COD Settlement APIs not publicly available
