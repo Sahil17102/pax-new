@@ -13,6 +13,7 @@ const run = async () => {
     summarizeDelhiveryExpectedTat,
     summarizeDelhiveryHeavyPincodeServiceability,
     summarizeDelhiveryPincodeServiceability,
+    summarizeDelhiveryTracking,
   } = await import('../models/services/couriers/delhivery.service')
 
   assert.equal(isDelhiveryCancellationAccepted({ success: true }), true)
@@ -105,6 +106,40 @@ const run = async () => {
   assert.equal(expectedTat.mode, 'N')
   assert.equal(expectedTat.productType, 'B2C')
 
+  const trackingSummary = summarizeDelhiveryTracking(
+    {
+      ShipmentData: [{
+        Shipment: {
+          AWB: '1122345678722',
+          ReferenceNo: 'ORDER-1001',
+          Status: {
+            Status: 'In Transit',
+            StatusType: 'UD',
+            StatusLocation: 'Delhi Hub',
+            StatusDateTime: '2026-08-03T10:00:00',
+            RecievedBy: '',
+          },
+          Scans: [{
+            ScanDetail: {
+              Scan: 'Bag Added To Trip',
+              StatusCode: 'X-IT',
+              ScanType: 'UD',
+              ScannedLocation: 'Delhi Hub',
+              ScanDateTime: '2026-08-03T09:30:00',
+              Instructions: 'In transit',
+            },
+          }],
+        },
+      }],
+    },
+    { waybills: '1122345678722,1122345678722', refIds: ['ORDER-1001'] },
+  )
+  assert.deepEqual(trackingSummary.requestedWaybills, ['1122345678722'])
+  assert.deepEqual(trackingSummary.requestedRefIds, ['ORDER-1001'])
+  assert.equal(trackingSummary.shipmentCount, 1)
+  assert.equal(trackingSummary.shipments[0].currentStatus, 'In Transit')
+  assert.equal(trackingSummary.shipments[0].scans[0].statusCode, 'X-IT')
+
   const originalGet = axios.get
   const originalPost = axios.post
   const originalPut = axios.put
@@ -119,6 +154,17 @@ const run = async () => {
         ? { waybills: '123456789012,123456789013,123456789012' }
         : url.includes('/fetch/serviceability/pincode')
         ? { data: { pincode: 400086, status: 'Serviceable', payment_type: ['Pre-paid', 'COD'] } }
+        : url.includes('/api/v1/packages/json/')
+          ? {
+              ShipmentData: [{
+                Shipment: {
+                  AWB: 'TRACK-AWB-1',
+                  ReferenceNo: 'TRACK-ORDER-1',
+                  Status: { Status: 'Manifested', StatusType: 'UD', StatusLocation: 'Origin Hub' },
+                  Scans: [{ ScanDetail: { Scan: 'Manifested', StatusCode: 'UD', ScanType: 'UD' } }],
+                },
+              }],
+            }
         : url.includes('/expected_tat')
           ? { data: { tat: 2, expected_delivery_date: '2026-08-06' } }
           : url.includes('/pin-codes/')
@@ -214,6 +260,32 @@ const run = async () => {
   assert(captured.at(-1)?.url.includes('o_pin=122001'))
   assert(captured.at(-1)?.url.includes('d_pin=400093'))
   assert(captured.at(-1)?.url.includes('cgm=500'))
+
+  const bulkTracking = await mockedService.trackShipments(
+    'TRACK-AWB-1, TRACK-AWB-2, TRACK-AWB-1',
+    'TRACK-ORDER-1',
+  )
+  const bulkTrackingUrl = new URL(String(captured.at(-1)?.url))
+  assert.equal(bulkTrackingUrl.pathname, '/api/v1/packages/json/')
+  assert.equal(bulkTrackingUrl.searchParams.get('waybill'), 'TRACK-AWB-1,TRACK-AWB-2')
+  assert.equal(bulkTrackingUrl.searchParams.get('ref_ids'), 'TRACK-ORDER-1')
+  assert.equal(captured.at(-1)?.headers?.Authorization, 'Token test-token')
+  assert.deepEqual(bulkTracking.requestedWaybills, ['TRACK-AWB-1', 'TRACK-AWB-2'])
+  assert.equal(bulkTracking.shipmentCount, 1)
+  assert.equal(bulkTracking.shipments[0].scans[0].status, 'Manifested')
+
+  const referenceTracking = await mockedService.trackShipments(undefined, ['TRACK-ORDER-1'])
+  const referenceTrackingUrl = new URL(String(captured.at(-1)?.url))
+  assert.equal(referenceTrackingUrl.searchParams.has('waybill'), false)
+  assert.equal(referenceTrackingUrl.searchParams.get('ref_ids'), 'TRACK-ORDER-1')
+
+  const successfulGetMock = (axios as any).get
+  ;(axios as any).get = async () => ({ status: 200, data: { error: 'Tracking ID not found' } })
+  await assert.rejects(
+    () => mockedService.trackShipments('UNKNOWN-AWB'),
+    /Tracking ID not found/,
+  )
+  ;(axios as any).get = successfulGetMock
 
   await mockedService.createShipment({
     order: 'DOC-COD-1',
@@ -587,6 +659,18 @@ const run = async () => {
   )
   await assert.rejects(() => service.cancelShipment(''), /AWB number is required/)
   await assert.rejects(
+    () => service.trackShipments(),
+    /At least one Delhivery waybill or ref_ids value is required/,
+  )
+  await assert.rejects(
+    () => service.trackShipments(Array.from({ length: 51 }, (_, index) => `AWB-${index}`)),
+    /maximum of 50 Delhivery waybills/,
+  )
+  await assert.rejects(
+    () => service.trackShipments(undefined, Array.from({ length: 51 }, (_, index) => `ORDER-${index}`)),
+    /maximum of 50 Delhivery ref_ids/,
+  )
+  await assert.rejects(
     () => service.updateEwaybill('', { dcn: 'INV-1', ewbn: '123456789012' }),
     /AWB number is required/,
   )
@@ -646,6 +730,12 @@ const run = async () => {
   const tatRequest = readOnlyFolder.item.find((request: any) => request.name === 'Expected TAT')
   assert(tatRequest.request.url.includes('mot={{tatMode}}'))
   assert(tatRequest.request.url.includes('expected_pickup_date={{expectedPickupDate}}'))
+  const trackingRequest = readOnlyFolder.item.find(
+    (request: any) => request.name === 'Shipment Tracking',
+  )
+  assert(trackingRequest.request.url.includes('waybill={{trackingWaybills}}'))
+  assert(trackingRequest.request.url.includes('ref_ids={{trackingRefIds}}'))
+  assert(JSON.stringify(trackingRequest.event).includes('shipmentCount'))
   const mutatingFolder = collection.item.find(
     (folder: any) => folder.name === 'Mutating lifecycle requests',
   )

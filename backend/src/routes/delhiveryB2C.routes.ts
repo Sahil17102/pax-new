@@ -15,6 +15,7 @@ import {
   submitNdrActionController,
   tatController,
   trackShipmentController,
+  trackShipmentsController,
   updateEwaybillController,
   updateShipmentController,
   updateWarehouseController,
@@ -30,6 +31,7 @@ router.get('/serviceability/heavy/:pincode', heavyServiceabilityController)
 router.get('/serviceability/:pincode', serviceabilityController)
 router.get('/tat', tatController)
 router.get('/shipping-cost', shippingCostController)
+router.get('/tracking', trackShipmentsController)
 router.get('/waybills/single', fetchSingleWaybillController)
 router.get('/waybills', fetchWaybillsController)
 router.post('/warehouses', createWarehouseController)

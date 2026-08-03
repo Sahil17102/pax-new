@@ -119,3 +119,12 @@ proxy sends Delhivery exactly `{ "data": [{ "dcn", "ewbn" }] }` to the AWB-speci
 provider endpoint, so it works for the shipment's current forward or return
 flow. The Postman request is mutation-locked by default. Delhivery documents a
 production limit of 250 requests per five-minute IP window.
+
+Shipment Tracking supports `GET /api/delhivery/b2c/tracking?waybill=...&ref_ids=...`
+for bulk lookup and keeps the existing
+`GET /api/delhivery/b2c/shipments/:awb/tracking?ref_ids=...` route. Up to 50
+comma-separated waybills are accepted per request; duplicates are removed. An
+order ID can be supplied through `ref_ids`, including an order-ID-only lookup.
+Responses normalize each shipment's current status and full scan history while
+retaining `provider_response`. Delhivery documents a production limit of 750
+requests per five-minute IP window.

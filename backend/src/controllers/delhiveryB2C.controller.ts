@@ -30,6 +30,11 @@ const parseBoolean = (value: unknown, defaultValue = true) => {
   return String(value).trim().toLowerCase() === 'true'
 }
 
+const parseQueryList = (value: unknown): string | string[] | undefined => {
+  if (value === undefined || value === null || value === '') return undefined
+  return Array.isArray(value) ? value.map(String) : String(value)
+}
+
 export const serviceabilityController = async (req: Request, res: Response) => {
   try {
     const providerResponse = await service.checkServiceability(req.params.pincode)
@@ -168,8 +173,20 @@ export const cancelShipmentController = (req: Request, res: Response) =>
 export const updateEwaybillController = (req: Request, res: Response) =>
   sendResult(res, service.updateEwaybill(req.params.awb, req.body || {}))
 
+export const trackShipmentsController = (req: Request, res: Response) =>
+  sendResult(
+    res,
+    service.trackShipments(
+      parseQueryList(req.query.waybill),
+      parseQueryList(req.query.ref_ids),
+    ),
+  )
+
 export const trackShipmentController = (req: Request, res: Response) =>
-  sendResult(res, service.trackShipment(req.params.awb))
+  sendResult(
+    res,
+    service.trackShipment(req.params.awb, parseQueryList(req.query.ref_ids)),
+  )
 
 export const generateLabelController = async (req: Request, res: Response) => {
   try {

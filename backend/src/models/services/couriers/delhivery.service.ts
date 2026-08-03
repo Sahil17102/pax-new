@@ -139,6 +139,103 @@ export type DelhiveryExpectedTatSummary = {
   expectedPickupDate: string | null
 }
 
+export type DelhiveryTrackingScan = {
+  status: string
+  statusCode: string
+  scanType: string
+  location: string
+  scannedAt: string | null
+  instructions: string
+}
+
+export type DelhiveryTrackingShipment = {
+  waybill: string | null
+  referenceId: string | null
+  currentStatus: string
+  statusType: string
+  location: string
+  statusDateTime: string | null
+  receivedBy: string
+  scans: DelhiveryTrackingScan[]
+}
+
+export type DelhiveryTrackingSummary = {
+  requestedWaybills: string[]
+  requestedRefIds: string[]
+  shipmentCount: number
+  shipments: DelhiveryTrackingShipment[]
+}
+
+const normalizeDelhiveryTrackingList = (value: unknown): string[] => {
+  const entries = Array.isArray(value) ? value : [value]
+  return Array.from(
+    new Set(
+      entries
+        .flatMap((entry) => String(entry ?? '').split(','))
+        .map((entry) => entry.trim())
+        .filter(Boolean),
+    ),
+  )
+}
+
+export const summarizeDelhiveryTracking = (
+  response: any,
+  request: { waybills?: unknown; refIds?: unknown } = {},
+): DelhiveryTrackingSummary => {
+  const shipmentData =
+    response?.ShipmentData ?? response?.shipment_data ?? response?.data?.ShipmentData ?? response?.data
+  const records = Array.isArray(shipmentData)
+    ? shipmentData
+    : shipmentData && typeof shipmentData === 'object'
+      ? [shipmentData]
+      : []
+  const shipments = records.map((entry: any): DelhiveryTrackingShipment => {
+    const shipment = entry?.Shipment ?? entry?.shipment ?? entry ?? {}
+    const currentStatus = shipment?.Status ?? shipment?.status ?? {}
+    const currentStatusText =
+      typeof currentStatus === 'string'
+        ? currentStatus.trim()
+        : String(currentStatus?.Status ?? currentStatus?.status ?? '').trim()
+    const rawScans = shipment?.Scans ?? shipment?.scans ?? []
+    const scans = (Array.isArray(rawScans) ? rawScans : [rawScans])
+      .filter(Boolean)
+      .map((scanEntry: any): DelhiveryTrackingScan => {
+        const scan = scanEntry?.ScanDetail ?? scanEntry?.scan_detail ?? scanEntry ?? {}
+        return {
+          status: String(scan?.Scan ?? scan?.status ?? scan?.Status ?? '').trim(),
+          statusCode: String(scan?.StatusCode ?? scan?.status_code ?? '').trim(),
+          scanType: String(scan?.ScanType ?? scan?.scan_type ?? '').trim(),
+          location: String(scan?.ScannedLocation ?? scan?.location ?? '').trim(),
+          scannedAt:
+            String(scan?.ScanDateTime ?? scan?.StatusDateTime ?? scan?.scan_datetime ?? '').trim() ||
+            null,
+          instructions: String(scan?.Instructions ?? scan?.instructions ?? '').trim(),
+        }
+      })
+
+    return {
+      waybill: String(shipment?.AWB ?? shipment?.waybill ?? '').trim() || null,
+      referenceId:
+        String(shipment?.ReferenceNo ?? shipment?.reference_id ?? shipment?.ref_id ?? '').trim() ||
+        null,
+      currentStatus: currentStatusText,
+      statusType: String(currentStatus?.StatusType ?? currentStatus?.status_type ?? '').trim(),
+      location: String(currentStatus?.StatusLocation ?? currentStatus?.location ?? '').trim(),
+      statusDateTime:
+        String(currentStatus?.StatusDateTime ?? currentStatus?.status_datetime ?? '').trim() || null,
+      receivedBy: String(currentStatus?.RecievedBy ?? currentStatus?.ReceivedBy ?? '').trim(),
+      scans,
+    }
+  })
+
+  return {
+    requestedWaybills: normalizeDelhiveryTrackingList(request.waybills),
+    requestedRefIds: normalizeDelhiveryTrackingList(request.refIds),
+    shipmentCount: shipments.length,
+    shipments,
+  }
+}
+
 export const summarizeDelhiveryExpectedTat = (
   response: any,
   request: {
@@ -1811,12 +1908,58 @@ export class DelhiveryService {
   }
 
   // 🔹 7. Track Shipment
-  async trackShipment(awb: string) {
-    await this.ensureCredentials()
-    const res = await this.getWithTimeout(`${this.apiBase}/api/v1/packages/json/?waybill=${awb}`, {
-      headers: this.headers,
-    })
-    return res.data
+  async trackShipments(waybills?: string | string[], refIds?: string | string[]) {
+    const normalizedWaybills = normalizeDelhiveryTrackingList(waybills)
+    const normalizedRefIds = normalizeDelhiveryTrackingList(refIds)
+    if (normalizedWaybills.length === 0 && normalizedRefIds.length === 0) {
+      throw new HttpError(400, 'At least one Delhivery waybill or ref_ids value is required')
+    }
+    if (normalizedWaybills.length > 50) {
+      throw new HttpError(400, 'A maximum of 50 Delhivery waybills can be tracked per request')
+    }
+    if (normalizedRefIds.length > 50) {
+      throw new HttpError(400, 'A maximum of 50 Delhivery ref_ids can be tracked per request')
+    }
+
+    try {
+      await this.ensureCredentials()
+      const query = qs.stringify({
+        ...(normalizedWaybills.length ? { waybill: normalizedWaybills.join(',') } : {}),
+        ...(normalizedRefIds.length ? { ref_ids: normalizedRefIds.join(',') } : {}),
+      })
+      const res = await this.getWithTimeout(`${this.apiBase}/api/v1/packages/json/?${query}`, {
+        headers: this.headers,
+      })
+      const explicitProviderError = res.data?.Error ?? res.data?.error
+      if (explicitProviderError) {
+        throw new HttpError(
+          502,
+          extractProviderErrorMessage(explicitProviderError) ||
+            'Delhivery shipment tracking was rejected',
+        )
+      }
+      const summary = summarizeDelhiveryTracking(res.data, {
+        waybills: normalizedWaybills,
+        refIds: normalizedRefIds,
+      })
+
+      return {
+        ...summary,
+        provider_response: res.data,
+      }
+    } catch (err: any) {
+      if (err instanceof HttpError) throw err
+      throw new HttpError(
+        Number(err.response?.status) || 502,
+        extractProviderErrorMessage(err.response?.data) ||
+          err.message ||
+          'Failed to fetch Delhivery shipment tracking',
+      )
+    }
+  }
+
+  async trackShipment(awb: string, refIds?: string | string[]) {
+    return this.trackShipments(awb, refIds)
   }
 
   // 🔹 8. NDR Action (RE-ATTEMPT / PICKUP_RESCHEDULE)

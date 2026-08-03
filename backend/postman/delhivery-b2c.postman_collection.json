@@ -117,10 +117,21 @@
         },
         {
           "name": "Shipment Tracking",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "var body = pm.response.json();",
+              "pm.test('Normalized tracking history is returned', function () {",
+              "  pm.expect(body.data.shipmentCount).to.be.a('number');",
+              "  pm.expect(body.data.shipments).to.be.an('array');",
+              "  body.data.shipments.forEach(function (shipment) { pm.expect(shipment.scans).to.be.an('array'); });",
+              "});"
+            ] }
+          }],
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/api/delhivery/b2c/shipments/{{awb}}/tracking",
-            "description": "Use an existing Delhivery B2C AWB."
+            "url": "{{baseUrl}}/api/delhivery/b2c/tracking?waybill={{trackingWaybills}}&ref_ids={{trackingRefIds}}",
+            "description": "Tracks up to 50 comma-separated waybills and optionally filters by comma-separated order IDs. Clear either variable when querying by only the other identifier. Returns normalized current status and scan history plus the provider response."
           }
         },
         {
