@@ -155,7 +155,22 @@
       "item": [
         {
           "name": "Fetch Waybill(s)",
-          "request": { "method": "GET", "url": "{{baseUrl}}/api/delhivery/b2c/waybills?count=1" }
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "var body = pm.response.json();",
+              "pm.test('Normalized waybill batch is returned', function () {",
+              "  pm.expect(body.data.requestedCount).to.eql(Number(pm.environment.get('waybillCount')));",
+              "  pm.expect(body.data.receivedCount).to.eql(body.data.waybills.length);",
+              "  pm.expect(body.data.waybills).to.be.an('array').that.is.not.empty;",
+              "});"
+            ] }
+          }],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/delhivery/b2c/waybills?count={{waybillCount}}",
+            "description": "Allocates 1-10,000 unique waybills through Delhivery's bulk endpoint. Delhivery allows at most 50,000 waybills and 5 requests per 5 minutes per IP. Waybills are generated in backend batches of 25, so save the returned list and wait before copying one into manifestWaybill for shipment creation. This request is mutation-locked by default."
+          }
         },
         {
           "name": "Create Warehouse",
@@ -181,7 +196,7 @@
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{baseUrl}}/api/delhivery/b2c/shipments",
-            "body": { "mode": "raw", "raw": "{\n  \"order_number\": \"POSTMAN-{{$timestamp}}\",\n  \"order_date\": \"{{$isoTimestamp}}\",\n  \"payment_type\": \"prepaid\",\n  \"order_amount\": 1000,\n  \"package_weight\": {{weightGrams}},\n  \"package_length\": 10,\n  \"package_breadth\": 10,\n  \"package_height\": 10,\n  \"courier_id\": 100,\n  \"invoice_number\": \"POSTMAN-{{$timestamp}}\",\n  \"consignee\": {\"name\": \"Postman Customer\", \"address\": \"Test consignee address\", \"city\": \"Mumbai\", \"state\": \"Maharashtra\", \"pincode\": \"{{destinationPincode}}\", \"phone\": \"9999999999\"},\n  \"pickup\": {\"warehouse_name\": \"{{warehouseName}}\", \"name\": \"Pax Logistics\", \"address\": \"Test warehouse address\", \"city\": \"Gurugram\", \"state\": \"Haryana\", \"pincode\": \"{{originPincode}}\", \"phone\": \"9999999999\"},\n  \"company\": {\"name\": \"Pax Logistics\"},\n  \"order_items\": [{\"name\": \"Test Product\", \"sku\": \"TEST-1\", \"qty\": 1, \"price\": 1000, \"hsn\": \"610910\", \"discount\": 0, \"tax_rate\": 18}]\n}" }
+            "body": { "mode": "raw", "raw": "{\n  \"waybill\": \"{{manifestWaybill}}\",\n  \"order_number\": \"POSTMAN-{{$timestamp}}\",\n  \"order_date\": \"{{$isoTimestamp}}\",\n  \"payment_type\": \"prepaid\",\n  \"order_amount\": 1000,\n  \"package_weight\": {{weightGrams}},\n  \"package_length\": 10,\n  \"package_breadth\": 10,\n  \"package_height\": 10,\n  \"courier_id\": 100,\n  \"invoice_number\": \"POSTMAN-{{$timestamp}}\",\n  \"consignee\": {\"name\": \"Postman Customer\", \"address\": \"Test consignee address\", \"city\": \"Mumbai\", \"state\": \"Maharashtra\", \"pincode\": \"{{destinationPincode}}\", \"phone\": \"9999999999\"},\n  \"pickup\": {\"warehouse_name\": \"{{warehouseName}}\", \"name\": \"Pax Logistics\", \"address\": \"Test warehouse address\", \"city\": \"Gurugram\", \"state\": \"Haryana\", \"pincode\": \"{{originPincode}}\", \"phone\": \"9999999999\"},\n  \"company\": {\"name\": \"Pax Logistics\"},\n  \"order_items\": [{\"name\": \"Test Product\", \"sku\": \"TEST-1\", \"qty\": 1, \"price\": 1000, \"hsn\": \"610910\", \"discount\": 0, \"tax_rate\": 18}]\n}" }
           }
         },
         {

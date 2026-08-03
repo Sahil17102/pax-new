@@ -68,3 +68,11 @@ Expected TAT supports `tatMode` values `S`, `E`, and `N`, optional `B2B`/`B2C`
 product type, and `expectedPickupDate` in `YYYY-MM-DD` or `YYYY-MM-DD HH:mm`
 format. Clear the pickup-date value to let Delhivery calculate from the current
 handover date.
+
+Fetch Waybill uses Delhivery's bulk endpoint for every `waybillCount` from 1 to
+10,000. The provider limit is 50,000 waybills and five requests per five-minute
+IP window. Because waybills are generated internally in batches of 25, store the
+returned `data.waybills` list and do not manifest it immediately. After the
+provider has made an AWB available, copy one into `manifestWaybill`; the Create
+Forward Shipment request will send it explicitly. Leave `manifestWaybill` empty
+when Delhivery should assign the shipment AWB itself.

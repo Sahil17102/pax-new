@@ -125,10 +125,10 @@ export const shippingCostController = (req: Request, res: Response) => {
 
 export const fetchWaybillsController = (req: Request, res: Response) => {
   const count = Number(req.query.count || 1)
-  if (!Number.isInteger(count) || count < 1 || count > 100) {
+  if (!Number.isInteger(count) || count < 1 || count > 10000) {
     return res.status(400).json({
       success: false,
-      message: 'count must be an integer between 1 and 100',
+      message: 'count must be an integer between 1 and 10000',
     })
   }
   return sendResult(res, service.fetchWaybills(count))

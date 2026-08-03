@@ -193,6 +193,48 @@ export type DelhiveryCredentialsOverride = {
   clientName: string
 }
 
+export type DelhiveryWaybillBatch = {
+  requestedCount: number
+  receivedCount: number
+  waybills: string[]
+}
+
+export const normalizeDelhiveryWaybills = (response: unknown): string[] => {
+  const candidates: string[] = []
+  const append = (value: unknown) => {
+    if (Array.isArray(value)) {
+      value.forEach(append)
+      return
+    }
+    if (typeof value === 'number' || typeof value === 'string') {
+      String(value)
+        .split(/[\s,]+/)
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+        .forEach((entry) => candidates.push(entry))
+    }
+  }
+
+  if (Array.isArray(response) || typeof response === 'string' || typeof response === 'number') {
+    append(response)
+  } else if (response && typeof response === 'object') {
+    const record = response as Record<string, unknown>
+    append(record.waybills)
+    append(record.waybill)
+
+    const nested = record.data
+    if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+      const nestedRecord = nested as Record<string, unknown>
+      append(nestedRecord.waybills)
+      append(nestedRecord.waybill)
+    } else {
+      append(nested)
+    }
+  }
+
+  return Array.from(new Set(candidates))
+}
+
 const parseTimeout = (value: string | undefined, fallbackMs: number) => {
   const parsed = Number(value)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallbackMs
@@ -575,23 +617,50 @@ export class DelhiveryService {
   }
 
   // 🔹 3. Fetch Waybills
-  async fetchWaybills(count: number = 10) {
+  async fetchWaybills(count: number = 10): Promise<DelhiveryWaybillBatch> {
+    const normalizedCount = Number(count)
+    if (!Number.isInteger(normalizedCount) || normalizedCount < 1 || normalizedCount > 10000) {
+      throw new HttpError(400, 'count must be an integer between 1 and 10000')
+    }
+
     try {
       await this.ensureCredentials()
-      const normalizedCount = Math.max(1, Number(count || 1))
-      const isBulk = normalizedCount > 1
-      const path = isBulk ? '/waybill/api/bulk/json/' : '/waybill/api/fetch/json/'
       const query = qs.stringify({
-        cl: this.clientName,
         token: this.token,
-        ...(isBulk ? { count: normalizedCount } : {}),
+        count: normalizedCount,
       })
-      const url = `${this.apiBase}${path}?${query}`
-      const res = await this.getWithTimeout(url, { headers: this.headers })
-      return res.data?.waybill ?? res.data?.waybills ?? res.data
+      const url = `${this.apiBase}/waybill/api/bulk/json/?${query}`
+      const res = await this.getWithTimeout(url, {
+        headers: { Accept: 'application/json' },
+      })
+      const waybills = normalizeDelhiveryWaybills(res.data)
+
+      if (waybills.length === 0) {
+        throw new HttpError(
+          502,
+          extractProviderErrorMessage(res.data) || 'Delhivery returned no waybills',
+        )
+      }
+
+      return {
+        requestedCount: normalizedCount,
+        receivedCount: waybills.length,
+        waybills,
+      }
     } catch (err: any) {
-      console.error('Delhivery waybill fetch error:', err.response?.data || err.message)
-      throw new Error('Failed to fetch Delhivery waybill')
+      if (err instanceof HttpError) throw err
+
+      console.error('[Delhivery] Bulk waybill fetch failed', {
+        count: normalizedCount,
+        status: err.response?.status,
+        message: err.message,
+      })
+      throw new HttpError(
+        Number(err.response?.status) || 502,
+        extractProviderErrorMessage(err.response?.data) ||
+          err.message ||
+          'Failed to fetch Delhivery waybills',
+      )
     }
   }
 

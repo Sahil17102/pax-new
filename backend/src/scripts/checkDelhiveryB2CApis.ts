@@ -7,10 +7,20 @@ const run = async () => {
   process.env.DATABASE_URL = 'postgresql://test:test@127.0.0.1:5432/test'
   const {
     DelhiveryService,
+    normalizeDelhiveryWaybills,
     summarizeDelhiveryExpectedTat,
     summarizeDelhiveryHeavyPincodeServiceability,
     summarizeDelhiveryPincodeServiceability,
   } = await import('../models/services/couriers/delhivery.service')
+
+  assert.deepEqual(
+    normalizeDelhiveryWaybills({ waybills: '123456789012, 123456789013\n123456789012' }),
+    ['123456789012', '123456789013'],
+  )
+  assert.deepEqual(
+    normalizeDelhiveryWaybills({ data: { waybill: ['223456789012', 223456789013] } }),
+    ['223456789012', '223456789013'],
+  )
 
   assert.deepEqual(summarizeDelhiveryPincodeServiceability({ delivery_codes: [] }), {
     pincode: null,
@@ -84,7 +94,9 @@ const run = async () => {
     captured.push({ method: 'GET', url, headers: config?.headers })
     return {
       status: 200,
-      data: url.includes('/fetch/serviceability/pincode')
+      data: url.includes('/waybill/api/bulk/json/')
+        ? { waybills: '123456789012,123456789013,123456789012' }
+        : url.includes('/fetch/serviceability/pincode')
         ? { data: { pincode: 400086, status: 'Serviceable', payment_type: ['Pre-paid', 'COD'] } }
         : url.includes('/expected_tat')
           ? { data: { tat: 2, expected_delivery_date: '2026-08-06' } }
@@ -116,6 +128,19 @@ const run = async () => {
     'https://staging-express.delhivery.com/api/dc/fetch/serviceability/pincode?product_type=Heavy&pincode=400086',
   )
   assert.equal(captured.at(-1)?.headers?.Accept, 'application/json')
+
+  const waybillBatch = await mockedService.fetchWaybills(5)
+  assert.deepEqual(waybillBatch, {
+    requestedCount: 5,
+    receivedCount: 2,
+    waybills: ['123456789012', '123456789013'],
+  })
+  assert.equal(
+    captured.at(-1)?.url,
+    'https://staging-express.delhivery.com/waybill/api/bulk/json/?token=test-token&count=5',
+  )
+  assert.equal(captured.at(-1)?.headers?.Accept, 'application/json')
+  assert.equal(captured.at(-1)?.headers?.Authorization, undefined)
 
   const tatResponse = await mockedService.getExpectedTATDetails(
     '122003',
@@ -179,6 +204,9 @@ const run = async () => {
     /positive number/,
   )
   await assert.rejects(() => service.updateShipment('TEST-AWB', {}), /editable shipment field/)
+  await assert.rejects(() => service.fetchWaybills(0), /between 1 and 10000/)
+  await assert.rejects(() => service.fetchWaybills(10001), /between 1 and 10000/)
+  await assert.rejects(() => service.fetchWaybills(1.5), /between 1 and 10000/)
   await assert.rejects(
     () => service.updateShipment('TEST-AWB', { pin: '40009' }),
     /6-digit/,
@@ -214,6 +242,15 @@ const run = async () => {
     JSON.stringify(mutatingFolder.event).includes('pm.execution.skipRequest'),
     'Mutating collection requests must be locked by default',
   )
+  const fetchWaybillsRequest = mutatingFolder.item.find(
+    (request: any) => request.name === 'Fetch Waybill(s)',
+  )
+  assert(fetchWaybillsRequest.request.url.includes('count={{waybillCount}}'))
+  assert(JSON.stringify(fetchWaybillsRequest.event).includes('receivedCount'))
+  const createShipmentRequest = mutatingFolder.item.find(
+    (request: any) => request.name === 'Create Forward Shipment',
+  )
+  assert(createShipmentRequest.request.body.raw.includes('{{manifestWaybill}}'))
 
   console.log('Delhivery B2C integration checks passed')
 }
