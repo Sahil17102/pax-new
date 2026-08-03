@@ -739,7 +739,13 @@ export class DelhiveryService {
   // 🔹 4. Create Shipment (Manifestation)
   async createShipment(params: ShipmentParams, waybill?: string) {
     try {
-      const input = params as ShipmentParams & Record<string, any>
+      const rawInput = params as ShipmentParams & Record<string, any>
+      const nativeShipments = Array.isArray(rawInput.shipments) ? rawInput.shipments : []
+      const firstNativeShipment = nativeShipments[0] || {}
+      const input = {
+        ...firstNativeShipment,
+        ...rawInput,
+      } as ShipmentParams & Record<string, any>
       const normalizedCourierId = normalizeCourierId(params.courier_id)
       const requestedShippingMode =
         input.shipping_mode ?? input.shippingMode ?? input.courier_partner
@@ -797,7 +803,11 @@ export class DelhiveryService {
         pincode: input.pin,
         phone: input.phone,
       } as ShipmentParams['consignee'])
-      const boxes = Array.isArray(params.boxes) ? params.boxes : []
+      const boxes = Array.isArray(params.boxes)
+        ? params.boxes
+        : nativeShipments.length > 1
+          ? nativeShipments
+          : []
       const orderNumber = sanitizeString(params.order_number || input.order)
       const invoiceNumber = sanitizeString(params.invoice_number || input.seller_inv)
       const pickupDate = sanitizeString(params.pickup_date || pickup.pickup_date)
@@ -941,6 +951,96 @@ export class DelhiveryService {
         throw new HttpError(400, 'cod_amount must be a non-negative number.')
       }
       const codAmount = paymentMode === 'COD' ? rawCodAmount : 0
+      const mpsWaybills = isMultiPiece
+        ? boxes.map((box: any) => sanitizeString(box?.waybill))
+        : []
+      const masterId = isMultiPiece
+        ? sanitizeString(input.master_id || boxes[0]?.master_id)
+        : ''
+      if (isMultiPiece && !masterId) {
+        throw new HttpError(400, 'master_id is required for Delhivery MPS shipments.')
+      }
+      if (isMultiPiece && !mpsWaybills.includes(masterId)) {
+        throw new HttpError(400, 'master_id must match one of the MPS box waybills.')
+      }
+      if (
+        isMultiPiece &&
+        boxes.some(
+          (box: any) => box?.master_id && sanitizeString(box.master_id) !== masterId,
+        )
+      ) {
+        throw new HttpError(400, 'Every MPS box must use the same master_id.')
+      }
+      if (
+        isMultiPiece &&
+        input.mps_children !== undefined &&
+        Number(input.mps_children) !== boxes.length
+      ) {
+        throw new HttpError(400, 'mps_children must equal the total number of MPS boxes.')
+      }
+      if (
+        isMultiPiece &&
+        boxes.some(
+          (box: any) =>
+            box?.mps_children !== undefined && Number(box.mps_children) !== boxes.length,
+        )
+      ) {
+        throw new HttpError(400, 'Every MPS box mps_children value must equal the box count.')
+      }
+
+      const boxAmounts = isMultiPiece
+        ? boxes.map((box: any) => {
+            const value = box?.mps_package_amount ?? box?.cod_amount ?? box?.amount
+            if (value === undefined || value === null || value === '') return null
+            const amount = Number(value)
+            if (!Number.isFinite(amount) || amount < 0) {
+              throw new HttpError(400, 'Every MPS box amount must be a non-negative number.')
+            }
+            return amount
+          })
+        : []
+      const hasEveryBoxAmount =
+        boxAmounts.length > 0 && boxAmounts.every((amount) => amount !== null)
+      const summedBoxAmount = boxAmounts.reduce<number>(
+        (sum, amount) => sum + (amount ?? 0),
+        0,
+      )
+      const suppliedMpsAmount =
+        input.mps_amount === undefined || input.mps_amount === null || input.mps_amount === ''
+          ? null
+          : Number(input.mps_amount)
+      if (
+        suppliedMpsAmount !== null &&
+        (!Number.isFinite(suppliedMpsAmount) || suppliedMpsAmount < 0)
+      ) {
+        throw new HttpError(400, 'mps_amount must be a non-negative number.')
+      }
+      if (
+        isMultiPiece &&
+        paymentMode !== 'COD' &&
+        suppliedMpsAmount !== null &&
+        suppliedMpsAmount !== 0
+      ) {
+        throw new HttpError(400, 'mps_amount must be zero for prepaid MPS shipments.')
+      }
+      if (
+        isMultiPiece &&
+        paymentMode === 'COD' &&
+        hasEveryBoxAmount &&
+        suppliedMpsAmount !== null &&
+        suppliedMpsAmount !== summedBoxAmount
+      ) {
+        throw new HttpError(400, 'mps_amount must equal the sum of all MPS box amounts.')
+      }
+      const mpsAmount =
+        !isMultiPiece || paymentMode !== 'COD'
+          ? 0
+          : hasEveryBoxAmount
+            ? summedBoxAmount
+            : suppliedMpsAmount ?? codAmount
+      if (isMultiPiece && !Number.isInteger(mpsAmount)) {
+        throw new HttpError(400, 'mps_amount must be an integer.')
+      }
       const packageWeightGrams = normalizeDelhiveryWeightGrams(
         params.package_weight ?? input.weight,
       )
@@ -1075,6 +1175,13 @@ export class DelhiveryService {
             ...manifestShipment,
             order:
               sanitizeString(box?.order_number || box?.order) || `${orderNumber}-${index + 1}`,
+            name: sanitizeString(box?.name) || manifestShipment.name,
+            phone: sanitizePhone(box?.phone) || manifestShipment.phone,
+            add: sanitizeString(box?.add || box?.address) || manifestShipment.add,
+            pin: sanitizePincode(box?.pin || box?.pincode) || manifestShipment.pin,
+            city: sanitizeString(box?.city) || manifestShipment.city,
+            state: sanitizeString(box?.state) || manifestShipment.state,
+            country: sanitizeString(box?.country) || manifestShipment.country,
             waybill: sanitizeString(box?.waybill),
             weight: normalizeDelhiveryWeightGrams(
               box?.weight ?? box?.package_weight ?? packageWeightGrams,
@@ -1090,10 +1197,19 @@ export class DelhiveryService {
             ),
             products_desc: sanitizeString(box?.products_desc) || manifestShipment.products_desc,
             hsn_code: sanitizeString(box?.hsn_code) || manifestShipment.hsn_code,
+            total_amount: Number(box?.total_amount ?? manifestShipment.total_amount),
+            cod_amount:
+              paymentMode === 'COD'
+                ? Number(box?.mps_package_amount ?? box?.cod_amount ?? box?.amount ?? 0)
+                : 0,
             quantity:
               box?.quantity === undefined
                 ? manifestShipment.quantity
                 : sanitizeString(String(box.quantity)),
+            shipment_type: 'MPS',
+            master_id: masterId,
+            mps_children: boxes.length,
+            mps_amount: mpsAmount,
           }))
         : [manifestShipment]
 

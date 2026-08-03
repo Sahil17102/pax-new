@@ -87,6 +87,11 @@ Shipment Creation accepts both Pax's existing nested order payload and the
 Delhivery-native field names used in the provider examples. The Postman folder
 contains forward SPS, Pickup/RVP, REPL, and MPS examples. For MPS, populate
 `mpsWaybill1` and `mpsWaybill2` with distinct prefetched AWBs; each box is sent
-with its own unique order ID. `pickup_location` must exactly match the registered
-warehouse name. The proxy form-encodes the provider payload, including addresses
-that contain `&`, `#`, `%`, `;`, or backslashes.
+with its own unique order ID. The first Postman AWB is passed as `master_id` and
+must match one of the box waybills. Every provider box receives the same
+`master_id`, `shipment_type=MPS`, and `mps_children` count. `mps_amount` is zero
+for prepaid and the full package-amount sum for COD. The endpoint also accepts
+Delhivery's native `{ pickup_location, shipments: [...] }` MPS structure.
+`pickup_location` must exactly match the registered warehouse name. The proxy
+form-encodes the provider payload, including addresses that contain `&`, `#`,
+`%`, `;`, or backslashes.

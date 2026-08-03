@@ -275,18 +275,46 @@ const run = async () => {
   assert.equal(replPayload.shipments[0].return_add, 'Test Warehouse')
 
   await mockedService.createShipment({
-    order: 'DOC-MPS-1',
-    payment_mode: 'Prepaid',
-    total_amount: 500,
-    name: 'Exchange Customer',
-    add: 'Exchange address',
-    pin: '400093',
-    phone: '9999999999',
-    pickup_location: 'Test Warehouse',
-    mps: true,
-    boxes: [
-      { waybill: 'MPS-AWB-1', weight: 500, quantity: 1 },
-      { waybill: 'MPS-AWB-2', weight: 600, quantity: 2 },
+    pickup_location: { name: 'Test Warehouse' },
+    shipments: [
+      {
+        order: 'DOC-MPS-1-1',
+        weight: 500,
+        mps_amount: 0,
+        mps_children: 2,
+        pin: '400093',
+        products_desc: 'Toy car',
+        add: 'First box address',
+        shipment_type: 'MPS',
+        state: 'Maharashtra',
+        master_id: 'MPS-AWB-1',
+        city: 'Mumbai',
+        waybill: 'MPS-AWB-1',
+        phone: '9999999999',
+        payment_mode: 'Prepaid',
+        name: 'MPS Customer',
+        total_amount: 500,
+        country: 'India',
+      },
+      {
+        order: 'DOC-MPS-1-2',
+        weight: 600,
+        mps_amount: 0,
+        mps_children: 2,
+        pin: '400093',
+        products_desc: 'Toy train',
+        add: 'Second box address',
+        shipment_type: 'MPS',
+        state: 'Maharashtra',
+        master_id: 'MPS-AWB-1',
+        city: 'Mumbai',
+        waybill: 'MPS-AWB-2',
+        phone: '9999999999',
+        payment_mode: 'Prepaid',
+        name: 'MPS Customer',
+        total_amount: 500,
+        country: 'India',
+      },
     ],
   } as any)
   const mpsForm = new URLSearchParams(String(captured.at(-1)?.data))
@@ -301,6 +329,34 @@ const run = async () => {
     'DOC-MPS-1-2',
   ])
   assert.equal(mpsPayload.shipments[0].payment_mode, 'Prepaid')
+  assert(mpsPayload.shipments.every((shipment: any) => shipment.shipment_type === 'MPS'))
+  assert(mpsPayload.shipments.every((shipment: any) => shipment.master_id === 'MPS-AWB-1'))
+  assert(mpsPayload.shipments.every((shipment: any) => shipment.mps_children === 2))
+  assert(mpsPayload.shipments.every((shipment: any) => shipment.mps_amount === 0))
+  assert.equal(mpsPayload.shipments[1].add, 'Second box address')
+
+  await mockedService.createShipment({
+    order: 'DOC-MPS-COD',
+    payment_mode: 'COD',
+    cod_amount: 700,
+    total_amount: 700,
+    name: 'COD Customer',
+    add: 'COD address',
+    pin: '400093',
+    phone: '9999999999',
+    pickup_location: 'Test Warehouse',
+    mps: true,
+    master_id: 'MPS-COD-1',
+    mps_amount: 700,
+    boxes: [
+      { waybill: 'MPS-COD-1', weight: 500, cod_amount: 300 },
+      { waybill: 'MPS-COD-2', weight: 600, cod_amount: 400 },
+    ],
+  } as any)
+  const codMpsForm = new URLSearchParams(String(captured.at(-1)?.data))
+  const codMpsPayload = JSON.parse(codMpsForm.get('data') || '{}')
+  assert(codMpsPayload.shipments.every((shipment: any) => shipment.mps_amount === 700))
+  assert.deepEqual(codMpsPayload.shipments.map((shipment: any) => shipment.cod_amount), [300, 400])
 
   await mockedService.updateShipment('TEST-AWB', { phone: '919999999999' })
   assert.equal(captured.at(-1)?.url, 'https://staging-express.delhivery.com/api/p/edit')
@@ -343,6 +399,14 @@ const run = async () => {
       boxes: [{ waybill: 'MPS-ONE' }, { weight: 500 }],
     } as any),
     /Every Delhivery MPS box must have its own waybill/,
+  )
+  await assert.rejects(
+    () => service.createShipment({
+      ...nativeShipmentBase,
+      mps: true,
+      boxes: [{ waybill: 'MPS-ONE' }, { waybill: 'MPS-TWO' }],
+    } as any),
+    /master_id is required/,
   )
   await assert.rejects(() => service.checkServiceability('19410'), /6-digit/)
   await assert.rejects(() => service.checkHeavyServiceability('40008'), /6-digit/)
@@ -435,6 +499,9 @@ const run = async () => {
   )
   assert(createMpsRequest.request.body.raw.includes('{{mpsWaybill1}}'))
   assert(createMpsRequest.request.body.raw.includes('{{mpsWaybill2}}'))
+  assert(createMpsRequest.request.body.raw.includes('master_id'))
+  assert(createMpsRequest.request.body.raw.includes('mps_children'))
+  assert(createMpsRequest.request.body.raw.includes('mps_amount'))
 
   console.log('Delhivery B2C integration checks passed')
 }
