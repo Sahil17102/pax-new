@@ -1,5 +1,5 @@
 import { Badge, Box, Flex, HStack, SimpleGrid, Stack, Text, useColorModeValue } from '@chakra-ui/react'
-import { BRAND } from '../../constants/brand'
+import { BRAND, brandStripe } from '../../constants/brand'
 import BrandMark from '../Brand/BrandMark'
 
 export default function PageHeader({
@@ -32,7 +32,7 @@ export default function PageHeader({
         position: 'absolute',
         inset: '0 0 auto 0',
         h: '4px',
-        bg: `linear-gradient(90deg, ${BRAND.colors.tealDark}, ${BRAND.colors.teal} 68%, ${BRAND.colors.orange})`,
+        bg: brandStripe,
       }}
     >
       <Box

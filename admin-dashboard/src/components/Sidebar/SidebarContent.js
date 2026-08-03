@@ -2,7 +2,7 @@ import { ChevronDownIcon } from '@chakra-ui/icons'
 import { Box, Button, Collapse, Flex, Stack, Text, useColorModeValue } from '@chakra-ui/react'
 import React, { useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { BRAND } from '../../constants/brand'
+import { BRAND, brandStripe } from '../../constants/brand'
 import BrandMark from '../Brand/BrandMark'
 
 const SidebarContent = ({ logoText, routes, sidebarWidth }) => {
@@ -218,6 +218,14 @@ const SidebarContent = ({ logoText, routes, sidebarWidth }) => {
       pr="2"
       overscrollBehavior="contain"
       css={{
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          inset: '0 0 auto 0',
+          height: '4px',
+          background: brandStripe,
+          zIndex: 1,
+        },
         scrollbarWidth: 'thin',
         '&::-webkit-scrollbar': { width: '5px' },
         '&::-webkit-scrollbar-track': { background: 'transparent' },

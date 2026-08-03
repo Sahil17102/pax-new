@@ -8,7 +8,7 @@ import {
   useColorModeValue,
 } from '@chakra-ui/react'
 import PropTypes from 'prop-types'
-import { BRAND } from '../../constants/brand'
+import { BRAND, brandStripe } from '../../constants/brand'
 import BrandMark from '../Brand/BrandMark'
 import AdminNavbarLinks from './AdminNavbarLinks'
 
@@ -52,6 +52,14 @@ export default function AdminNavbar(props) {
       w={{
         base: 'calc(100% - 20px)',
         xl: 'calc(100% - 32px)',
+      }}
+      overflow="hidden"
+      _before={{
+        content: '""',
+        position: 'absolute',
+        inset: '0 0 auto 0',
+        h: '4px',
+        bg: brandStripe,
       }}
     >
       <Flex w="100%" flexDirection={{ sm: 'column', md: 'row' }} alignItems={{ xl: 'center' }} gap={{ sm: 2, md: 0 }}>

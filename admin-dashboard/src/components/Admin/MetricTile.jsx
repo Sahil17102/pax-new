@@ -1,5 +1,5 @@
 import { Box, Flex, Text, useColorModeValue } from '@chakra-ui/react'
-import { BRAND } from '../../constants/brand'
+import { BRAND, brandStripe } from '../../constants/brand'
 
 export default function MetricTile({
   icon,
@@ -49,7 +49,7 @@ export default function MetricTile({
         position: 'absolute',
         inset: '0 0 auto 0',
         h: '3px',
-        bg: `linear-gradient(90deg, ${BRAND.colors.teal}, ${BRAND.colors.orange})`,
+        bg: brandStripe,
       }}
     >
       <Box

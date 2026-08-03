@@ -1,7 +1,7 @@
 import { alpha, Box, IconButton, Stack, Tooltip, useMediaQuery, useTheme } from '@mui/material'
 import { FaBolt, FaWallet } from 'react-icons/fa'
 import { MdClose, MdMenu, MdPushPin } from 'react-icons/md'
-import { BRAND } from '../../config/brand'
+import { BRAND, brandStripe } from '../../config/brand'
 import { useAuth } from '../../context/auth/AuthContext'
 import { useUserProfile } from '../../hooks/User/useUserProfile'
 import StatusChip from '../UI/chip/StatusChip'
@@ -38,6 +38,8 @@ export default function Navbar({ handleDrawerToggle, pinned = false, onPinChange
         justifyContent="space-between"
         spacing={{ xs: 0.5, sm: 0.6, md: 0.8, lg: 1.0 }}
         sx={{
+          position: 'relative',
+          overflow: 'hidden',
           px: { xs: 0.5, sm: 0.8, md: 1.2, lg: 1.5 },
           py: { xs: 0.4, sm: 0.45, md: 0.5, lg: 0.6 },
           borderRadius: 0,
@@ -49,6 +51,13 @@ export default function Navbar({ handleDrawerToggle, pinned = false, onPinChange
           backdropFilter: 'blur(10px)',
           WebkitBackdropFilter: 'blur(10px)',
           transition: 'all 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            inset: '0 0 auto 0',
+            height: 3,
+            background: brandStripe,
+          },
         }}
       >
         <Stack

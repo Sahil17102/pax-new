@@ -11,6 +11,8 @@ export const BRAND = {
     teal: '#062A5B',
     tealDark: '#041A38',
     tealSoft: '#EEF4FB',
+    bridge: '#0F9AA4',
+    aquaSoft: '#E4F7FB',
     orange: '#ED1C24',
     orangeDark: '#B80F1A',
     amberSoft: '#FDE7EA',
@@ -25,4 +27,7 @@ export const BRAND = {
 }
 
 export const brandGradient =
-  'radial-gradient(circle at 0 0, rgba(237, 28, 36, 0.1), transparent 28%), radial-gradient(circle at 100% 0, rgba(6, 42, 91, 0.12), transparent 28%), linear-gradient(180deg, #ffffff 0%, #F5F8FC 56%, #fbfbfb 100%)'
+  'radial-gradient(circle at 0 0, rgba(237, 28, 36, 0.1), transparent 28%), radial-gradient(circle at 100% 0, rgba(15, 154, 164, 0.12), transparent 30%), linear-gradient(180deg, #ffffff 0%, #F5F8FC 56%, #fbfbfb 100%)'
+
+export const brandStripe =
+  `linear-gradient(90deg, ${BRAND.colors.teal} 0%, ${BRAND.colors.bridge} 52%, ${BRAND.colors.orange} 100%)`

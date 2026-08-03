@@ -43,7 +43,7 @@ import {
   TbWallet,
 } from 'react-icons/tb'
 import { NavLink, useLocation } from 'react-router-dom'
-import { BRAND } from '../../config/brand'
+import { BRAND, brandStripe } from '../../config/brand'
 import useEmployeePermissions from '../../hooks/User/useEmployeePermissions'
 import { isActive } from '../../utils/functions'
 
@@ -341,6 +341,14 @@ export default function Sidebar({
         overflowX: 'hidden',
         transition:
           'width 300ms cubic-bezier(0.4, 0, 0.2, 1), min-width 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          inset: '0 0 auto 0',
+          height: 3,
+          background: brandStripe,
+          zIndex: 1,
+        },
       }}
     >
       <Stack

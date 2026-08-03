@@ -2,6 +2,8 @@
   --brand-teal: #062A5B;
   --brand-teal-dark: #041A38;
   --brand-teal-soft: #EEF4FB;
+  --brand-bridge: #0F9AA4;
+  --brand-aqua-soft: #E4F7FB;
   --brand-orange: #ED1C24;
   --brand-orange-dark: #B80F1A;
   --brand-amber-soft: #FDE7EA;
@@ -52,7 +54,7 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(circle at 14% 14%, rgba(255, 230, 160, 0.24), transparent 24%),
+    radial-gradient(circle at 14% 14%, rgba(228, 247, 251, 0.72), transparent 24%),
     radial-gradient(circle at 86% 18%, rgba(253, 231, 234, 0.3), transparent 20%),
     radial-gradient(circle at 74% 76%, rgba(217, 230, 247, 0.26), transparent 22%);
 }
