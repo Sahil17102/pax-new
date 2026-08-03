@@ -27,11 +27,11 @@ const CancellationPolicy = () => {
         </ListItem>
 
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="Express Magic reserves the right to modify, suspend, or terminate the Service for any reason, without prior notice at any time." />
+          <ListItemText primary="Pax Logistics reserves the right to modify, suspend, or terminate the Service for any reason, without prior notice at any time." />
         </ListItem>
 
         <ListItem sx={{ display: 'list-item' }}>
-          <ListItemText primary="Fraud Prevention: Without limiting any other remedies, Express Magic may suspend or terminate your account if we suspect that you have engaged in fraudulent or unlawful activity in connection with the Platform." />
+          <ListItemText primary="Fraud Prevention: Without limiting any other remedies, Pax Logistics may suspend or terminate your account if we suspect that you have engaged in fraudulent or unlawful activity in connection with the Platform." />
         </ListItem>
 
         <ListItem sx={{ display: 'list-item' }}>

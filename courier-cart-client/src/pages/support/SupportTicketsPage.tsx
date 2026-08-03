@@ -185,7 +185,7 @@ export const SupportTicketsPage = () => {
             label: 'Email Support',
             onClick: () =>
               (window.location.href =
-                'mailto:support@expressmagic.in?subject=Express Magic%20Support%20Request'),
+                'mailto:support@expressmagic.in?subject=Pax%20Logistics%20Support%20Request'),
             icon: <FiMail />,
             variant: 'outlined',
           },

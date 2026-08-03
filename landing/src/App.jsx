@@ -217,11 +217,11 @@ export default function App() {
   const pathname = window.location.pathname;
 
   if (pathname === "/sign-in") {
-    return <ExternalRedirect to={CLIENT_AUTH_URL} label="the Express Magic client login" />;
+    return <ExternalRedirect to={CLIENT_AUTH_URL} label="the Pax Logistics client login" />;
   }
 
   if (pathname === "/dashboard" || pathname === "/app" || pathname.startsWith("/app/")) {
-    return <ExternalRedirect to={CLIENT_APP_URL} label="the Express Magic client panel" />;
+    return <ExternalRedirect to={CLIENT_APP_URL} label="the Pax Logistics client panel" />;
   }
 
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {

@@ -7,7 +7,7 @@ function NotFoundPage() {
       <PageHero
         eyebrow="404"
         title="This page drifted out of route coverage."
-        description="The link you opened does not exist in the current Express Magic site map. You can head back to the home page or continue exploring the main sections."
+        description="The link you opened does not exist in the current Pax Logistics site map. You can head back to the home page or continue exploring the main sections."
         primaryAction={{ label: "Go home", to: "/" }}
         secondaryAction={{ label: "Track Shipment", to: "/tracking" }}
         stats={[

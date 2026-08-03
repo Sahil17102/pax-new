@@ -35,7 +35,7 @@ Import:
 - `delhivery-b2b.local.postman_environment.json`
 
 Save the production or UAT credentials from **Admin > Courier Credentials >
-Delhivery B2B (LTL)**, then set `adminToken` to an Express Magic admin access
+Delhivery B2B (LTL)**, then set `adminToken` to an Pax Logistics admin access
 token. The proxy intentionally does not expose Delhivery's JWT.
 
 The collection contains state-changing requests. Run password reset, warehouse

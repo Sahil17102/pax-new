@@ -19,7 +19,7 @@ RUN apt-get update \
 ARG RENDER_GIT_COMMIT=main
 RUN git init /source \
     && cd /source \
-    && git remote add origin https://github.com/Sahil17102/express-magic.git \
+    && git remote add origin https://github.com/Sahil17102/pax-new.git \
     && git fetch --depth 1 origin "${RENDER_GIT_COMMIT}" \
     && git checkout --detach FETCH_HEAD
 

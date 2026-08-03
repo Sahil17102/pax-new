@@ -1,8 +1,8 @@
 {
   "info": {
     "_postman_id": "91d8af16-20bf-4aa5-b44d-delhivery-b2b",
-    "name": "Express Magic - Delhivery B2B (LTL)",
-    "description": "End-to-end checks for the admin-only Express Magic Delhivery B2B proxy. Save credentials in Admin > Courier Credentials first. Password Reset, Manifest, Update, Cancellation, Pickup, and Appointment requests mutate Delhivery state; run them deliberately.",
+    "name": "Pax Logistics - Delhivery B2B (LTL)",
+    "description": "End-to-end checks for the admin-only Pax Logistics Delhivery B2B proxy. Save credentials in Admin > Courier Credentials first. Password Reset, Manifest, Update, Cancellation, Pickup, and Appointment requests mutate Delhivery state; run them deliberately.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -46,7 +46,7 @@
           "request": {
             "method": "POST",
             "url": "{{baseUrl}}/api/delhivery/b2b/auth/login",
-            "description": "Validates the saved Delhivery username/password. Express Magic caches the returned JWT until shortly before its 24-hour expiry and never exposes it to the browser. Concurrent courier requests share a single login call."
+            "description": "Validates the saved Delhivery username/password. Pax Logistics caches the returned JWT until shortly before its 24-hour expiry and never exposes it to the browser. Concurrent courier requests share a single login call."
           }
         }
       ]
@@ -59,7 +59,7 @@
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/delhivery/b2b/serviceability/{{destinationPincode}}?weight={{weightGrams}}",
-            "description": "Checks a six-digit pincode before any shipment operation. Weight is optional and expressed in grams. Express Magic checks both origin and consignee pincodes before B2B manifestation."
+            "description": "Checks a six-digit pincode before any shipment operation. Weight is optional and expressed in grams. Pax Logistics checks both origin and consignee pincodes before B2B manifestation."
           }
         },
         {
@@ -67,7 +67,7 @@
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/delhivery/b2b/tat?origin_pin={{originPincode}}&destination_pin={{destinationPincode}}",
-            "description": "Returns Delhivery's current network transit estimate in days for two valid six-digit pincodes. Express Magic forwards the request to GET /tat/estimate with the cached UMS bearer token and a unique X-Request-Id."
+            "description": "Returns Delhivery's current network transit estimate in days for two valid six-digit pincodes. Pax Logistics forwards the request to GET /tat/estimate with the cached UMS bearer token and a unique X-Request-Id."
           }
         },
         {
@@ -85,7 +85,7 @@
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/delhivery/b2b/freight/charges?lrns={{lrn}}",
-            "description": "Returns the applicable charge breakdown for one or more comma-separated LRNs. Express Magic trims the list, enforces Delhivery's maximum of 25 LRNs, percent-encodes the comma-separated path value, and forwards it with the cached bearer token."
+            "description": "Returns the applicable charge breakdown for one or more comma-separated LRNs. Pax Logistics trims the list, enforces Delhivery's maximum of 25 LRNs, percent-encodes the comma-separated path value, and forwards it with the cached bearer token."
           }
         }
       ]
@@ -109,8 +109,8 @@
             "method": "PATCH",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{baseUrl}}/api/delhivery/b2b/warehouses",
-            "description": "Updates a warehouse identified by its exact case/space-sensitive name. Nested address, return address, billing, schedule, weekday, QR, and appointment fields are validated. Express Magic uses Delhivery's cURL path first and retries the alternate documented environment path only for 404/405 responses.",
-            "body": { "mode": "raw", "raw": "{\n  \"cl_warehouse_name\": \"{{warehouseName}}\",\n  \"update_dict\": {\n    \"city\": \"Faridabad\",\n    \"state\": \"Maharashtra\",\n    \"country\": \"India\",\n    \"address_details\": {\"address\": \"Updated warehouse address\", \"contact_person\": \"Operations Team\", \"phone_number\": \"9999999999\", \"email\": \"operations@example.com\", \"company\": \"Express Magic\"},\n    \"ret_address\": {\"address\": \"Return address\", \"city\": \"Gurugram\", \"state\": \"Haryana\", \"pin\": \"122001\", \"country\": \"INDIA\"}\n  }\n}" }
+            "description": "Updates a warehouse identified by its exact case/space-sensitive name. Nested address, return address, billing, schedule, weekday, QR, and appointment fields are validated. Pax Logistics uses Delhivery's cURL path first and retries the alternate documented environment path only for 404/405 responses.",
+            "body": { "mode": "raw", "raw": "{\n  \"cl_warehouse_name\": \"{{warehouseName}}\",\n  \"update_dict\": {\n    \"city\": \"Faridabad\",\n    \"state\": \"Maharashtra\",\n    \"country\": \"India\",\n    \"address_details\": {\"address\": \"Updated warehouse address\", \"contact_person\": \"Operations Team\", \"phone_number\": \"9999999999\", \"email\": \"operations@example.com\", \"company\": \"Pax Logistics\"},\n    \"ret_address\": {\"address\": \"Return address\", \"city\": \"Gurugram\", \"state\": \"Haryana\", \"pin\": \"122001\", \"country\": \"INDIA\"}\n  }\n}" }
           }
         }
       ]
@@ -149,7 +149,7 @@
                 { "key": "enable_paperless_movement", "value": "false", "type": "text" },
                 { "key": "freight_mode", "value": "fop", "type": "text" },
                 { "key": "fm_pickup", "value": "false", "type": "text" },
-                { "key": "billing_address", "value": "{\"name\":\"Billing Contact\",\"company\":\"Express Magic\",\"consignor\":\"Express Magic\",\"address\":\"Test billing address\",\"city\":\"Gurugram\",\"state\":\"Haryana\",\"pin\":\"{{originPincode}}\",\"phone\":\"9999999999\",\"pan_number\":\"ABCDE1234F\"}", "type": "text" },
+                { "key": "billing_address", "value": "{\"name\":\"Billing Contact\",\"company\":\"Pax Logistics\",\"consignor\":\"Pax Logistics\",\"address\":\"Test billing address\",\"city\":\"Gurugram\",\"state\":\"Haryana\",\"pin\":\"{{originPincode}}\",\"phone\":\"9999999999\",\"pan_number\":\"ABCDE1234F\"}", "type": "text" },
                 { "key": "callback", "value": "{\"uri\":\"{{documentCallbackUrl}}\",\"method\":\"POST\"}", "type": "text" },
                 { "key": "doc_data", "value": "[{\"doc_type\":\"INVOICE_COPY\",\"doc_meta\":{\"invoice_num\":[\"POSTMAN-INV\"]}}]", "type": "text", "disabled": true },
                 { "key": "doc_file", "type": "file", "src": "", "disabled": true }
@@ -198,7 +198,7 @@
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/delhivery/b2b/shipments/update/{{updateJobId}}",
-            "description": "Fetches the asynchronous Edit LR result using the job/request ID captured from Update Shipment. Delhivery may need processing time before returning a final status; retry this read-only request after a short gap when the job is still pending. Express Magic forwards job_id with the cached UMS bearer token."
+            "description": "Fetches the asynchronous Edit LR result using the job/request ID captured from Update Shipment. Delhivery may need processing time before returning a final status; retry this read-only request after a short gap when the job is still pending. Pax Logistics forwards job_id with the cached UMS bearer token."
           }
         },
         {
@@ -206,7 +206,7 @@
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/delhivery/b2b/shipments/{{lrn}}/tracking?all_wbns=true",
-            "description": "Returns Delhivery's latest LR status only; historical scans are not supplied by this API. Set all_wbns=true to request child-waybill statuses or omit it for the master shipment. Express Magic maps all documented B2B statuses into local shipment, NDR, delivered, return, and lost states."
+            "description": "Returns Delhivery's latest LR status only; historical scans are not supplied by this API. Set all_wbns=true to request child-waybill statuses or omit it for the master shipment. Pax Logistics maps all documented B2B statuses into local shipment, NDR, delivered, return, and lost states."
           }
         },
         {

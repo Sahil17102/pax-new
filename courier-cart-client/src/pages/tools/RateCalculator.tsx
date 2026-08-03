@@ -294,7 +294,7 @@ export function RateCalculator() {
                 lineHeight: 1.8,
               }}
             >
-              Enter pickup, delivery, parcel and payment details to compare courier pricing in one clear Express Magic
+              Enter pickup, delivery, parcel and payment details to compare courier pricing in one clear Pax Logistics
               view.
             </Typography>
             <Box

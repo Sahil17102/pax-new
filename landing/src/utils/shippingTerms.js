@@ -13,7 +13,7 @@ export const shippingTermsColumns = [
   [
     "COD remittance is processed according to the courier partner's timeline.",
     "All disputes are subject to the jurisdiction stated in the full service agreement.",
-    "By using our services, you agree to the Express Magic Terms & Conditions.",
+    "By using our services, you agree to the Pax Logistics Terms & Conditions.",
   ],
 ];
 

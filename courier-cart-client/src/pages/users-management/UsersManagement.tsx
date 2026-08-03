@@ -20,7 +20,7 @@ const UsersManagement = () => {
       <AdminPageShell
         title="User access management"
         badge="Team"
-        description="Create employee accounts, control access, and keep the Express Magic admin workspace limited to the right operators."
+        description="Create employee accounts, control access, and keep the Pax Logistics admin workspace limited to the right operators."
         metrics={[
           { label: 'Access model', value: 'Role-based', hint: 'Employee access stays structured' },
           { label: 'Account actions', value: 'Create, edit, disable', hint: 'All key controls in one place' },

@@ -18,10 +18,10 @@ function TermsAndConditionsPage() {
               <Icon name="shield" className="h-7 w-7" />
             </span>
             <div>
-              <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-[#F36673]">Express Magic Shipping Policy</p>
+              <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-[#F36673]">Pax Logistics Shipping Policy</p>
               <h1 className="mt-3 font-display text-3xl font-extrabold leading-tight sm:text-5xl">Shipping &amp; Courier Terms &amp; Conditions</h1>
               <p className="mt-5 max-w-3xl text-base leading-8 text-white/70">
-                These conditions explain the basic responsibilities, timelines, charges, and courier policies that apply when using Express Magic shipping services.
+                These conditions explain the basic responsibilities, timelines, charges, and courier policies that apply when using Pax Logistics shipping services.
               </p>
             </div>
           </div>
@@ -46,7 +46,7 @@ function TermsAndConditionsPage() {
           <div className="mt-8 rounded-xl border border-[#D6E1EF] bg-[#EEF4FB] p-6 sm:flex sm:items-center sm:justify-between sm:gap-6">
             <div>
               <h2 className="font-display text-xl font-extrabold text-[#061A33]">Need clarification before shipping?</h2>
-              <p className="mt-2 text-sm leading-6 text-[#64748B]">Contact the Express Magic support team for help with a shipment or policy.</p>
+              <p className="mt-2 text-sm leading-6 text-[#64748B]">Contact the Pax Logistics support team for help with a shipment or policy.</p>
             </div>
             <a
               href={`mailto:${companyProfile.email}`}

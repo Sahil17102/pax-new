@@ -82,7 +82,7 @@ const allSettings: SettingItem[] = [
   // Connections & routing
   {
     title: 'Connected channels',
-    description: 'Review store connections and manage how order sources flow into Express Magic.',
+    description: 'Review store connections and manage how order sources flow into Pax Logistics.',
     key: '/channels/connected',
     icon: <FaLink />,
   },

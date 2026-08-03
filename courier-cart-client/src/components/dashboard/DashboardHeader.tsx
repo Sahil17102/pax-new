@@ -69,7 +69,7 @@ export default function DashboardHeader({
               letterSpacing: '-0.03em',
             }}
           >
-            Run shipping, finance, and exceptions from one cleaner Express Magic workspace.
+            Run shipping, finance, and exceptions from one cleaner Pax Logistics workspace.
           </Typography>
           <Typography sx={{ fontSize: '0.95rem', color: alpha('#fff', 0.82), lineHeight: 1.6 }}>
             Keep pickup readiness, courier allocation, remittance exposure, and delivery exceptions

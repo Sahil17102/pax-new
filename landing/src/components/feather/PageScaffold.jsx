@@ -37,7 +37,7 @@ function DefaultHeroVisual({ visualTitle }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#ED1C24]">
-            Express Magic
+            Pax Logistics
           </p>
           <h2 className="mt-2 font-display text-2xl text-slate-900">{visualTitle}</h2>
         </div>

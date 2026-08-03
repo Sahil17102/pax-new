@@ -25,7 +25,7 @@ export default function SocialSections() {
             <SectionHeader
               eyebrow="Testimonials"
               title="Trusted By Fast-Moving Shipping Teams"
-              description="Teams use Express Magic to simplify courier decisions, improve visibility, and make shipping operations easier to manage."
+              description="Teams use Pax Logistics to simplify courier decisions, improve visibility, and make shipping operations easier to manage."
               align="center"
             />
           </MotionDiv>

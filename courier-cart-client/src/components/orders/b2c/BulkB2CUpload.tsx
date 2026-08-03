@@ -149,7 +149,7 @@ type CourierSelection = {
 
 const sampleRows = [
   {
-    warehouse_name: 'Express Magic Jaipur Hub',
+    warehouse_name: 'Pax Logistics Jaipur Hub',
     pickup_date: new Date().toISOString().split('T')[0],
     pickup_time: '10:00',
     order_id: 'B2C-1001',

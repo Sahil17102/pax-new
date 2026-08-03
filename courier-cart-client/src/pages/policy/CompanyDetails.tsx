@@ -25,7 +25,7 @@ const CompanyDetails = () => {
       <PageHeading
         title="Contact Us"
         subtitle="  We’re here to help! Whether you have questions about our services, need support with your
-        account, or want to know more about how Express Magic can assist your business, feel free to
+        account, or want to know more about how Pax Logistics can assist your business, feel free to
         reach out to us."
       />
 
@@ -51,7 +51,7 @@ const CompanyDetails = () => {
           }}
         >
           <Typography variant="h6" fontWeight="bold" color="secondary" gutterBottom>
-            Express Magic
+            Pax Logistics
           </Typography>
 
           {/* Address */}
@@ -119,7 +119,7 @@ const CompanyDetails = () => {
             width="100%"
             draggable={false}
             zoom={16}
-            popupText="Express Magic"
+            popupText="Pax Logistics"
             currentLocation={false}
           />
         </Paper>

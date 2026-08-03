@@ -69,7 +69,7 @@ const AddMoneyDialog: React.FC<AddMoneyDialogProps> = ({ open, setOpen, currentB
     user?.companyInfo?.brandName ||
     profile?.companyInfo?.contactPerson ||
     user?.companyInfo?.contactPerson ||
-    'Express Magic Customer'
+    'Pax Logistics Customer'
   const resolvedEmail =
     profile?.companyInfo?.contactEmail ||
     user?.companyInfo?.contactEmail ||

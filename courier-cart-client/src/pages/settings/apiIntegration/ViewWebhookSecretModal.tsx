@@ -34,7 +34,7 @@ export const ViewWebhookSecretModal = ({
       '-',
     )}-${timestamp.split('T')[0]}.txt`
     const fileContent = `
-Express Magic Webhook Secret
+Pax Logistics Webhook Secret
 Generated: ${timestamp}
 Webhook Name: ${webhook.name || 'Unnamed'}
 Webhook URL: ${webhook.url}

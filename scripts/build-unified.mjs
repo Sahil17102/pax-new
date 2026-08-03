@@ -64,7 +64,6 @@ const clientPublicEntries = [
   "images",
   "logo",
   "animations",
-  "express-magic-logo.jpeg",
   "API_DOCUMENTATION.pdf",
 ];
 

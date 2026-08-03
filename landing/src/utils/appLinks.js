@@ -15,11 +15,11 @@ const resolveProductionUrl = (configuredUrl, fallbackUrl) => {
 const normalizeAdminAuthUrl = (url) => {
   const normalized = stripTrailingSlash(url);
   return /^https:\/\/express-magic-admin\.onrender\.com\/auth\/signin$/i.test(normalized)
-    ? "https://express-magic-admin.onrender.com/#/auth/signin"
+    ? "https://pax-log-admin.onrender.com/#/auth/signin"
     : normalized;
 };
 
-const UNIFIED_RENDER_CLIENT_URL = "https://express-magic.onrender.com/app";
+const UNIFIED_RENDER_CLIENT_URL = "https://pax-log.onrender.com/app";
 
 const normalizeClientAppUrl = (url) => {
   const normalized = stripTrailingSlash(url);
@@ -63,12 +63,12 @@ const defaultClientAppUrl = import.meta.env.DEV
   : UNIFIED_RENDER_CLIENT_URL;
 
 const defaultAdminAppUrl = import.meta.env.DEV
-  ? inferLocalHostUrl(import.meta.env.VITE_ADMIN_APP_PORT || "8090") || "https://express-magic-admin.onrender.com"
-  : "https://express-magic-admin.onrender.com";
+  ? inferLocalHostUrl(import.meta.env.VITE_ADMIN_APP_PORT || "8090") || "https://pax-log-admin.onrender.com"
+  : "https://pax-log-admin.onrender.com";
 
 const defaultApiBaseUrl = import.meta.env.DEV
-  ? `${inferLocalHostUrl(import.meta.env.VITE_API_PORT || "8092") || "https://express-magic-backend.onrender.com"}/api`
-  : "https://express-magic-backend.onrender.com/api";
+  ? `${inferLocalHostUrl(import.meta.env.VITE_API_PORT || "8092") || "https://pax-new.onrender.com"}/api`
+  : "https://pax-new.onrender.com/api";
 
 export const CLIENT_APP_URL = normalizeClientAppUrl(
   resolveProductionUrl(import.meta.env.VITE_CLIENT_APP_URL, defaultClientAppUrl),

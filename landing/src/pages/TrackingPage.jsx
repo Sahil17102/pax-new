@@ -24,7 +24,7 @@ function TrackingPage() {
       <PageHero
         eyebrow="Tracking"
         title="Give customers and internal teams a dedicated page for shipment status visibility."
-        description="Check shipment movement, delivery milestones, and final-mile status from one clear Express Magic tracking view."
+        description="Check shipment movement, delivery milestones, and final-mile status from one clear Pax Logistics tracking view."
         primaryAction={{ label: "Use Rate Calculator", to: "/rate-calculator" }}
         secondaryAction={{ label: "Check Weight Calculator", to: "/volumetric-weight-calculator" }}
         stats={stats}

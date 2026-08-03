@@ -127,7 +127,7 @@ export function HeroSection() {
                   Unlock the full potential of your shipping operations.
                 </h1>
                 <p className="mt-6 max-w-xl text-lg leading-8 text-slate-600">
-                  Express Magic connects courier operations, pricing visibility, shipment tracking, and delivery follow-up into one cleaner logistics experience from booking to doorstep.
+                  Pax Logistics connects courier operations, pricing visibility, shipment tracking, and delivery follow-up into one cleaner logistics experience from booking to doorstep.
                 </p>
 
                 <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">

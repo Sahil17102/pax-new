@@ -114,7 +114,7 @@ export default function WeightReconciliationSettings() {
             Weight Reconciliation Settings
           </Typography>
           <Typography variant="body2" sx={{ color: '#6B7280', mt: 0.5, fontSize: '14px' }}>
-            Configure thresholds, alerts, and reporting rules with a cleaner Express Magic workflow.
+            Configure thresholds, alerts, and reporting rules with a cleaner Pax Logistics workflow.
           </Typography>
           <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.2} mt={2.5}>
             {['Auto-accept thresholds', 'Discrepancy notifications', 'Daily and weekly reports'].map(

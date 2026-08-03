@@ -157,7 +157,7 @@ export const faqs = [
       "It brings booking, courier selection, dispatch, and shipment tracking into one operational workflow so your team spends less time juggling separate tools.",
   },
   {
-    question: "Can Express Magic support COD and delivery exception handling?",
+    question: "Can Pax Logistics support COD and delivery exception handling?",
     answer:
       "Yes. The home page highlights COD readiness and NDR-focused workflows so teams can stay on top of high-friction orders after dispatch.",
   },

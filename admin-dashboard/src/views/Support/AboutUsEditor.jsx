@@ -50,8 +50,8 @@ const AboutUsEditor = () => {
 
   const handleLoadTemplate = () => {
     const templateHtml = `
-      <h2>About Express Magic</h2>
-      <p><strong>Express Magic</strong> is a courier aggregator technology platform designed to help entrepreneurs, D2C brands, and logistics businesses run a branded shipping operation with a cleaner and more scalable software stack.</p>
+      <h2>About Pax Logistics</h2>
+      <p><strong>Pax Logistics</strong> is a courier aggregator technology platform designed to help entrepreneurs, D2C brands, and logistics businesses run a branded shipping operation with a cleaner and more scalable software stack.</p>
 
       <h3>What We Do</h3>
       <ul>
@@ -129,7 +129,7 @@ const AboutUsEditor = () => {
     if (!validateForm()) return
 
     try {
-      await updatePageMutation.mutateAsync({ title: 'About Us - Express Magic', content })
+      await updatePageMutation.mutateAsync({ title: 'About Us - Pax Logistics', content })
       toast({
         title: 'About Us content saved',
         status: 'success',

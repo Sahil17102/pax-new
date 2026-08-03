@@ -8,7 +8,7 @@ const CourierDistributionChart = ({ data = {} }) => {
   const bgColor = useColorModeValue('white', 'gray.800')
   const borderColor = useColorModeValue('gray.200', 'gray.600')
 
-  // Express Magic brand palette for courier comparison.
+  // Pax Logistics brand palette for courier comparison.
   const chartColors = useColorModeValue(
     ['#062A5B', '#ED1C24', '#3E6AA8', '#B80F1A', '#86A8D3'],
     ['#86A8D3', '#F36673', '#B5CAE8', '#F79AA4', '#3E6AA8']

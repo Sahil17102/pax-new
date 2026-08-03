@@ -10,10 +10,10 @@ export const navigationLinks = [
 ];
 
 export const heroContent = {
-  eyebrow: "Express Magic",
+  eyebrow: "Pax Logistics",
   headline: "Ship Smarter. Move Faster on Every Order.",
   subheading:
-    "Turn the public Express Magic link into a polished front door for merchants, operations teams, and admins. From one landing experience, people can jump into the client app, merchant auth flow, or admin workspace in a clean new tab.",
+    "Turn the public Pax Logistics link into a polished front door for merchants, operations teams, and admins. From one landing experience, people can jump into the client app, merchant auth flow, or admin workspace in a clean new tab.",
   primaryCta: "Open Merchant Login",
   secondaryCta: "Open Client App",
   tertiaryCta: "Open Admin Panel",

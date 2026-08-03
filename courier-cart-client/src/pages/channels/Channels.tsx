@@ -8,7 +8,7 @@ const Channels = () => {
     <AdminPageShell
       title="Channel connection workspace"
       badge="Integrations"
-      description="Connect sales channels, review live store links, and keep inbound order sources organized under one Express Magic admin surface."
+      description="Connect sales channels, review live store links, and keep inbound order sources organized under one Pax Logistics admin surface."
       metrics={[
         { label: 'Primary channel', value: 'Shopify', hint: 'Live connection currently supported' },
         { label: 'Connection model', value: 'Centralized', hint: 'Stores managed in one workspace' },

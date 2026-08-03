@@ -1,6 +1,6 @@
-# Express Magic deployment
+# Pax Logistics deployment
 
-Express Magic uses Render as its primary deployment platform. The public landing
+Pax Logistics uses Render as its primary deployment platform. The public landing
 and merchant client are packaged into one free Static Site. The manual GitHub
 Actions workflows remain available only for the separate Linux VPS deployment path.
 
@@ -10,12 +10,12 @@ The Render configuration defines these services:
 
 | Component | URL | Root directory | Type |
 | --- | --- | --- | --- |
-| Landing + client | `https://express-magic.onrender.com` | repository root | Static Site |
-| Admin panel | `https://express-magic-admin.onrender.com` | `admin-dashboard` | Static Site |
-| Backend API | `https://express-magic-backend.onrender.com` | `backend` | Docker Web Service |
+| Landing + client | `https://pax-log.onrender.com` | repository root | Static Site |
+| Admin panel | `https://pax-log-admin.onrender.com` | `admin-dashboard` | Static Site |
+| Backend API | `https://pax-new.onrender.com` | `backend` | Web Service |
 
 No Blueprint or second client service is required. Configure the existing
-`express-magic` Static Site with an empty Root Directory (repository root), Build
+`pax-log` Static Site with an empty Root Directory (repository root), Build
 Command `npm run build`, and Publish Directory `combined-dist`. The root build
 packages the Feather landing at `/` and the merchant app at `/app/`.
 
@@ -26,7 +26,7 @@ is an optional configuration reference; Blueprint deployment is not required.
 ### Combined landing and client settings
 
 The merchant login URL is
-`https://express-magic.onrender.com/app/#/login`. Client routing uses the URL hash,
+`https://pax-log.onrender.com/app/#/login`. Client routing uses the URL hash,
 so login/dashboard reloads do not require a paid feature or host rewrite.
 
 - Root directory: leave blank
@@ -37,8 +37,8 @@ so login/dashboard reloads do not require a paid feature or host rewrite.
 Set these build-time environment variables:
 
 ```env
-VITE_API_URL=https://express-magic-backend.onrender.com/api
-VITE_APP_SOCKET_URL=https://express-magic-backend.onrender.com
+VITE_API_URL=https://pax-new.onrender.com/api
+VITE_APP_SOCKET_URL=https://pax-new.onrender.com
 ```
 
 `VITE_GOOGLE_OAUTH_CLIENT_ID` and `VITE_PUBLIC_GEOAPIFY_KEY` are optional and must contain the real provider values only when those features are enabled.
@@ -52,8 +52,8 @@ VITE_APP_SOCKET_URL=https://express-magic-backend.onrender.com
 Set these build-time environment variables:
 
 ```env
-REACT_APP_API_BASE_URL=https://express-magic-backend.onrender.com/api
-REACT_APP_SOCKET_URL=https://express-magic-backend.onrender.com
+REACT_APP_API_BASE_URL=https://pax-new.onrender.com/api
+REACT_APP_SOCKET_URL=https://pax-new.onrender.com
 ```
 
 ### Backend settings
@@ -73,9 +73,9 @@ Set these environment variables in the backend service:
 | --- | --- |
 | `NODE_ENV` | `production` |
 | `DATABASE_URL` | The **new Internal Database URL** copied from the Render Postgres **Connect** menu after rotating the exposed database password. Do not use a URL committed to Git. |
-| `API_URL` | `https://express-magic-backend.onrender.com` (no `/api`) |
-| `CORS_ALLOWED_ORIGINS` | `https://express-magic.onrender.com,https://express-magic-admin.onrender.com` |
-| `FRONTEND_URL` | `https://express-magic.onrender.com/app` |
+| `API_URL` | `https://pax-new.onrender.com` (no `/api`) |
+| `CORS_ALLOWED_ORIGINS` | `https://pax-log.onrender.com,https://pax-log-admin.onrender.com` |
+| `FRONTEND_URL` | `https://pax-log.onrender.com/app` |
 | `ACCESS_TOKEN_SECRET` | A unique random secret of at least 32 bytes. Generate it locally with `openssl rand -base64 48`. |
 | `REFRESH_TOKEN_SECRET` | A different unique random secret of at least 32 bytes. |
 | `COURIER_SECRET_KEY` | A third unique random secret used to encrypt stored courier credentials. Keep this stable after production data exists. |
@@ -129,15 +129,15 @@ Use these exact canonical names. Legacy `FEATHERS_GLOBAL_*` aliases are not used
 Run this on a trusted administrator machine, not in GitHub Actions:
 
 ```bash
-ssh-keygen -t ed25519 -C "express-magic-github-actions" -f express-magic-deploy
+ssh-keygen -t ed25519 -C "pax-new-github-actions" -f pax-new-deploy
 ```
 
-For unattended GitHub Actions deployment, the key must not require an interactive passphrase. Install `express-magic-deploy.pub` in the deployment user's `~/.ssh/authorized_keys` on the VPS. Store the complete contents of `express-magic-deploy` as `FGSHIP_SSH_PRIVATE_KEY`. Keep the private key out of the repository.
+For unattended GitHub Actions deployment, the key must not require an interactive passphrase. Install `pax-new-deploy.pub` in the deployment user's `~/.ssh/authorized_keys` on the VPS. Store the complete contents of `pax-new-deploy` as `FGSHIP_SSH_PRIVATE_KEY`. Keep the private key out of the repository.
 
 Before adding it to GitHub, verify the same credentials manually:
 
 ```bash
-ssh -i express-magic-deploy FGSHIP_USER@FGSHIP_HOST
+ssh -i pax-new-deploy FGSHIP_USER@FGSHIP_HOST
 sudo -n true
 ```
 

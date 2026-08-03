@@ -25,7 +25,7 @@ export const ViewApiKeyModal = ({
   if (!apiKey) return null
 
   const handleDownloadCredentials = () => {
-    const content = `Express Magic API Credentials
+    const content = `Pax Logistics API Credentials
 Generated: ${new Date().toISOString()}
 Key Name: ${apiKey.key_name}
 

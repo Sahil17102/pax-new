@@ -7,7 +7,7 @@ import { shippingTermsColumns } from "../../utils/shippingTerms";
 
 const MotionNav = motion.nav;
 const MotionDiv = motion.div;
-const logoImage = "/express-magic-logo.jpeg";
+const logoImage = "/assets/pax-logo.png";
 
 const productLinks = [
   { label: "Shipment Tracking", to: "/tracking", icon: "mapPin" },
@@ -22,7 +22,7 @@ function NetworkStatus({ mobile = false }) {
         "items-center gap-3 border border-[#CFE0EE] bg-white/90 shadow-[0_10px_24px_rgba(6,42,91,0.08)]",
         mobile ? "flex rounded-lg px-4 py-3" : "hidden rounded-full px-3.5 py-2 xl:flex",
       ].join(" ")}
-      aria-label="Express Magic shipping network is live with more than 27 carriers"
+      aria-label="Pax Logistics shipping network is live with more than 27 carriers"
     >
       <span className="relative flex h-2.5 w-2.5 shrink-0" aria-hidden="true">
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#16A37A] opacity-35" />
@@ -190,7 +190,7 @@ export function SiteFooter() {
               Track, calculate, and ship from one reliable platform.
             </h2>
             <p className="mt-4 max-w-xl text-sm leading-7 text-white/70 sm:text-base">
-              Use Express Magic tools before dispatch, then enter the platform when you are ready to manage live shipments.
+              Use Pax Logistics tools before dispatch, then enter the platform when you are ready to manage live shipments.
             </p>
             <a
               href={AUTH_APP_URL}
