@@ -45,7 +45,18 @@ rmSync(outputDir, { force: true, recursive: true });
 mkdirSync(outputDir, { recursive: true });
 cpSync(path.join(clientDir, "dist"), outputDir, { recursive: true });
 
-if (!existsSync(path.join(outputDir, "index.html"))) {
+// Keep existing /app bookmarks working while the canonical client URL is /.
+// Both entries serve the same client shell; the marketing landing is not copied.
+mkdirSync(path.join(outputDir, "app"), { recursive: true });
+cpSync(
+  path.join(clientDir, "dist", "index.html"),
+  path.join(outputDir, "app", "index.html"),
+);
+
+if (
+  !existsSync(path.join(outputDir, "index.html")) ||
+  !existsSync(path.join(outputDir, "app", "index.html"))
+) {
   throw new Error("Client site build is incomplete");
 }
 
