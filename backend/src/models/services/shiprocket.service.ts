@@ -15697,13 +15697,23 @@ const persistLiveTrackingStatus = async (
     .map((part) => sanitizeString(part))
     .filter(Boolean)
     .join(' | ')
-  const nextStatus = mapLiveTrackingStatusToInternal(
+  const previousStatus = normalizeInternalTrackingStatus(order.order_status)
+  let nextStatus = mapLiveTrackingStatusToInternal(
     statusForMapping,
     providerKey,
     order.order_status,
     order.order_type,
   )
-  const previousStatus = normalizeInternalTrackingStatus(order.order_status)
+  if (
+    previousStatus === 'cancellation_requested' &&
+    normalizeLiveTrackingStatusText(providerKey) === 'delhivery' &&
+    nextStatus !== 'cancelled'
+  ) {
+    // An accepted Delhivery cancel request can take time to move from PP/UD
+    // into CN/RT. Do not let a normal tracking poll reopen pickup locally while
+    // the dedicated cancellation retry is waiting for courier confirmation.
+    nextStatus = 'cancellation_requested'
+  }
   const deliveryLocation = sanitizeString(latest?.location, '')
   const deliveryMessage = sanitizeString(tracking.shipment_info || latest?.message || rawStatus, '')
   const isExistingTerminalStatus = ['cancelled', 'delivered', 'rto_delivered'].includes(

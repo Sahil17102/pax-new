@@ -205,8 +205,11 @@ export const useCancelShipment = () => {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (orderId: string) => cancelShipmentApi(orderId),
-    onSuccess: () => {
-      toast.open({ message: 'Cancellation request sent', severity: 'success' })
+    onSuccess: (data) => {
+      toast.open({
+        message: data?.message || 'Cancellation request sent',
+        severity: 'success',
+      })
       queryClient.invalidateQueries({ queryKey: ['b2cOrdersByUser'] })
       queryClient.invalidateQueries({ queryKey: ['orders'] })
     },
