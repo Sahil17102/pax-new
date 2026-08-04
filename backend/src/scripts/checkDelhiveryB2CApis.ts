@@ -8,6 +8,7 @@ const run = async () => {
   const {
     DelhiveryService,
     isDelhiveryCancellationAccepted,
+    isDelhiveryCancellationConfirmed,
     isDelhiveryEwaybillUpdateAccepted,
     isDelhiveryWarehouseMissingError,
     normalizeDelhiveryRvpQc,
@@ -27,6 +28,30 @@ const run = async () => {
   assert.equal(
     isDelhiveryCancellationAccepted({ success: false, message: 'Shipment already cancelled' }),
     true,
+  )
+  assert.equal(
+    isDelhiveryCancellationConfirmed({
+      shipments: [{ currentStatus: 'In Transit', statusType: 'RT', scans: [] }],
+    }, { current_payment_mode: 'Pre-paid' }),
+    true,
+  )
+  assert.equal(
+    isDelhiveryCancellationConfirmed({
+      shipments: [{ currentStatus: 'Canceled', statusType: 'CN', scans: [] }],
+    }, { current_payment_mode: 'Pickup' }),
+    true,
+  )
+  assert.equal(
+    isDelhiveryCancellationConfirmed({
+      shipments: [{ currentStatus: 'Out for Pickup', statusType: 'PP', scans: [] }],
+    }, { current_payment_mode: 'Pre-paid' }),
+    false,
+  )
+  assert.equal(
+    isDelhiveryCancellationConfirmed({
+      shipments: [{ currentStatus: 'In Transit', statusType: 'RT', scans: [] }],
+    }, { current_payment_mode: 'Pickup' }),
+    false,
   )
   assert.equal(isDelhiveryEwaybillUpdateAccepted({ success: true }), true)
   assert.equal(isDelhiveryEwaybillUpdateAccepted({ status: 'Success' }), true)

@@ -1177,6 +1177,22 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
   )
 
   const currentStatus = (order.order_status || '').toLowerCase()
+  if (currentStatus === 'cancellation_requested') {
+    if (internalStatus === 'cancelled' || status_type?.toUpperCase() === 'RT') {
+      // Delhivery moves cancelled COD/prepaid shipments into its RT return
+      // lifecycle; CN is used for cancelled pickup shipments.
+      internalStatus = 'cancelled'
+    } else {
+      console.log(
+        `Holding Delhivery cancellation request for ${order.order_number}: ${status} (${status_type}) is not cancellation confirmation`,
+      )
+      return {
+        success: true,
+        ignored: true,
+        reason: 'cancellation_awaiting_provider_confirmation',
+      }
+    }
+  }
   const currentManifestError = String(order.manifest_error || '').trim()
   const hasExistingAwb = String(order.awb_number || '').trim().length > 0
   const manifestReference = String(order.manifest || '').trim()
@@ -1241,6 +1257,23 @@ export async function processDelhiveryWebhook(payload: any, tx = db) {
       delivery_message: instructions || null,
       provider_last_status: status || internalStatus,
       updated_at: new Date(),
+    }
+
+    if (currentStatus === 'cancellation_requested' && internalStatus === 'cancelled') {
+      const existingProviderMeta: Record<string, any> =
+        order.provider_meta && typeof order.provider_meta === 'object'
+          ? (order.provider_meta as Record<string, any>)
+          : {}
+      updateData.pickup_status = 'cancelled'
+      updateData.provider_meta = {
+        ...existingProviderMeta,
+        cancellation: {
+          ...(existingProviderMeta.cancellation || {}),
+          confirmed_at: new Date().toISOString(),
+          confirmation_source: 'delhivery_webhook',
+          pending: false,
+        },
+      }
     }
 
     if (

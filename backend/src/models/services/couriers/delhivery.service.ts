@@ -1051,6 +1051,43 @@ export const isDelhiveryCancellationAccepted = (value: unknown) => {
   )
 }
 
+export const isDelhiveryCancellationConfirmed = (
+  value: unknown,
+  context: DelhiveryCancellationContext = {},
+) => {
+  const response = value as any
+  const shipments = Array.isArray(response?.shipments)
+    ? response.shipments
+    : summarizeDelhiveryTracking(response).shipments
+  const isPickupShipment = ['pickup', 'reverse'].includes(
+    String(context.current_payment_mode || '').trim().toLowerCase(),
+  )
+
+  return shipments.some((shipment: DelhiveryTrackingShipment) => {
+    const currentStatus = String(shipment.currentStatus || '').trim().toLowerCase()
+    const statusType = String(shipment.statusType || '').trim().toUpperCase()
+    const trackingText = delhiveryCancellationResponseText({
+      currentStatus,
+      scans: shipment.scans,
+    })
+    const hasExplicitCancellation =
+      currentStatus === 'returned' ||
+      currentStatus === 'cancelled' ||
+      currentStatus === 'canceled' ||
+      trackingText.includes('shipment has been cancelled') ||
+      trackingText.includes('shipment has been canceled') ||
+      trackingText.includes('seller cancelled') ||
+      trackingText.includes('seller canceled')
+
+    if (hasExplicitCancellation || statusType === 'CN') return true
+
+    // Delhivery converts cancelled COD/prepaid shipments into the return
+    // lifecycle. RT is therefore the courier-side confirmation for forward
+    // shipments, while reverse pickups must reach CN/cancelled instead.
+    return !isPickupShipment && statusType === 'RT'
+  })
+}
+
 export const isDelhiveryEwaybillUpdateAccepted = (value: unknown) => {
   const result = value as any
   const responseText =

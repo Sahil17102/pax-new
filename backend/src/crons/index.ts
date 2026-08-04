@@ -10,6 +10,7 @@ import {
 import { pollCourierTracking } from './courierTracking'
 import { retryPendingSalesChannelStatusSync } from '../models/services/salesChannelSync.service'
 import { syncShopifyOrdersForAllStores } from '../models/services/shopify.service'
+import { retryPendingDelhiveryCancellations } from '../models/services/pickup.service'
 
 const parseTrackingProviders = () =>
   String(process.env.COURIER_TRACKING_POLL_PROVIDERS || '')
@@ -29,6 +30,19 @@ cron.schedule(process.env.COURIER_TRACKING_POLL_CRON || '*/15 * * * *', async ()
     }
   } catch (err) {
     console.error('[Cron] Courier tracking poll failed:', err)
+  }
+})
+
+cron.schedule(process.env.DELHIVERY_CANCELLATION_RETRY_CRON || '*/2 * * * *', async () => {
+  try {
+    const result = await retryPendingDelhiveryCancellations(
+      Number(process.env.DELHIVERY_CANCELLATION_RETRY_BATCH_SIZE || 25),
+    )
+    if (result.checked > 0) {
+      console.log('[Cron] Delhivery cancellation retry complete', result)
+    }
+  } catch (err) {
+    console.error('[Cron] Delhivery cancellation retry failed:', err)
   }
 })
 

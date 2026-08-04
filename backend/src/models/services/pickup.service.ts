@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, asc, eq, ilike, isNotNull, or, sql } from 'drizzle-orm'
 import { sendWebhookEvent } from '../../services/webhookDelivery.service'
 import { db } from '../client'
 import { b2c_orders } from '../schema/b2cOrders'
@@ -7,7 +7,10 @@ import {
   applyAmazonShippingCredentialsToEnv,
   getStoredAmazonShippingCredentials,
 } from './amazonShippingCredentials.service'
-import { DelhiveryService } from './couriers/delhivery.service'
+import {
+  DelhiveryService,
+  isDelhiveryCancellationConfirmed,
+} from './couriers/delhivery.service'
 import { EkartService } from './couriers/ekart.service'
 import { ShadowfaxService } from './couriers/shadowfax.service'
 import { XpressbeesService } from './couriers/xpressbees.service'
@@ -258,6 +261,193 @@ const syncSalesChannelStatusForOrder = async (orderId: string, source: string) =
   }
 }
 
+const getDelhiveryCancellationContext = (order: any) => {
+  const orderType = String(order?.order_type || '').trim().toLowerCase()
+  const providerMeta =
+    order?.provider_meta && typeof order.provider_meta === 'object' ? order.provider_meta : {}
+  const direction = String(
+    providerMeta?.direction || providerMeta?.shipment_type || providerMeta?.order_type || '',
+  ).trim().toLowerCase()
+  const isPickup = orderType === 'reverse' || direction.includes('reverse') || direction === 'pickup'
+
+  return {
+    current_payment_mode: isPickup ? 'Pickup' : orderType === 'cod' ? 'COD' : 'Pre-paid',
+  }
+}
+
+const markDelhiveryCancellationRequested = async (
+  order: any,
+  cancellationResult: any,
+  trackingResult: any = null,
+  error: any = null,
+) => {
+  const requestedAt = new Date()
+  const providerMeta: Record<string, any> =
+    order.provider_meta && typeof order.provider_meta === 'object' && !Array.isArray(order.provider_meta)
+      ? order.provider_meta
+      : {}
+  const previousCancellation =
+    providerMeta.cancellation && typeof providerMeta.cancellation === 'object'
+      ? providerMeta.cancellation
+      : {}
+  const attemptCount = Number(previousCancellation.attempt_count || 0) + 1
+  const isLegacyCancelled = String(order.order_status || '').trim().toLowerCase() === 'cancelled'
+  const pendingResult = {
+    success: true,
+    pending: true,
+    provider: 'delhivery',
+    message:
+      'Delhivery accepted the cancellation request. Waiting for courier tracking confirmation before refund.',
+    provider_response: cancellationResult?.provider_response || cancellationResult || null,
+  }
+
+  await db
+    .update(b2c_orders)
+    .set({
+      order_status: isLegacyCancelled ? 'cancelled' : 'cancellation_requested',
+      pickup_status: isLegacyCancelled ? 'cancelled' : 'cancellation_requested',
+      provider_last_status: isLegacyCancelled ? 'cancelled' : 'cancellation_requested',
+      delivery_message: isLegacyCancelled
+        ? order.delivery_message
+        : 'Waiting for Delhivery cancellation confirmation',
+      provider_meta: {
+        ...providerMeta,
+        cancellation: {
+          ...previousCancellation,
+          provider: 'delhivery',
+          requested_at: previousCancellation.requested_at || requestedAt.toISOString(),
+          last_attempt_at: requestedAt.toISOString(),
+          attempt_count: attemptCount,
+          awb_number: order.awb_number || null,
+          pending: true,
+          result: cancellationResult || null,
+          tracking: trackingResult || null,
+          last_error: error ? String(error?.message || error).slice(0, 500) : null,
+        },
+      },
+      updated_at: requestedAt,
+    })
+    .where(
+      and(
+        eq(b2c_orders.id, order.id),
+        eq(
+          b2c_orders.order_status,
+          isLegacyCancelled ? 'cancelled' : 'cancellation_requested',
+        ),
+      ),
+    )
+
+  return pendingResult
+}
+
+const finalizeOrderCancellation = async (
+  orderId: string,
+  cancellationResult: any,
+  source: string,
+) => {
+  const [order] = await db.select().from(b2c_orders).where(eq(b2c_orders.id, orderId)).limit(1)
+  if (!order) throw new Error('Order not found')
+
+  if (String(order.order_status || '').trim().toLowerCase() === 'cancelled') {
+    const existingProviderMeta: Record<string, any> =
+      order.provider_meta && typeof order.provider_meta === 'object' && !Array.isArray(order.provider_meta)
+        ? order.provider_meta
+        : {}
+    await db
+      .update(b2c_orders)
+      .set({
+        provider_meta: {
+          ...existingProviderMeta,
+          cancellation: {
+            ...(existingProviderMeta.cancellation || {}),
+            confirmed_at: new Date().toISOString(),
+            pending: false,
+            result: cancellationResult,
+          },
+        },
+        updated_at: new Date(),
+      })
+      .where(eq(b2c_orders.id, orderId))
+    return {
+      ...cancellationResult,
+      success: true,
+      alreadyCancelled: true,
+      message: cancellationResult?.message || 'Order already cancelled',
+    }
+  }
+
+  const integration = resolveCancellationProvider(order)
+  const awbNumber = String(order.awb_number || '').trim()
+  const providerMeta: Record<string, unknown> =
+    order.provider_meta && typeof order.provider_meta === 'object' && !Array.isArray(order.provider_meta)
+      ? (order.provider_meta as Record<string, unknown>)
+      : {}
+  const cancelledAt = new Date()
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(b2c_orders)
+      .set({
+        order_status: 'cancelled',
+        pickup_status: 'cancelled',
+        provider_last_status: 'cancelled',
+        delivery_message: getCancellationDeliveryMessage(cancellationResult),
+        provider_meta: {
+          ...providerMeta,
+          cancellation: {
+            ...((providerMeta.cancellation as Record<string, unknown>) || {}),
+            provider: integration,
+            confirmed_at: cancelledAt.toISOString(),
+            awb_number: awbNumber || null,
+            pending: false,
+            result: cancellationResult,
+          },
+        },
+        updated_at: cancelledAt,
+      })
+      .where(eq(b2c_orders.id, orderId))
+
+    await applyCancellationRefundOnce(tx, order, source)
+  })
+
+  await syncSalesChannelStatusForOrder(orderId, 'order cancellation')
+
+  await logTrackingEvent({
+    orderId: order.id,
+    userId: order.user_id,
+    awbNumber: awbNumber || null,
+    courier: order.courier_partner || integration,
+    statusCode: 'cancelled',
+    statusText: 'Shipment cancelled',
+    raw: cancellationResult,
+  }).catch((err) => {
+    console.warn('Failed to log cancellation tracking event:', err)
+  })
+
+  await sendWebhookEvent(order.user_id, 'tracking.updated', {
+    awb_number: awbNumber || order.awb_number,
+    order_id: order.id,
+    order_number: order.order_number,
+    status: 'cancelled',
+    raw_status: 'cancelled',
+    courier_partner: order.courier_partner,
+  }).catch((err) => {
+    console.warn('Failed to send cancellation tracking webhook:', err)
+  })
+
+  await sendWebhookEvent(order.user_id, 'order.cancelled', {
+    awb_number: awbNumber || order.awb_number,
+    order_id: order.id,
+    order_number: order.order_number,
+    status: 'cancelled',
+    courier_partner: order.courier_partner,
+  }).catch((err) => {
+    console.warn('Failed to send order cancellation webhook:', err)
+  })
+
+  return cancellationResult
+}
+
 export async function cancelOrderShipment(orderId: string) {
   console.log('Starting cancellation for orderId:', orderId)
 
@@ -345,7 +535,115 @@ export async function cancelOrderShipment(orderId: string) {
     }
   } else if (integration === 'delhivery') {
     const svc = new DelhiveryService()
-    cancellationResult = await svc.cancelShipment(awbNumber)
+    const requestedAt = new Date()
+    await db
+      .update(b2c_orders)
+      .set({
+        order_status: 'cancellation_requested',
+        pickup_status: 'cancellation_requested',
+        provider_last_status: 'cancellation_requested',
+        delivery_message: 'Sending cancellation request to Delhivery',
+        provider_meta: {
+          ...providerMeta,
+          cancellation: {
+            provider: integration,
+            requested_at: requestedAt.toISOString(),
+            attempt_count: 0,
+            awb_number: awbNumber,
+            pending: true,
+          },
+        },
+        updated_at: requestedAt,
+      })
+      .where(eq(b2c_orders.id, orderId))
+
+    try {
+      cancellationResult = await svc.cancelShipment(awbNumber)
+    } catch (error) {
+      await db
+        .update(b2c_orders)
+        .set({
+          order_status: order.order_status,
+          pickup_status: order.pickup_status,
+          provider_last_status: order.provider_last_status,
+          delivery_message: order.delivery_message,
+          provider_meta: order.provider_meta,
+          updated_at: new Date(),
+        })
+        .where(
+          and(
+            eq(b2c_orders.id, orderId),
+            eq(b2c_orders.order_status, 'cancellation_requested'),
+          ),
+        )
+      throw error
+    }
+
+    const cancellationContext = getDelhiveryCancellationContext(order)
+    let trackingResult: any = null
+    try {
+      trackingResult = await svc.trackShipment(awbNumber)
+    } catch (trackingError: any) {
+      console.warn('Delhivery tracking confirmation unavailable after cancellation request', {
+        orderId,
+        awbNumber,
+        error: trackingError?.message || trackingError,
+      })
+    }
+
+    if (!isDelhiveryCancellationConfirmed(trackingResult, cancellationContext)) {
+      const pendingResult = await markDelhiveryCancellationRequested(
+        { ...order, order_status: 'cancellation_requested' },
+        cancellationResult,
+        trackingResult,
+      )
+      const [latestOrder] = await db
+        .select({ order_status: b2c_orders.order_status })
+        .from(b2c_orders)
+        .where(eq(b2c_orders.id, orderId))
+        .limit(1)
+      if (String(latestOrder?.order_status || '').trim().toLowerCase() === 'cancelled') {
+        return {
+          ...pendingResult,
+          pending: false,
+          confirmed: true,
+          message: 'Shipment cancellation confirmed by Delhivery',
+        }
+      }
+
+      await logTrackingEvent({
+        orderId: order.id,
+        userId: order.user_id,
+        awbNumber,
+        courier: order.courier_partner || integration,
+        statusCode: 'cancellation_requested',
+        statusText: 'Cancellation requested; awaiting Delhivery confirmation',
+        raw: { cancellation: cancellationResult, tracking: trackingResult },
+      }).catch((err) => {
+        console.warn('Failed to log Delhivery cancellation-requested event:', err)
+      })
+
+      await sendWebhookEvent(order.user_id, 'tracking.updated', {
+        awb_number: awbNumber,
+        order_id: order.id,
+        order_number: order.order_number,
+        status: 'cancellation_requested',
+        raw_status: 'cancellation_requested',
+        courier_partner: order.courier_partner,
+      }).catch((err) => {
+        console.warn('Failed to send Delhivery cancellation-requested webhook:', err)
+      })
+
+      await syncSalesChannelStatusForOrder(orderId, 'cancellation request')
+      return pendingResult
+    }
+
+    cancellationResult = {
+      ...cancellationResult,
+      confirmed: true,
+      tracking: trackingResult,
+      message: cancellationResult?.message || 'Delhivery cancellation confirmed',
+    }
   } else if (integration === 'ekart') {
     const svc = new EkartService()
     cancellationResult = await svc.cancelShipment(awbNumber)
@@ -473,70 +771,94 @@ export async function cancelOrderShipment(orderId: string) {
     throw new Error(errorMsg)
   }
 
-  const finalStatus = 'cancelled'
-  console.log(`Updating order status to ${finalStatus}:`, { orderId, integration })
-  const cancelledAt = new Date()
+  console.log('Courier cancellation confirmed; finalizing local cancellation', {
+    orderId,
+    integration,
+  })
+  return finalizeOrderCancellation(orderId, cancellationResult, 'pickup_cancel_api')
+}
 
-  await db.transaction(async (tx) => {
-    await tx
-      .update(b2c_orders)
-      .set({
-        order_status: finalStatus,
-        pickup_status: finalStatus,
-        provider_last_status: finalStatus,
-        delivery_message: getCancellationDeliveryMessage(cancellationResult),
-        provider_meta: {
-          ...providerMeta,
-          cancellation: {
-            provider: integration,
-            requested_at: cancelledAt.toISOString(),
-            awb_number: awbNumber || null,
-            result: cancellationResult,
+export async function retryPendingDelhiveryCancellations(batchSize = 25) {
+  const limit = Number.isFinite(batchSize) && batchSize > 0 ? Math.floor(batchSize) : 25
+  const pendingOrders = await db
+    .select()
+    .from(b2c_orders)
+    .where(
+      and(
+        or(
+          eq(b2c_orders.order_status, 'cancellation_requested'),
+          and(
+            eq(b2c_orders.order_status, 'cancelled'),
+            sql`${b2c_orders.provider_meta}->'cancellation' IS NOT NULL`,
+            sql`COALESCE(${b2c_orders.provider_meta}->'cancellation'->>'confirmed_at', '') = ''`,
+          ),
+        ),
+        isNotNull(b2c_orders.awb_number),
+        or(
+          eq(b2c_orders.integration_type, 'delhivery'),
+          ilike(b2c_orders.courier_partner, '%delhivery%'),
+        ),
+      ),
+    )
+    .orderBy(asc(b2c_orders.updated_at))
+    .limit(limit)
+
+  let confirmed = 0
+  let pending = 0
+  let failed = 0
+
+  for (const order of pendingOrders) {
+    const awbNumber = String(order.awb_number || '').trim()
+    if (!awbNumber) continue
+
+    const service = new DelhiveryService()
+    const cancellationContext = getDelhiveryCancellationContext(order)
+    let cancellationResult: any = null
+    let trackingResult: any = null
+
+    try {
+      trackingResult = await service.trackShipment(awbNumber)
+      if (!isDelhiveryCancellationConfirmed(trackingResult, cancellationContext)) {
+        cancellationResult = await service.cancelShipment(awbNumber)
+        trackingResult = await service.trackShipment(awbNumber)
+      }
+
+      if (isDelhiveryCancellationConfirmed(trackingResult, cancellationContext)) {
+        await finalizeOrderCancellation(
+          order.id,
+          {
+            ...(cancellationResult || {}),
+            success: true,
+            confirmed: true,
+            provider: 'delhivery',
+            awb_number: awbNumber,
+            message: cancellationResult?.message || 'Delhivery cancellation confirmed',
+            tracking: trackingResult,
           },
-        },
-        updated_at: cancelledAt,
+          'delhivery_cancellation_retry',
+        )
+        confirmed += 1
+        continue
+      }
+
+      await markDelhiveryCancellationRequested(order, cancellationResult, trackingResult)
+      pending += 1
+    } catch (error: any) {
+      await markDelhiveryCancellationRequested(
+        order,
+        cancellationResult,
+        trackingResult,
+        error,
+      )
+      failed += 1
+      console.error('Delhivery cancellation retry failed', {
+        orderId: order.id,
+        orderNumber: order.order_number,
+        awbNumber,
+        error: error?.message || error,
       })
-      .where(eq(b2c_orders.id, orderId))
+    }
+  }
 
-    await applyCancellationRefundOnce(tx, order, 'pickup_cancel_api')
-  })
-
-  await syncSalesChannelStatusForOrder(orderId, 'order cancellation')
-
-  await logTrackingEvent({
-    orderId: order.id,
-    userId: order.user_id,
-    awbNumber: awbNumber || null,
-    courier: order.courier_partner || integration,
-    statusCode: finalStatus,
-    statusText: 'Shipment cancelled',
-    raw: cancellationResult,
-  }).catch((err) => {
-    console.warn('Failed to log cancellation tracking event:', err)
-  })
-
-  await sendWebhookEvent(order.user_id, 'tracking.updated', {
-    awb_number: awbNumber || order.awb_number,
-    order_id: order.id,
-    order_number: order.order_number,
-    status: finalStatus,
-    raw_status: finalStatus,
-    courier_partner: order.courier_partner,
-  }).catch((err) => {
-    console.warn('Failed to send cancellation tracking webhook:', err)
-  })
-
-  await sendWebhookEvent(order.user_id, 'order.cancelled', {
-    awb_number: awbNumber || order.awb_number,
-    order_id: order.id,
-    order_number: order.order_number,
-    status: finalStatus,
-    courier_partner: order.courier_partner,
-  }).catch((err) => {
-    console.warn('Failed to send order cancellation webhook:', err)
-  })
-
-  console.log(`Order status updated to ${finalStatus} successfully:`, { orderId, integration })
-
-  return cancellationResult
+  return { checked: pendingOrders.length, confirmed, pending, failed }
 }

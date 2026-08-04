@@ -25,7 +25,9 @@ export const cancelShipment = async (req: any, res: Response) => {
 
     res.json({ 
       success: true, 
-      message: 'Order cancellation requested successfully',
+      message: result?.pending
+        ? result.message
+        : 'Shipment cancellation confirmed by courier',
       result 
     })
   } catch (e: any) {
