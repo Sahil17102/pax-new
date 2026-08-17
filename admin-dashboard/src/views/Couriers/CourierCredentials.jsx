@@ -444,27 +444,25 @@ const CourierCredentials = () => {
     innofulfillForm.apiKey.trim() || data?.innofulfill?.hasApiKey,
   )
   const innofulfillCardReady =
-    innofulfillAuthReady &&
-    (innofulfillApiKeyReady || innofulfillTenantReady) &&
-    innofulfillUserReady
+    innofulfillApiKeyReady || (innofulfillAuthReady && innofulfillTenantReady)
   const innofulfillCredentialChecks = [
     {
       label: 'Authentication',
-      detail: 'Email + password for signinType EMAIL, or API key for API-key auth',
+      detail: 'Use this API key, or email + password with signinType EMAIL',
       ready: innofulfillAuthReady,
       required: true,
     },
     {
       label: 'Tenant ID',
-      detail: 'Required with Bearer token for serviceability, rates, orders, labels, invoices',
+      detail: 'Required for Bearer-token auth; optional when using API-key auth',
       ready: innofulfillTenantReady,
-      required: true,
+      required: !innofulfillApiKeyReady,
     },
     {
       label: 'User ID',
-      detail: 'Required for refresh-token rotation and shipping-label PDF payloads',
+      detail: 'Needed for refresh-token rotation and shipping-label PDF payloads',
       ready: innofulfillUserReady,
-      required: true,
+      required: false,
     },
     {
       label: 'Refresh Token',
@@ -1059,7 +1057,7 @@ const CourierCredentials = () => {
               />
             </FormControl>
 
-            <FormControl isRequired={!data?.innofulfill?.hasPassword && !innofulfillForm.apiKey}>
+            <FormControl isRequired={!data?.innofulfill?.hasPassword && !innofulfillApiKeyReady}>
               <FormLabel>Password</FormLabel>
               <Input
                 type="password"
@@ -1157,7 +1155,8 @@ const CourierCredentials = () => {
               <Text fontSize="xs" color="blue.700">
                 After login, Pax stores the returned `id_token`, rotated `refresh_token`, `tenant_id`,
                 and `user_id` server-side. Authenticated Innofulfill calls send
-                `Authorization: Bearer &lt;id_token&gt;` with `tenantid`.
+                `Authorization: Bearer &lt;id_token&gt;` with `tenantid`, or `Api-Key` for
+                API-key auth.
               </Text>
             </Box>
 
@@ -1171,6 +1170,12 @@ const CourierCredentials = () => {
                   User: {innofulfillTestResult.userId || 'n/a'} | Tenant:{' '}
                   {innofulfillTestResult.tenantId || 'n/a'}
                 </Text>
+                {typeof innofulfillTestResult.serviceable === 'boolean' && (
+                  <Text fontSize="xs" color="gray.500" mt={1}>
+                    Sample serviceability:{' '}
+                    {innofulfillTestResult.serviceable ? 'serviceable' : 'not serviceable'}
+                  </Text>
+                )}
               </Box>
             )}
 
@@ -1181,7 +1186,7 @@ const CourierCredentials = () => {
                 onClick={handleTestInnofulfill}
                 isLoading={testInnofulfill.isPending}
               >
-                Test Innofulfill Login
+                Test Innofulfill Auth
               </Button>
               <Button
                 colorScheme="blue"

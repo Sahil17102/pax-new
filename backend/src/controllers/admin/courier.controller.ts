@@ -851,15 +851,24 @@ export const testInnofulfillCredentialsController = async (req: Request, res: Re
       tenantId: req.body?.tenantId,
       userId: req.body?.userId,
     })
-    const result = req.body?.apiKey ? { ok: true, auth: 'api-key' } : await service.login()
+    const result = req.body?.apiKey
+      ? await service.checkEcommServiceability({
+          fromPincode: req.body?.fromPincode || 400008,
+          toPincode: req.body?.toPincode || 400063,
+          paymentMode: req.body?.paymentMode || 'COD',
+          operationType: req.body?.operationType || 'PICKUP_DELIVERY',
+          carriers: req.body?.carriers || ['SMILE'],
+        })
+      : await service.login()
     res.json({
       success: true,
       data: {
         ok: true,
-        auth: req.body?.apiKey ? 'api-key' : 'login',
+        auth: req.body?.apiKey ? 'api-key-serviceability' : 'login',
         userId: result?.user_id || result?.userId || null,
         tenantId: result?.tenant_id || result?.tenantId || null,
         expiresIn: result?.expires_in || null,
+        serviceable: req.body?.apiKey ? result?.carriers?.[0]?.serviceable ?? null : undefined,
       },
     })
   } catch (err: any) {
