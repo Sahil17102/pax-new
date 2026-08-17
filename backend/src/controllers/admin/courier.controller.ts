@@ -25,6 +25,10 @@ import { EkartService } from '../../models/services/couriers/ekart.service'
 import { XpressbeesService } from '../../models/services/couriers/xpressbees.service'
 import { ShadowfaxService } from '../../models/services/couriers/shadowfax.service'
 import { InnofulfillService } from '../../models/services/couriers/innofulfill.service'
+import {
+  getEffectiveCourierConfig,
+  type InnofulfillConfig,
+} from '../../models/services/courierCredentials.service'
 import { DelhiveryB2BService } from '../../models/services/couriers/delhiveryB2B.service'
 import {
   DEFAULT_DELHIVERY_B2B_API_BASE,
@@ -588,6 +592,29 @@ const maskCredential = (value?: string | null) => {
   return `${normalized.slice(0, 4)}${'*'.repeat(Math.max(normalized.length - 8, 0))}${normalized.slice(-4)}`
 }
 
+const cleanOptionalString = (value: unknown) => {
+  const normalized = String(value ?? '').trim()
+  return normalized || undefined
+}
+
+const buildInnofulfillTestService = async (body: any = {}) => {
+  const savedConfig = await getEffectiveCourierConfig<InnofulfillConfig>('innofulfill', 'b2c')
+  const config: InnofulfillConfig = {
+    ...(savedConfig || {}),
+    ...(cleanOptionalString(body.apiBase) ? { apiBase: cleanOptionalString(body.apiBase) } : {}),
+    ...(cleanOptionalString(body.username) ? { username: cleanOptionalString(body.username) } : {}),
+    ...(cleanOptionalString(body.password) ? { password: cleanOptionalString(body.password) } : {}),
+    ...(cleanOptionalString(body.apiKey) ? { apiKey: cleanOptionalString(body.apiKey) } : {}),
+    ...(cleanOptionalString(body.tenantId) ? { tenantId: cleanOptionalString(body.tenantId) } : {}),
+    ...(cleanOptionalString(body.userId) ? { userId: cleanOptionalString(body.userId) } : {}),
+    ...(cleanOptionalString(body.refreshToken)
+      ? { refreshToken: cleanOptionalString(body.refreshToken) }
+      : {}),
+  }
+
+  return new InnofulfillService(Object.keys(config).length ? config : undefined)
+}
+
 export const getCourierCredentialsController = async (req: Request, res: Response) => {
   try {
     const rows = await db
@@ -843,14 +870,7 @@ export const updateInnofulfillCredentialsController = async (req: Request, res: 
 
 export const testInnofulfillCredentialsController = async (req: Request, res: Response) => {
   try {
-    const service = new InnofulfillService({
-      apiBase: req.body?.apiBase,
-      username: req.body?.username,
-      password: req.body?.password,
-      apiKey: req.body?.apiKey,
-      tenantId: req.body?.tenantId,
-      userId: req.body?.userId,
-    })
+    const service = await buildInnofulfillTestService(req.body)
     const result = req.body?.apiKey
       ? await service.checkEcommServiceability({
           fromPincode: req.body?.fromPincode || 400008,
@@ -882,15 +902,7 @@ export const testInnofulfillCredentialsController = async (req: Request, res: Re
 
 export const testInnofulfillRefreshTokenController = async (req: Request, res: Response) => {
   try {
-    const service = new InnofulfillService({
-      apiBase: req.body?.apiBase,
-      username: req.body?.username,
-      password: req.body?.password,
-      apiKey: req.body?.apiKey,
-      tenantId: req.body?.tenantId,
-      userId: req.body?.userId,
-      refreshToken: req.body?.refreshToken,
-    })
+    const service = await buildInnofulfillTestService(req.body)
     const result = await service.refreshToken({
       userId: req.body?.userId,
       refreshToken: req.body?.refreshToken,
@@ -920,15 +932,7 @@ export const testInnofulfillEcommServiceabilityController = async (
   res: Response,
 ) => {
   try {
-    const service = new InnofulfillService({
-      apiBase: req.body?.apiBase,
-      username: req.body?.username,
-      password: req.body?.password,
-      apiKey: req.body?.apiKey,
-      tenantId: req.body?.tenantId,
-      userId: req.body?.userId,
-      refreshToken: req.body?.refreshToken,
-    })
+    const service = await buildInnofulfillTestService(req.body)
     const result = await service.checkEcommServiceability({
       fromPincode: req.body?.fromPincode ?? req.body?.origin ?? req.body?.pickupPincode,
       toPincode: req.body?.toPincode ?? req.body?.destination ?? req.body?.dropPincode,
@@ -955,15 +959,7 @@ export const testInnofulfillHyperlocalServiceabilityController = async (
   res: Response,
 ) => {
   try {
-    const service = new InnofulfillService({
-      apiBase: req.body?.apiBase,
-      username: req.body?.username,
-      password: req.body?.password,
-      apiKey: req.body?.apiKey,
-      tenantId: req.body?.tenantId,
-      userId: req.body?.userId,
-      refreshToken: req.body?.refreshToken,
-    })
+    const service = await buildInnofulfillTestService(req.body)
     const result = await service.checkHyperlocalServiceability({
       pickupAddress: req.body?.pickupAddress,
       shippingAddress: req.body?.shippingAddress,
@@ -987,15 +983,7 @@ export const testInnofulfillHyperlocalServiceabilityController = async (
 
 export const testInnofulfillEcommRateController = async (req: Request, res: Response) => {
   try {
-    const service = new InnofulfillService({
-      apiBase: req.body?.apiBase,
-      username: req.body?.username,
-      password: req.body?.password,
-      apiKey: req.body?.apiKey,
-      tenantId: req.body?.tenantId,
-      userId: req.body?.userId,
-      refreshToken: req.body?.refreshToken,
-    })
+    const service = await buildInnofulfillTestService(req.body)
     const result = await service.calculateEcommRate({
       fromPincode: req.body?.fromPincode ?? req.body?.origin ?? req.body?.pickupPincode,
       toPincode: req.body?.toPincode ?? req.body?.destination ?? req.body?.dropPincode,
@@ -1031,15 +1019,7 @@ export const testInnofulfillEcommRateController = async (req: Request, res: Resp
 
 export const testInnofulfillHyperlocalRateController = async (req: Request, res: Response) => {
   try {
-    const service = new InnofulfillService({
-      apiBase: req.body?.apiBase,
-      username: req.body?.username,
-      password: req.body?.password,
-      apiKey: req.body?.apiKey,
-      tenantId: req.body?.tenantId,
-      userId: req.body?.userId,
-      refreshToken: req.body?.refreshToken,
-    })
+    const service = await buildInnofulfillTestService(req.body)
     const result = await service.calculateHyperlocalRate({
       fromPincode: req.body?.fromPincode ?? req.body?.origin ?? req.body?.pickupPincode,
       toPincode: req.body?.toPincode ?? req.body?.destination ?? req.body?.dropPincode,
@@ -1073,15 +1053,7 @@ export const testInnofulfillHyperlocalRateController = async (req: Request, res:
 
 export const testInnofulfillListOrdersController = async (req: Request, res: Response) => {
   try {
-    const service = new InnofulfillService({
-      apiBase: req.body?.apiBase,
-      username: req.body?.username,
-      password: req.body?.password,
-      apiKey: req.body?.apiKey,
-      tenantId: req.body?.tenantId,
-      userId: req.body?.userId,
-      refreshToken: req.body?.refreshToken,
-    })
+    const service = await buildInnofulfillTestService(req.body)
     const filters = req.body?.filters && typeof req.body.filters === 'object' ? req.body.filters : {}
     const result = await service.listOrders({
       ...filters,
@@ -1130,15 +1102,7 @@ export const testInnofulfillListOrdersController = async (req: Request, res: Res
 
 export const testInnofulfillGetOrderController = async (req: Request, res: Response) => {
   try {
-    const service = new InnofulfillService({
-      apiBase: req.body?.apiBase,
-      username: req.body?.username,
-      password: req.body?.password,
-      apiKey: req.body?.apiKey,
-      tenantId: req.body?.tenantId,
-      userId: req.body?.userId,
-      refreshToken: req.body?.refreshToken,
-    })
+    const service = await buildInnofulfillTestService(req.body)
     const result = await service.getOrderDetails(req.body?.orderId)
 
     res.json({
@@ -1156,15 +1120,7 @@ export const testInnofulfillGetOrderController = async (req: Request, res: Respo
 
 export const testInnofulfillManifestOrdersController = async (req: Request, res: Response) => {
   try {
-    const service = new InnofulfillService({
-      apiBase: req.body?.apiBase,
-      username: req.body?.username,
-      password: req.body?.password,
-      apiKey: req.body?.apiKey,
-      tenantId: req.body?.tenantId,
-      userId: req.body?.userId,
-      refreshToken: req.body?.refreshToken,
-    })
+    const service = await buildInnofulfillTestService(req.body)
     const result = await service.manifestOrdersBulk(req.body?.orderIds)
 
     res.json({
@@ -1182,15 +1138,7 @@ export const testInnofulfillManifestOrdersController = async (req: Request, res:
 
 export const testInnofulfillCancelOrdersController = async (req: Request, res: Response) => {
   try {
-    const service = new InnofulfillService({
-      apiBase: req.body?.apiBase,
-      username: req.body?.username,
-      password: req.body?.password,
-      apiKey: req.body?.apiKey,
-      tenantId: req.body?.tenantId,
-      userId: req.body?.userId,
-      refreshToken: req.body?.refreshToken,
-    })
+    const service = await buildInnofulfillTestService(req.body)
     const result = await service.cancelOrdersBulk(req.body?.orders ?? req.body?.orderIds, req.body?.reason)
 
     res.json({
@@ -1208,15 +1156,7 @@ export const testInnofulfillCancelOrdersController = async (req: Request, res: R
 
 export const testInnofulfillShippingLabelController = async (req: Request, res: Response) => {
   try {
-    const service = new InnofulfillService({
-      apiBase: req.body?.apiBase,
-      username: req.body?.username,
-      password: req.body?.password,
-      apiKey: req.body?.apiKey,
-      tenantId: req.body?.tenantId,
-      userId: req.body?.userId,
-      refreshToken: req.body?.refreshToken,
-    })
+    const service = await buildInnofulfillTestService(req.body)
     const result = await service.downloadShippingLabelDetails({
       orderId: req.body?.orderId,
       tenantId: req.body?.tenantId,
@@ -1238,15 +1178,7 @@ export const testInnofulfillShippingLabelController = async (req: Request, res: 
 
 export const testInnofulfillLabelConfigsController = async (req: Request, res: Response) => {
   try {
-    const service = new InnofulfillService({
-      apiBase: req.body?.apiBase,
-      username: req.body?.username,
-      password: req.body?.password,
-      apiKey: req.body?.apiKey,
-      tenantId: req.body?.tenantId,
-      userId: req.body?.userId,
-      refreshToken: req.body?.refreshToken,
-    })
+    const service = await buildInnofulfillTestService(req.body)
     const result = await service.listLabelConfigurations({
       page: req.body?.page,
       limit: req.body?.limit,
@@ -1268,15 +1200,7 @@ export const testInnofulfillLabelConfigsController = async (req: Request, res: R
 
 export const testInnofulfillCreateLabelConfigController = async (req: Request, res: Response) => {
   try {
-    const service = new InnofulfillService({
-      apiBase: req.body?.apiBase,
-      username: req.body?.username,
-      password: req.body?.password,
-      apiKey: req.body?.apiKey,
-      tenantId: req.body?.tenantId,
-      userId: req.body?.userId,
-      refreshToken: req.body?.refreshToken,
-    })
+    const service = await buildInnofulfillTestService(req.body)
     const labelConfig =
       req.body?.labelConfig && typeof req.body.labelConfig === 'object'
         ? req.body.labelConfig
@@ -1303,15 +1227,7 @@ export const testInnofulfillCreateLabelConfigController = async (req: Request, r
 
 export const testInnofulfillInvoiceConfigsController = async (req: Request, res: Response) => {
   try {
-    const service = new InnofulfillService({
-      apiBase: req.body?.apiBase,
-      username: req.body?.username,
-      password: req.body?.password,
-      apiKey: req.body?.apiKey,
-      tenantId: req.body?.tenantId,
-      userId: req.body?.userId,
-      refreshToken: req.body?.refreshToken,
-    })
+    const service = await buildInnofulfillTestService(req.body)
     const result = await service.listInvoiceConfigurations({
       page: req.body?.page,
       limit: req.body?.limit,
@@ -1334,15 +1250,7 @@ export const testInnofulfillInvoiceConfigsController = async (req: Request, res:
 
 export const testInnofulfillCreateInvoiceConfigController = async (req: Request, res: Response) => {
   try {
-    const service = new InnofulfillService({
-      apiBase: req.body?.apiBase,
-      username: req.body?.username,
-      password: req.body?.password,
-      apiKey: req.body?.apiKey,
-      tenantId: req.body?.tenantId,
-      userId: req.body?.userId,
-      refreshToken: req.body?.refreshToken,
-    })
+    const service = await buildInnofulfillTestService(req.body)
     const invoiceConfig =
       req.body?.invoiceConfig && typeof req.body.invoiceConfig === 'object'
         ? req.body.invoiceConfig
@@ -1370,15 +1278,7 @@ export const testInnofulfillCreateInvoiceConfigController = async (req: Request,
 
 export const testInnofulfillInvoiceController = async (req: Request, res: Response) => {
   try {
-    const service = new InnofulfillService({
-      apiBase: req.body?.apiBase,
-      username: req.body?.username,
-      password: req.body?.password,
-      apiKey: req.body?.apiKey,
-      tenantId: req.body?.tenantId,
-      userId: req.body?.userId,
-      refreshToken: req.body?.refreshToken,
-    })
+    const service = await buildInnofulfillTestService(req.body)
     const result = await service.downloadInvoiceDetails(req.body?.orderId, {
       type: req.body?.type,
       level: req.body?.level,
@@ -1399,15 +1299,7 @@ export const testInnofulfillInvoiceController = async (req: Request, res: Respon
 
 export const testInnofulfillTrackingController = async (req: Request, res: Response) => {
   try {
-    const service = new InnofulfillService({
-      apiBase: req.body?.apiBase,
-      username: req.body?.username,
-      password: req.body?.password,
-      apiKey: req.body?.apiKey,
-      tenantId: req.body?.tenantId,
-      userId: req.body?.userId,
-      refreshToken: req.body?.refreshToken,
-    })
+    const service = await buildInnofulfillTestService(req.body)
     const result = await service.trackAwbDetails(req.body?.awbNumber)
 
     res.json({
@@ -1425,15 +1317,7 @@ export const testInnofulfillTrackingController = async (req: Request, res: Respo
 
 export const testInnofulfillCreateEcommOrderController = async (req: Request, res: Response) => {
   try {
-    const service = new InnofulfillService({
-      apiBase: req.body?.apiBase,
-      username: req.body?.username,
-      password: req.body?.password,
-      apiKey: req.body?.apiKey,
-      tenantId: req.body?.tenantId,
-      userId: req.body?.userId,
-      refreshToken: req.body?.refreshToken,
-    })
+    const service = await buildInnofulfillTestService(req.body)
     const orderPayload = req.body?.order && typeof req.body.order === 'object' ? req.body.order : req.body
     const result = await service.createEcommOrder(orderPayload)
 
@@ -1452,15 +1336,7 @@ export const testInnofulfillCreateEcommOrderController = async (req: Request, re
 
 export const testInnofulfillCreateHyperlocalOrderController = async (req: Request, res: Response) => {
   try {
-    const service = new InnofulfillService({
-      apiBase: req.body?.apiBase,
-      username: req.body?.username,
-      password: req.body?.password,
-      apiKey: req.body?.apiKey,
-      tenantId: req.body?.tenantId,
-      userId: req.body?.userId,
-      refreshToken: req.body?.refreshToken,
-    })
+    const service = await buildInnofulfillTestService(req.body)
     const orderPayload = req.body?.order && typeof req.body.order === 'object' ? req.body.order : req.body
     const result = await service.createHyperlocalOrder(orderPayload)
 
