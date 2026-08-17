@@ -89,6 +89,17 @@ export type InnofulfillServiceabilityResult = {
   serviceable: boolean
   codAvailable: boolean
   prepaidAvailable: boolean
+  carriers: Array<{
+    carrier: string
+    serviceable: boolean
+    reason: string
+  }>
+  fromPincode: number | null
+  toPincode: number | null
+  paymentMode: string
+  operationType: string
+  fromPincodeMetadata: any
+  toPincodeMetadata: any
   tat: number | null
   raw: any
 }
@@ -125,7 +136,10 @@ export class InnofulfillService {
     if (apiKey) {
       client.defaults.headers.common['api-key'] = apiKey
       client.defaults.headers.common['Api-Key'] = apiKey
-      if (tenantId) client.defaults.headers.common.tenantid = tenantId
+      if (tenantId) {
+        client.defaults.headers.common.tenantid = tenantId
+        client.defaults.headers.common.TenantId = tenantId
+      }
       return client
     }
 
@@ -262,10 +276,20 @@ export class InnofulfillService {
   }
 
   async checkEcommServiceability(params: any): Promise<InnofulfillServiceabilityResult> {
+    const fromPincode = Number(params.fromPincode ?? params.origin ?? params.pickupPincode)
+    const toPincode = Number(params.toPincode ?? params.destination ?? params.dropPincode)
+    const paymentMode = String(params.paymentMode || params.payment_type || 'PREPAID').toUpperCase()
+    if (!Number.isInteger(fromPincode) || !Number.isInteger(toPincode)) {
+      throw new HttpError(400, 'Innofulfill ECOMM serviceability requires fromPincode and toPincode')
+    }
+    if (!['PREPAID', 'COD'].includes(paymentMode)) {
+      throw new HttpError(400, 'Innofulfill paymentMode must be PREPAID or COD')
+    }
+
     const body = {
-      fromPincode: Number(params.fromPincode ?? params.origin ?? params.pickupPincode),
-      toPincode: Number(params.toPincode ?? params.destination ?? params.dropPincode),
-      paymentMode: String(params.paymentMode || params.payment_type || 'PREPAID').toUpperCase(),
+      fromPincode,
+      toPincode,
+      paymentMode,
       operationType: params.operationType || 'PICKUP_DELIVERY',
       carriers: params.carriers || ['SMILE'],
     }
@@ -337,14 +361,27 @@ export class InnofulfillService {
     const carrierRows = rows.flatMap((row: any) =>
       Array.isArray(row?.carriers) ? row.carriers : row?.carrier ? [row] : [],
     )
+    const carriers = carrierRows.map((row: any) => ({
+      carrier: normalizeText(row?.carrier || row?.carrierName || row?.name),
+      serviceable: readBoolean(row?.serviceable) === true,
+      reason: normalizeText(row?.reason || row?.message || row?.remarks),
+    }))
     const serviceable =
-      carrierRows.length > 0
-        ? carrierRows.some((row: any) => readBoolean(row?.serviceable) === true)
+      carriers.length > 0
+        ? carriers.some((row: { serviceable: boolean }) => row.serviceable === true)
         : readBoolean(payload?.serviceable ?? payload?.success) === true
+    const firstRow = rows.find((row: any) => row && typeof row === 'object') || {}
     return {
       serviceable,
       codAvailable: serviceable,
       prepaidAvailable: serviceable,
+      carriers,
+      fromPincode: firstRow?.fromPincode ? Number(firstRow.fromPincode) : null,
+      toPincode: firstRow?.toPincode ? Number(firstRow.toPincode) : null,
+      paymentMode: normalizeText(firstRow?.paymentMode),
+      operationType: normalizeText(firstRow?.operationType),
+      fromPincodeMetadata: firstRow?.fromPincodeMetadata ?? null,
+      toPincodeMetadata: firstRow?.toPincodeMetadata ?? null,
       tat: null,
       raw: payload,
     }

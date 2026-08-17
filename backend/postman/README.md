@@ -252,3 +252,14 @@ Credentials** verifies the same login path through the backend without exposing
 the provider token to the dashboard. **Test Refresh Token Through Pax** verifies
 refresh-token rotation through the backend and persists the newly rotated
 refresh token server-side.
+
+**Check ECOMM Serviceability** calls Innofulfill directly with
+`Authorization: Bearer {{innofulfillIdToken}}` and
+`TenantId: {{innofulfillTenantId}}`. The optional `Api-Key` header is present
+but disabled in the collection; enable it and set `innofulfillApiKey` if you
+want to test API-key authentication instead. **Test ECOMM Serviceability
+Through Pax** calls the backend proxy, which returns normalized carrier-wise
+`serviceable` booleans, `reason`, pincode metadata, and the raw provider
+response. Both provider serviceable and non-serviceable responses are HTTP 200,
+so the tests assert `carriers[0].serviceable` is a boolean rather than assuming
+it must be `true`.

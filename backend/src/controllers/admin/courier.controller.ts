@@ -862,6 +862,41 @@ export const testInnofulfillRefreshTokenController = async (req: Request, res: R
   }
 }
 
+export const testInnofulfillEcommServiceabilityController = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const service = new InnofulfillService({
+      apiBase: req.body?.apiBase,
+      username: req.body?.username,
+      password: req.body?.password,
+      apiKey: req.body?.apiKey,
+      tenantId: req.body?.tenantId,
+      userId: req.body?.userId,
+      refreshToken: req.body?.refreshToken,
+    })
+    const result = await service.checkEcommServiceability({
+      fromPincode: req.body?.fromPincode ?? req.body?.origin ?? req.body?.pickupPincode,
+      toPincode: req.body?.toPincode ?? req.body?.destination ?? req.body?.dropPincode,
+      paymentMode: req.body?.paymentMode,
+      operationType: req.body?.operationType,
+      carriers: req.body?.carriers,
+    })
+
+    res.json({
+      success: true,
+      data: result,
+    })
+  } catch (err: any) {
+    const statusCode = typeof err?.statusCode === 'number' ? err.statusCode : 500
+    res.status(statusCode).json({
+      success: false,
+      message: err?.message || 'Failed to test Innofulfill ECOMM serviceability',
+    })
+  }
+}
+
 export const updateXpressbeesAwbRangeController = async (req: any, res: Response) => {
   try {
     const result = await createXpressbeesManualAwbRange({
