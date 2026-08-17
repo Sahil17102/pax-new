@@ -356,6 +356,13 @@ label-template state. **Test Create Label Config Through Pax** calls the backend
 proxy and stores `innofulfillCreatedLabelConfigId` and
 `innofulfillCreatedLabelConfigName` when returned.
 
+**Create Label Config (All Customers)** uses the same provider endpoint with
+`sellerSelection=ALL`, an empty `sellers` array, and all documented label field
+toggles enabled by default. Use `innofulfillAllLabelConfigName` and
+`innofulfillAllLabelConfigSize` for the fallback template. **Test Create
+All-Customer Label Config Through Pax** calls the same backend proxy and stores
+the returned all-customer config ID/name separately.
+
 **Download Invoice** calls
 `GET /gateway/pdf-generator/invoice/{orderId}?type=domestic&level=product`.
 Set `innofulfillInvoiceOrderId`, or leave it blank to fall back to the

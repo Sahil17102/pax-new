@@ -523,7 +523,7 @@ export class InnofulfillService {
     return {
       name,
       sellerSelection,
-      sellers,
+      sellers: sellerSelection === 'ALL' ? [] : sellers,
       fields: {
         companyLogo: fields.companyLogo !== false,
         companyName: fields.companyName !== false,
