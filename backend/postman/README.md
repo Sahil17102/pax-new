@@ -339,6 +339,14 @@ data. **Test Download Shipping Label Through Pax** returns content type, byte
 length, PDF/base64 detection, label data, and raw provider payload when JSON is
 returned.
 
+**List Label Configurations** calls
+`GET /gateway/pdf-generator/label-configs` with optional `page`, `limit`, and
+`search` query parameters. Use `innofulfillLabelConfigsPage`,
+`innofulfillLabelConfigsLimit`, and `innofulfillLabelConfigsSearch` to drive
+the direct request. **Test List Label Configurations Through Pax** returns
+normalized `labelConfigs`, `count`, pagination fields, `traceId`, and the raw
+provider payload.
+
 **Download Invoice** calls
 `GET /gateway/pdf-generator/invoice/{orderId}?type=domestic&level=product`.
 Set `innofulfillInvoiceOrderId`, or leave it blank to fall back to the

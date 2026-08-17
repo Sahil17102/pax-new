@@ -661,6 +661,78 @@
           }
         },
         {
+          "name": "List Label Configurations",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('Provider label configs returned OK', function () { pm.expect(pm.response.code).to.eql(200); });",
+                  "pm.test('Provider returned label config array', function () { pm.expect(body.data).to.be.an('array'); });",
+                  "pm.environment.set('innofulfillLabelConfigsCount', String(body.count || 0));",
+                  "pm.environment.set('innofulfillLabelConfigsCurrentPage', String(body.currentPage || body.page || ''));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{innofulfillIdToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "tenantid",
+                "value": "{{innofulfillTenantId}}"
+              },
+              {
+                "key": "api-key",
+                "value": "{{innofulfillApiKey}}",
+                "disabled": true
+              },
+              {
+                "key": "accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{innofulfillApiBase}}/gateway/pdf-generator/label-configs?page={{innofulfillLabelConfigsPage}}&limit={{innofulfillLabelConfigsLimit}}&search={{innofulfillLabelConfigsSearch}}",
+              "host": [
+                "{{innofulfillApiBase}}"
+              ],
+              "path": [
+                "gateway",
+                "pdf-generator",
+                "label-configs"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "{{innofulfillLabelConfigsPage}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "{{innofulfillLabelConfigsLimit}}"
+                },
+                {
+                  "key": "search",
+                  "value": "{{innofulfillLabelConfigsSearch}}"
+                }
+              ]
+            },
+            "description": "Direct Innofulfill label-configuration listing call. Use page, limit, and optional search to populate a label template selector/table."
+          }
+        },
+        {
           "name": "Download Invoice",
           "event": [
             {
@@ -1477,6 +1549,44 @@
             },
             "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill/labels/shipping/test",
             "description": "Calls Pax admin proxy to generate an Innofulfill shipping label and returns content type, byte length, detected PDF/base64 flags, label data, and raw provider payload."
+          }
+        },
+        {
+          "name": "Test List Label Configurations Through Pax",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('Proxy label configs request succeeded', function () { pm.expect(body.success).to.eql(true); });",
+                  "pm.test('Proxy normalized label config list returned', function () { pm.expect(body.data.labelConfigs).to.be.an('array'); });",
+                  "pm.environment.set('innofulfillLabelConfigsCount', String(body.data?.count || 0));",
+                  "pm.environment.set('innofulfillLabelConfigsCurrentPage', String(body.data?.currentPage || body.data?.page || ''));",
+                  "if (body.data?.traceId) { pm.environment.set('innofulfillLabelConfigsTraceId', body.data.traceId); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\",\n  \"apiKey\": \"{{innofulfillApiKey}}\",\n  \"page\": \"{{innofulfillLabelConfigsPage}}\",\n  \"limit\": \"{{innofulfillLabelConfigsLimit}}\",\n  \"search\": \"{{innofulfillLabelConfigsSearch}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill/labels/configs/test",
+            "description": "Calls Pax admin proxy for Innofulfill label configurations and returns normalized pagination plus raw provider payload."
           }
         },
         {

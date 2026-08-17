@@ -251,6 +251,24 @@ export type InnofulfillInvoiceResult = {
   raw: any
 }
 
+export type InnofulfillLabelConfigListQuery = {
+  page?: number | string
+  limit?: number | string
+  search?: string
+}
+
+export type InnofulfillLabelConfigListResult = {
+  labelConfigs: any[]
+  configurations: any[]
+  count: number
+  page: number
+  limit: number
+  totalPages: number
+  currentPage: number
+  traceId: string
+  raw: any
+}
+
 export type InnofulfillTrackingResult = {
   awbNumber: string
   orderId: string
@@ -401,6 +419,33 @@ export class InnofulfillService {
     for (const key of ['orderStatus', 'orderType', 'parcelCategory', 'deliveryMode', 'paymentType'] as const) {
       if (query[key] !== undefined) query[key] = String(query[key]).toUpperCase()
     }
+
+    return query
+  }
+
+  private buildLabelConfigListQuery(params: InnofulfillLabelConfigListQuery = {}) {
+    const query: Record<string, string | number> = {}
+
+    const pageValue = params.page
+    if (pageValue !== undefined && pageValue !== null && pageValue !== '') {
+      const page = Number(pageValue)
+      if (!Number.isInteger(page) || page < 1) {
+        throw new HttpError(400, 'Innofulfill label configuration page must be a positive integer')
+      }
+      query.page = page
+    }
+
+    const limitValue = params.limit
+    if (limitValue !== undefined && limitValue !== null && limitValue !== '') {
+      const limit = Number(limitValue)
+      if (!Number.isInteger(limit) || limit < 1) {
+        throw new HttpError(400, 'Innofulfill label configuration limit must be a positive integer')
+      }
+      query.limit = limit
+    }
+
+    const search = normalizeText(params.search)
+    if (search) query.search = search
 
     return query
   }
@@ -1386,10 +1431,36 @@ export class InnofulfillService {
     }
   }
 
-  async getLabelConfigs() {
+  async getLabelConfigs(params: InnofulfillLabelConfigListQuery = {}) {
     const client = await this.getClient()
-    const { data } = await client.get('/gateway/pdf-generator/label-configs')
+    const { data } = await client.get('/gateway/pdf-generator/label-configs', {
+      params: this.buildLabelConfigListQuery(params),
+    })
     return data
+  }
+
+  async listLabelConfigurations(
+    params: InnofulfillLabelConfigListQuery = {},
+  ): Promise<InnofulfillLabelConfigListResult> {
+    try {
+      const client = await this.getClient()
+      const query = this.buildLabelConfigListQuery(params)
+      const { data } = await client.get('/gateway/pdf-generator/label-configs', { params: query })
+      const labelConfigs = Array.isArray(data?.data) ? data.data : []
+      return {
+        labelConfigs,
+        configurations: labelConfigs,
+        count: Number(data?.count || labelConfigs.length || 0),
+        page: Number(data?.page || query.page || 1),
+        limit: Number(data?.limit || query.limit || labelConfigs.length || 0),
+        totalPages: Number(data?.totalPages || 0),
+        currentPage: Number(data?.currentPage || data?.page || query.page || 1),
+        traceId: normalizeText(data?.traceId || data?.trace_id),
+        raw: data,
+      }
+    } catch (error: any) {
+      this.handleError(error, 'Innofulfill list label configurations failed')
+    }
   }
 
   async getInvoiceConfigs() {
