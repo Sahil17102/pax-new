@@ -5214,7 +5214,9 @@ export const fetchAvailableCouriersWithRates = async (
       const passthrough: any[] = []
 
       for (const courier of combined) {
-        const providerKey = String(courier?.integration_type || courier?.serviceProvider || '')
+        const providerKey = String(
+          courier?.integration_type || courier?.service_provider || courier?.serviceProvider || '',
+        )
           .toLowerCase()
           .trim()
 

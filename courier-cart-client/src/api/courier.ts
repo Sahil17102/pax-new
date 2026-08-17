@@ -5,6 +5,10 @@ export interface Courier {
   id: number
   name: string
   displayName?: string | null
+  integration_type?: string | null
+  service_provider?: string | null
+  serviceProvider?: string | null
+  rate_card_id?: string | null
   courier_option_key?: string | null
   max_slab_weight?: number | null
   edd?: string | null
@@ -79,6 +83,67 @@ const filterVisibleCouriers = <T,>(items: T[] | undefined | null): T[] => {
   return items.filter((item) => isInnofulfillCourierEntry(item))
 }
 
+const normalizeCourierServiceName = (entry: any) =>
+  String(entry?.displayName || entry?.name || entry?.courier_name || entry?.courierName || entry || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+-\s+\([^)]*\)\s*(kg|g)?\s*$/i, '')
+    .replace(/\s+/g, ' ')
+
+const getCourierTotalCharge = (entry: any) => {
+  const forwardRate = entry?.localRates?.forward
+  const value =
+    forwardRate?.total_charges_with_gst ??
+    forwardRate?.wallet_debit_amount ??
+    entry?.total_charges_with_gst ??
+    entry?.wallet_debit_amount ??
+    forwardRate?.total_charges ??
+    entry?.total_charges ??
+    entry?.courier_cost_estimate ??
+    forwardRate?.rate ??
+    entry?.rate
+  const total = Number(value)
+  return Number.isFinite(total) ? total : Number.MAX_SAFE_INTEGER
+}
+
+export const dedupeVisibleCourierOptions = <T,>(items: T[] | undefined | null): T[] => {
+  const visibleItems = filterVisibleCouriers(items)
+  const bestByService = new Map<string, T>()
+
+  visibleItems.forEach((item) => {
+    if (!item || typeof item !== 'object') {
+      const key = normalizeCourierServiceName(item)
+      if (!bestByService.has(key)) bestByService.set(key, item)
+      return
+    }
+
+    const entry = item as any
+    const provider = String(entry.integration_type || entry.service_provider || entry.serviceProvider || '')
+      .trim()
+      .toLowerCase()
+    const serviceName = normalizeCourierServiceName(entry)
+    const key = `${provider || 'innofulfill'}:${serviceName}`
+    const existing = bestByService.get(key)
+
+    if (!existing) {
+      bestByService.set(key, item)
+      return
+    }
+
+    const existingEntry = existing as any
+    const currentTotal = getCourierTotalCharge(entry)
+    const existingTotal = getCourierTotalCharge(existingEntry)
+    const currentHasRateCard = Boolean(String(entry.rate_card_id || '').trim())
+    const existingHasRateCard = Boolean(String(existingEntry.rate_card_id || '').trim())
+
+    if (currentTotal < existingTotal || (currentTotal === existingTotal && currentHasRateCard && !existingHasRateCard)) {
+      bestByService.set(key, item)
+    }
+  })
+
+  return Array.from(bestByService.values())
+}
+
 // src/api/courier.ts
 
 export interface CourierListResponse {
@@ -118,7 +183,7 @@ export const getCouriers = async ({
 
   const res = await axiosInstance.get<{ status: string; data: CourierListResponse }>(url)
   const payload = res.data.data
-  const filteredCouriers = filterVisibleCouriers(payload?.couriers)
+  const filteredCouriers = dedupeVisibleCourierOptions(payload?.couriers)
   const removedCount = Math.max((payload?.couriers?.length ?? 0) - filteredCouriers.length, 0)
 
   return {
@@ -181,7 +246,7 @@ export const fetchAvailableCouriers = async (params: any): Promise<any[]> => {
         throw new Error(res.data.error || 'Failed to fetch couriers')
       }
 
-      return filterVisibleCouriers(res.data.data)
+      return dedupeVisibleCourierOptions(res.data.data)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error('fetchAvailableCouriers error:', error.response?.data || error.message)
@@ -213,19 +278,19 @@ export const fetchShippingRates = async (filters: ShippingRatesFilters = {}): Pr
   if (filters.businessType) params.businessType = filters.businessType
 
   const response = await axiosInstance.get('/couriers/shipping-rates', { params })
-  return filterVisibleCouriers(response.data.data)
+  return dedupeVisibleCourierOptions(response.data.data)
 }
 
 export const fetchAllCouriers = async () => {
   const res = await axiosInstance.get(`/couriers/list`)
   if (!res.data?.success) throw new Error('Failed to fetch couriers')
-  return filterVisibleCouriers(res.data.data) // returns an array of courier names
+  return dedupeVisibleCourierOptions(res.data.data) // returns an array of courier names
 }
 
 export const fetchCouriersWithDetails = async () => {
   const res = await axiosInstance.get(`/couriers/full-list`)
   if (!res.data?.success) throw new Error('Failed to fetch couriers')
-  return filterVisibleCouriers(res.data.data) // returns an array of courier names
+  return dedupeVisibleCourierOptions(res.data.data) // returns an array of courier names
 }
 export const getZones = async () => {
   const res = await axiosInstance.get('/admin/zones')

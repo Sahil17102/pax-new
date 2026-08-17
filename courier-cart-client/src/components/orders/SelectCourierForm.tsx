@@ -7,6 +7,7 @@ import {
   useAvailableCouriers,
   type UseAvailableCouriersParams,
 } from '../../hooks/Integrations/useCouriers'
+import { dedupeVisibleCourierOptions } from '../../api/courier'
 import { courierLogos, defaultLogo } from '../../utils/constants'
 import type { Box as B2BBox, B2BFormData } from './b2b/B2BOrderForm'
 import type { B2CFormData } from './b2c/B2COrderForm'
@@ -154,7 +155,7 @@ export const SelectCourierForm = ({ shipment_type }: { shipment_type: 'b2b' | 'b
   }
 
   const { data: couriers, isLoading, isError, isFetching } = useAvailableCouriers(courierPayload)
-  const availableCouriers = couriers ?? []
+  const availableCouriers = dedupeVisibleCourierOptions(couriers ?? [])
 
   useEffect(() => {
     if (orderType !== 'cod') {
