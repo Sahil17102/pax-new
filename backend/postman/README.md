@@ -313,6 +313,15 @@ falls back to `innofulfillSampleOrderId` if you set that variable manually.
 status, category, carrier, AWB, addresses, shipments, payment, taxes,
 documents, and the raw provider response.
 
+**Manifest Orders Bulk** calls
+`POST /gateway/booking-service/orders/manifest/bulk` with one or more
+system-generated order IDs. Set `innofulfillManifestOrderIds` to a single order
+ID or comma-separated IDs; if blank, the request falls back to
+`innofulfillCreatedOrderId` or `innofulfillSampleOrderId`. The provider queues
+manifest generation asynchronously, so HTTP 200 means the job started. **Test
+Manifest Orders Through Pax** returns normalized `queued`, `message`, `orderIds`,
+`traceId`, and raw provider data.
+
 **List Orders** calls `GET /gateway/booking-service/orders` directly with
 `page`, `limit`, `sortOrder`, and optional disabled filters for order status,
 AWB, phone, payment type, dates, destination zip, and `addresses.*` fields.

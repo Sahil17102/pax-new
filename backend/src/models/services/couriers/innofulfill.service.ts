@@ -204,6 +204,14 @@ export type InnofulfillOrderDetailsResult = InnofulfillCreateOrderResult & {
   documents: any[]
 }
 
+export type InnofulfillManifestOrdersResult = {
+  queued: boolean
+  message: string
+  orderIds: string[]
+  traceId: string
+  raw: any
+}
+
 const ORDER_LIST_QUERY_KEYS = [
   'page',
   'limit',
@@ -474,6 +482,20 @@ export class InnofulfillService {
       discounts: Array.isArray(data?.discounts) ? data.discounts : [],
       documents: Array.isArray(data?.documents) ? data.documents : [],
     }
+  }
+
+  private normalizeOrderIds(orderIds: unknown) {
+    const values = Array.isArray(orderIds)
+      ? orderIds
+      : String(orderIds ?? '')
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean)
+    const normalized = Array.from(new Set(values.map((value) => normalizeText(value)).filter(Boolean)))
+    if (!normalized.length) {
+      throw new HttpError(400, 'Innofulfill manifest requires at least one orderId')
+    }
+    return normalized
   }
 
   private async persistAuthTokens(payload: any) {
@@ -1033,9 +1055,31 @@ export class InnofulfillService {
 
   async manifestOrders(orderIds: string[]) {
     try {
+      const normalizedOrderIds = this.normalizeOrderIds(orderIds)
       const client = await this.getClient()
-      const { data } = await client.post('/gateway/booking-service/orders/manifest/bulk', { orderIds })
+      const { data } = await client.post('/gateway/booking-service/orders/manifest/bulk', {
+        orderIds: normalizedOrderIds,
+      })
       return data
+    } catch (error: any) {
+      this.handleError(error, 'Innofulfill bulk manifest failed')
+    }
+  }
+
+  async manifestOrdersBulk(orderIds: unknown): Promise<InnofulfillManifestOrdersResult> {
+    const normalizedOrderIds = this.normalizeOrderIds(orderIds)
+    try {
+      const client = await this.getClient()
+      const { data } = await client.post('/gateway/booking-service/orders/manifest/bulk', {
+        orderIds: normalizedOrderIds,
+      })
+      return {
+        queued: data?.statusCode === 200 || normalizeText(data?.status).toLowerCase() === 'success',
+        message: normalizeText(data?.message || data?.data),
+        orderIds: normalizedOrderIds,
+        traceId: normalizeText(data?.traceId || data?.trace_id),
+        raw: data,
+      }
     } catch (error: any) {
       this.handleError(error, 'Innofulfill bulk manifest failed')
     }
