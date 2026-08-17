@@ -13,6 +13,7 @@ import {
   testInnofulfillEcommServiceabilityController,
   testInnofulfillHyperlocalServiceabilityController,
   testInnofulfillHyperlocalRateController,
+  testInnofulfillListOrdersController,
   testInnofulfillRefreshTokenController,
   testXpressbeesCredentialsController,
   updateAmazonCredentialsController,
@@ -138,6 +139,12 @@ router.post(
   requireAuth,
   isAdminMiddleware,
   testInnofulfillHyperlocalRateController,
+)
+router.post(
+  '/credentials/innofulfill/orders/test',
+  requireAuth,
+  isAdminMiddleware,
+  testInnofulfillListOrdersController,
 )
 router.put(
   '/credentials/amazon',

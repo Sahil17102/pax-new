@@ -289,3 +289,10 @@ mode is not applicable. The default sample uses 400101 to 400063 with 4 kg,
 3 x 2 x 3 cm dimensions, and 6.16 km distance. **Test Hyperlocal Rates Through
 Pax** returns the same normalized amount, GST, weight, pincode, zone, distance,
 and raw provider data.
+
+**List Orders** calls `GET /gateway/booking-service/orders` directly with
+`page`, `limit`, `sortOrder`, and optional disabled filters for order status,
+AWB, phone, payment type, dates, destination zip, and `addresses.*` fields.
+**Test List Orders Through Pax** calls the backend proxy and returns normalized
+`orders`, `count`, `page`, `limit`, `totalPages`, `currentPage`, `traceId`, and
+the raw provider response.

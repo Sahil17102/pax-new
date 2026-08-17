@@ -137,6 +137,79 @@ export type InnofulfillHyperlocalRateResult = InnofulfillEcommRateResult & {
   distance: number
 }
 
+export type InnofulfillOrderListQuery = {
+  page?: number | string
+  limit?: number | string
+  sortOrder?: string
+  orderId?: string
+  referenceId?: string
+  orderStatus?: string
+  orderType?: string
+  parcelCategory?: string
+  deliveryMode?: string
+  deliveryPromise?: string
+  carrierName?: string
+  awbNumber?: string
+  phone?: string
+  paymentType?: string
+  startDate?: string
+  endDate?: string
+  manifested?: boolean | string
+  autoManifest?: boolean | string
+  returnable?: boolean | string
+  filterByCurrentUser?: boolean | string
+  bulkId?: string
+  destinationCity?: string
+  destinationZip?: string
+  'addresses.type'?: string
+  'addresses.state'?: string
+  'addresses.city'?: string
+  'addresses.zip'?: string
+  'addresses.country'?: string
+}
+
+export type InnofulfillOrderListResult = {
+  orders: any[]
+  count: number
+  page: number
+  limit: number
+  totalPages: number
+  currentPage: number
+  traceId: string
+  raw: any
+}
+
+const ORDER_LIST_QUERY_KEYS = [
+  'page',
+  'limit',
+  'sortOrder',
+  'orderId',
+  'referenceId',
+  'orderStatus',
+  'orderType',
+  'parcelCategory',
+  'deliveryMode',
+  'deliveryPromise',
+  'carrierName',
+  'awbNumber',
+  'phone',
+  'paymentType',
+  'startDate',
+  'endDate',
+  'manifested',
+  'autoManifest',
+  'returnable',
+  'filterByCurrentUser',
+  'bulkId',
+  'destinationCity',
+  'destinationZip',
+  'addresses.type',
+  'addresses.state',
+  'addresses.city',
+  'addresses.zip',
+  'addresses.country',
+] as const
+
 export class InnofulfillService {
   private config: InnofulfillConfig | null | undefined
   private token: string | null = null
@@ -196,6 +269,52 @@ export class InnofulfillService {
       error?.message ||
       fallback
     throw new HttpError(status, `${fallback}: ${message}`)
+  }
+
+  private buildOrderListQuery(params: InnofulfillOrderListQuery = {}) {
+    const query: Record<string, string | number | boolean> = {}
+
+    for (const key of ORDER_LIST_QUERY_KEYS) {
+      const value = params[key]
+      if (value === undefined || value === null || value === '') continue
+      if (typeof value === 'string') {
+        const normalized = value.trim()
+        if (!normalized) continue
+        query[key] = normalized
+      } else {
+        query[key] = value
+      }
+    }
+
+    if (query.page !== undefined) {
+      const page = Number(query.page)
+      if (!Number.isInteger(page) || page < 1) {
+        throw new HttpError(400, 'Innofulfill order list page must be a positive integer')
+      }
+      query.page = page
+    }
+
+    if (query.limit !== undefined) {
+      const limit = Number(query.limit)
+      if (!Number.isInteger(limit) || limit < 1) {
+        throw new HttpError(400, 'Innofulfill order list limit must be a positive integer')
+      }
+      query.limit = limit
+    }
+
+    if (query.sortOrder !== undefined) {
+      const sortOrder = String(query.sortOrder).toUpperCase()
+      if (!['ASC', 'DESC'].includes(sortOrder)) {
+        throw new HttpError(400, 'Innofulfill order list sortOrder must be ASC or DESC')
+      }
+      query.sortOrder = sortOrder
+    }
+
+    for (const key of ['orderStatus', 'orderType', 'parcelCategory', 'deliveryMode', 'paymentType'] as const) {
+      if (query[key] !== undefined) query[key] = String(query[key]).toUpperCase()
+    }
+
+    return query
   }
 
   private async persistAuthTokens(payload: any) {
@@ -688,6 +807,26 @@ export class InnofulfillService {
       return data
     } catch (error: any) {
       this.handleError(error, 'Innofulfill get-order request failed')
+    }
+  }
+
+  async listOrders(params: InnofulfillOrderListQuery = {}): Promise<InnofulfillOrderListResult> {
+    try {
+      const client = await this.getClient()
+      const query = this.buildOrderListQuery(params)
+      const { data } = await client.get('/gateway/booking-service/orders', { params: query })
+      return {
+        orders: Array.isArray(data?.data) ? data.data : [],
+        count: Number(data?.count || 0),
+        page: Number(data?.page || query.page || 1),
+        limit: Number(data?.limit || query.limit || 0),
+        totalPages: Number(data?.totalPages || 0),
+        currentPage: Number(data?.currentPage || data?.page || query.page || 1),
+        traceId: normalizeText(data?.traceId || data?.trace_id),
+        raw: data,
+      }
+    } catch (error: any) {
+      this.handleError(error, 'Innofulfill list-orders request failed')
     }
   }
 

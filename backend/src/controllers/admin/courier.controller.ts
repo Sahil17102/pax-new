@@ -1018,6 +1018,63 @@ export const testInnofulfillHyperlocalRateController = async (req: Request, res:
   }
 }
 
+export const testInnofulfillListOrdersController = async (req: Request, res: Response) => {
+  try {
+    const service = new InnofulfillService({
+      apiBase: req.body?.apiBase,
+      username: req.body?.username,
+      password: req.body?.password,
+      apiKey: req.body?.apiKey,
+      tenantId: req.body?.tenantId,
+      userId: req.body?.userId,
+      refreshToken: req.body?.refreshToken,
+    })
+    const filters = req.body?.filters && typeof req.body.filters === 'object' ? req.body.filters : {}
+    const result = await service.listOrders({
+      ...filters,
+      page: req.body?.page ?? filters.page,
+      limit: req.body?.limit ?? filters.limit,
+      sortOrder: req.body?.sortOrder ?? filters.sortOrder,
+      orderId: req.body?.orderId ?? filters.orderId,
+      referenceId: req.body?.referenceId ?? filters.referenceId,
+      orderStatus: req.body?.orderStatus ?? filters.orderStatus,
+      orderType: req.body?.orderType ?? filters.orderType,
+      parcelCategory: req.body?.parcelCategory ?? filters.parcelCategory,
+      deliveryMode: req.body?.deliveryMode ?? filters.deliveryMode,
+      deliveryPromise: req.body?.deliveryPromise ?? filters.deliveryPromise,
+      carrierName: req.body?.carrierName ?? filters.carrierName,
+      awbNumber: req.body?.awbNumber ?? filters.awbNumber,
+      phone: req.body?.phone ?? filters.phone,
+      paymentType: req.body?.paymentType ?? filters.paymentType,
+      startDate: req.body?.startDate ?? filters.startDate,
+      endDate: req.body?.endDate ?? filters.endDate,
+      manifested: req.body?.manifested ?? filters.manifested,
+      autoManifest: req.body?.autoManifest ?? filters.autoManifest,
+      returnable: req.body?.returnable ?? filters.returnable,
+      filterByCurrentUser: req.body?.filterByCurrentUser ?? filters.filterByCurrentUser,
+      bulkId: req.body?.bulkId ?? filters.bulkId,
+      destinationCity: req.body?.destinationCity ?? filters.destinationCity,
+      destinationZip: req.body?.destinationZip ?? filters.destinationZip,
+      'addresses.type': req.body?.['addresses.type'] ?? filters['addresses.type'],
+      'addresses.state': req.body?.['addresses.state'] ?? filters['addresses.state'],
+      'addresses.city': req.body?.['addresses.city'] ?? filters['addresses.city'],
+      'addresses.zip': req.body?.['addresses.zip'] ?? filters['addresses.zip'],
+      'addresses.country': req.body?.['addresses.country'] ?? filters['addresses.country'],
+    })
+
+    res.json({
+      success: true,
+      data: result,
+    })
+  } catch (err: any) {
+    const statusCode = typeof err?.statusCode === 'number' ? err.statusCode : 500
+    res.status(statusCode).json({
+      success: false,
+      message: err?.message || 'Failed to test Innofulfill list orders',
+    })
+  }
+}
+
 export const updateXpressbeesAwbRangeController = async (req: any, res: Response) => {
   try {
     const result = await createXpressbeesManualAwbRange({

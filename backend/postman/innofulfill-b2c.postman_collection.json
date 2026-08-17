@@ -40,9 +40,16 @@
             }
           ],
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"signinType\": \"EMAIL\"\n}"
@@ -68,9 +75,16 @@
             }
           ],
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\"\n}"
@@ -99,13 +113,29 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{ "key": "token", "value": "{{innofulfillIdToken}}", "type": "string" }]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{innofulfillIdToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "TenantId", "value": "{{innofulfillTenantId}}" },
-              { "key": "Api-Key", "value": "{{innofulfillApiKey}}", "disabled": true }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "TenantId",
+                "value": "{{innofulfillTenantId}}"
+              },
+              {
+                "key": "Api-Key",
+                "value": "{{innofulfillApiKey}}",
+                "disabled": true
+              }
             ],
             "body": {
               "mode": "raw",
@@ -136,13 +166,29 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{ "key": "token", "value": "{{innofulfillIdToken}}", "type": "string" }]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{innofulfillIdToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "TenantId", "value": "{{innofulfillTenantId}}" },
-              { "key": "Api-Key", "value": "{{innofulfillApiKey}}", "disabled": true }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "TenantId",
+                "value": "{{innofulfillTenantId}}"
+              },
+              {
+                "key": "Api-Key",
+                "value": "{{innofulfillApiKey}}",
+                "disabled": true
+              }
             ],
             "body": {
               "mode": "raw",
@@ -171,13 +217,29 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{ "key": "token", "value": "{{innofulfillIdToken}}", "type": "string" }]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{innofulfillIdToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "tenantid", "value": "{{innofulfillTenantId}}" },
-              { "key": "api-key", "value": "{{innofulfillApiKey}}", "disabled": true }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "tenantid",
+                "value": "{{innofulfillTenantId}}"
+              },
+              {
+                "key": "api-key",
+                "value": "{{innofulfillApiKey}}",
+                "disabled": true
+              }
             ],
             "body": {
               "mode": "raw",
@@ -206,13 +268,29 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{ "key": "token", "value": "{{innofulfillIdToken}}", "type": "string" }]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{innofulfillIdToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "tenantid", "value": "{{innofulfillTenantId}}" },
-              { "key": "api-key", "value": "{{innofulfillApiKey}}", "disabled": true }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "tenantid",
+                "value": "{{innofulfillTenantId}}"
+              },
+              {
+                "key": "api-key",
+                "value": "{{innofulfillApiKey}}",
+                "disabled": true
+              }
             ],
             "body": {
               "mode": "raw",
@@ -221,6 +299,143 @@
             "url": "{{innofulfillApiBase}}/gateway/ure/api/external/rate-calculation/calculate/v2",
             "description": "Direct Innofulfill Hyperlocal rate calculation. Hyperlocal uses distance in km and an empty filters object."
           }
+        },
+        {
+          "name": "List Orders",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Provider list orders returned OK', function () { pm.expect(pm.response.code).to.eql(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Provider order list payload returned', function () { pm.expect(body.data).to.be.an('array'); });",
+                  "if (body.page) { pm.environment.set('innofulfillOrdersPage', String(body.page)); }",
+                  "if (body.limit) { pm.environment.set('innofulfillOrdersLimit', String(body.limit)); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{innofulfillIdToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "tenantid",
+                "value": "{{innofulfillTenantId}}"
+              },
+              {
+                "key": "api-key",
+                "value": "{{innofulfillApiKey}}",
+                "disabled": true
+              }
+            ],
+            "url": {
+              "raw": "{{innofulfillApiBase}}/gateway/booking-service/orders?page={{innofulfillOrdersPage}}&limit={{innofulfillOrdersLimit}}&sortOrder={{innofulfillOrdersSortOrder}}&parcelCategory={{innofulfillOrdersParcelCategory}}",
+              "host": [
+                "{{innofulfillApiBase}}"
+              ],
+              "path": [
+                "gateway",
+                "booking-service",
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "{{innofulfillOrdersPage}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "{{innofulfillOrdersLimit}}"
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "{{innofulfillOrdersSortOrder}}"
+                },
+                {
+                  "key": "orderStatus",
+                  "value": "{{innofulfillOrdersStatus}}",
+                  "disabled": true
+                },
+                {
+                  "key": "orderType",
+                  "value": "{{innofulfillOrdersOrderType}}",
+                  "disabled": true
+                },
+                {
+                  "key": "parcelCategory",
+                  "value": "{{innofulfillOrdersParcelCategory}}"
+                },
+                {
+                  "key": "carrierName",
+                  "value": "{{innofulfillOrdersCarrierName}}",
+                  "disabled": true
+                },
+                {
+                  "key": "awbNumber",
+                  "value": "{{innofulfillOrdersAwbNumber}}",
+                  "disabled": true
+                },
+                {
+                  "key": "phone",
+                  "value": "{{innofulfillOrdersPhone}}",
+                  "disabled": true
+                },
+                {
+                  "key": "paymentType",
+                  "value": "{{innofulfillOrdersPaymentType}}",
+                  "disabled": true
+                },
+                {
+                  "key": "startDate",
+                  "value": "{{innofulfillOrdersStartDate}}",
+                  "disabled": true
+                },
+                {
+                  "key": "endDate",
+                  "value": "{{innofulfillOrdersEndDate}}",
+                  "disabled": true
+                },
+                {
+                  "key": "manifested",
+                  "value": "{{innofulfillOrdersManifested}}",
+                  "disabled": true
+                },
+                {
+                  "key": "destinationZip",
+                  "value": "{{innofulfillOrdersDestinationZip}}",
+                  "disabled": true
+                },
+                {
+                  "key": "addresses.type",
+                  "value": "{{innofulfillOrdersAddressType}}",
+                  "disabled": true
+                },
+                {
+                  "key": "addresses.city",
+                  "value": "{{innofulfillOrdersAddressCity}}",
+                  "disabled": true
+                },
+                {
+                  "key": "addresses.zip",
+                  "value": "{{innofulfillOrdersAddressZip}}",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Direct Innofulfill order list call. All query filters are optional; enable only the filters you need."
+          }
         }
       ]
     },
@@ -228,7 +443,13 @@
       "name": "Pax Admin Proxy",
       "auth": {
         "type": "bearer",
-        "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{adminToken}}",
+            "type": "string"
+          }
+        ]
       },
       "item": [
         {
@@ -246,9 +467,16 @@
             }
           ],
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
@@ -272,7 +500,12 @@
           ],
           "request": {
             "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\"\n}"
@@ -298,7 +531,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\"\n}"
@@ -323,7 +561,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\"\n}"
@@ -351,7 +594,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\",\n  \"apiKey\": \"{{innofulfillApiKey}}\",\n  \"fromPincode\": {{innofulfillFromPincode}},\n  \"toPincode\": {{innofulfillToPincode}},\n  \"paymentMode\": \"{{innofulfillPaymentMode}}\",\n  \"operationType\": \"{{innofulfillOperationType}}\",\n  \"carriers\": [\n    \"{{innofulfillCarrier}}\"\n  ]\n}"
@@ -379,7 +627,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\",\n  \"apiKey\": \"{{innofulfillApiKey}}\",\n  \"pickupAddress\": {\n    \"address\": \"{{innofulfillPickupAddress}}\",\n    \"pincode\": {{innofulfillPickupPincode}},\n    \"latitude\": {{innofulfillPickupLatitude}},\n    \"longitude\": {{innofulfillPickupLongitude}}\n  },\n  \"shippingAddress\": {\n    \"address\": \"{{innofulfillShippingAddress}}\",\n    \"pincode\": {{innofulfillShippingPincode}},\n    \"latitude\": {{innofulfillShippingLatitude}},\n    \"longitude\": {{innofulfillShippingLongitude}}\n  },\n  \"paymentMode\": \"{{innofulfillPaymentMode}}\",\n  \"operationType\": \"{{innofulfillOperationType}}\",\n  \"carriers\": [\n    \"{{innofulfillCarrier}}\"\n  ]\n}"
@@ -408,7 +661,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\",\n  \"apiKey\": \"{{innofulfillApiKey}}\",\n  \"fromPincode\": {{innofulfillRateFromPincode}},\n  \"toPincode\": {{innofulfillRateToPincode}},\n  \"serviceType\": \"ECOMM\",\n  \"productType\": \"ECOMM\",\n  \"weight\": {{innofulfillRateWeight}},\n  \"length\": {{innofulfillRateLength}},\n  \"height\": {{innofulfillRateHeight}},\n  \"width\": {{innofulfillRateWidth}},\n  \"includeDefaultCharges\": false,\n  \"userOptions\": {\n    \"insurance\": {\n      \"enabled\": {{innofulfillInsuranceEnabled}},\n      \"amount\": {{innofulfillInsuranceAmount}}\n    },\n    \"cod\": {{innofulfillCodEnabled}}\n  },\n  \"filters\": {\n    \"delivery_mode\": \"{{innofulfillDeliveryMode}}\"\n  }\n}"
@@ -437,12 +695,52 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\",\n  \"apiKey\": \"{{innofulfillApiKey}}\",\n  \"fromPincode\": {{innofulfillHyperlocalRateFromPincode}},\n  \"toPincode\": {{innofulfillHyperlocalRateToPincode}},\n  \"serviceType\": \"HYPERLOCAL\",\n  \"productType\": \"HYPERLOCAL\",\n  \"weight\": {{innofulfillHyperlocalRateWeight}},\n  \"length\": {{innofulfillHyperlocalRateLength}},\n  \"height\": {{innofulfillHyperlocalRateHeight}},\n  \"width\": {{innofulfillHyperlocalRateWidth}},\n  \"distance\": {{innofulfillHyperlocalDistance}},\n  \"includeDefaultCharges\": false,\n  \"userOptions\": {\n    \"insurance\": {\n      \"enabled\": {{innofulfillHyperlocalInsuranceEnabled}},\n      \"amount\": {{innofulfillHyperlocalInsuranceAmount}}\n    },\n    \"cod\": {{innofulfillHyperlocalCodEnabled}}\n  },\n  \"filters\": {}\n}"
             },
             "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill/rates/hyperlocal/test"
+          }
+        },
+        {
+          "name": "Test List Orders Through Pax",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('Proxy list orders succeeded', function () { pm.expect(body.success).to.eql(true); });",
+                  "pm.test('Proxy normalized order list returned', function () { pm.expect(body.data.orders).to.be.an('array'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\",\n  \"apiKey\": \"{{innofulfillApiKey}}\",\n  \"page\": \"{{innofulfillOrdersPage}}\",\n  \"limit\": \"{{innofulfillOrdersLimit}}\",\n  \"sortOrder\": \"{{innofulfillOrdersSortOrder}}\",\n  \"parcelCategory\": \"{{innofulfillOrdersParcelCategory}}\",\n  \"filters\": {\n    \"orderStatus\": \"{{innofulfillOrdersStatus}}\",\n    \"orderType\": \"{{innofulfillOrdersOrderType}}\",\n    \"paymentType\": \"{{innofulfillOrdersPaymentType}}\",\n    \"destinationZip\": \"{{innofulfillOrdersDestinationZip}}\",\n    \"addresses.type\": \"{{innofulfillOrdersAddressType}}\",\n    \"addresses.city\": \"{{innofulfillOrdersAddressCity}}\",\n    \"addresses.zip\": \"{{innofulfillOrdersAddressZip}}\"\n  }\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill/orders/test",
+            "description": "Calls Pax admin proxy for Innofulfill order listing and returns normalized pagination plus raw provider payload."
           }
         },
         {
