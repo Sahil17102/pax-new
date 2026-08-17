@@ -133,6 +133,10 @@ export type InnofulfillEcommRateResult = {
   raw: any
 }
 
+export type InnofulfillHyperlocalRateResult = InnofulfillEcommRateResult & {
+  distance: number
+}
+
 export class InnofulfillService {
   private config: InnofulfillConfig | null | undefined
   private token: string | null = null
@@ -419,6 +423,68 @@ export class InnofulfillService {
       return this.summarizeEcommRate(data, body)
     } catch (error: any) {
       this.handleError(error, 'Innofulfill rate calculation failed')
+    }
+  }
+
+  async calculateHyperlocalRate(params: any): Promise<InnofulfillHyperlocalRateResult> {
+    const fromPincode = Number(params.fromPincode ?? params.origin ?? params.pickupPincode)
+    const toPincode = Number(params.toPincode ?? params.destination ?? params.dropPincode)
+    const serviceType = normalizeText(params.serviceType || 'HYPERLOCAL').toUpperCase()
+    const productType = normalizeText(params.productType || 'HYPERLOCAL').toUpperCase()
+    const weight = toNumber(params.weight ?? params.package_weight, 0.5)
+    const length = toNumber(params.length ?? params.package_length, 10)
+    const height = toNumber(params.height ?? params.package_height, 10)
+    const width = toNumber(params.width ?? params.breadth ?? params.package_breadth, 10)
+    const distance = toNumber(params.distance ?? params.distanceKm ?? params.distance_km, 0)
+
+    if (!Number.isInteger(fromPincode) || !Number.isInteger(toPincode)) {
+      throw new HttpError(400, 'Innofulfill Hyperlocal rate calculation requires fromPincode and toPincode')
+    }
+    if (serviceType !== 'HYPERLOCAL' || productType !== 'HYPERLOCAL') {
+      throw new HttpError(400, 'Innofulfill serviceType and productType must both be HYPERLOCAL')
+    }
+    if (![weight, length, height, width, distance].every((value) => Number.isFinite(value) && value > 0)) {
+      throw new HttpError(
+        400,
+        'Innofulfill weight, length, height, width, and distance must be positive numbers',
+      )
+    }
+
+    const body = {
+      fromPincode,
+      toPincode,
+      serviceType,
+      productType,
+      weight,
+      length,
+      height,
+      width,
+      distance,
+      includeDefaultCharges: params.includeDefaultCharges ?? false,
+      userOptions: {
+        insurance: {
+          enabled: Boolean(params.userOptions?.insurance?.enabled ?? params.insurance?.enabled ?? params.is_insurance),
+          amount: toNumber(params.userOptions?.insurance?.amount ?? params.insurance?.amount ?? params.order_amount, 0),
+        },
+        cod:
+          params.userOptions?.cod ??
+          String(params.payment_type || params.paymentMode || '').toLowerCase() === 'cod',
+      },
+      filters: {},
+    }
+
+    try {
+      const client = await this.getClient()
+      const { data } = await client.post(
+        '/gateway/ure/api/external/rate-calculation/calculate/v2',
+        body,
+      )
+      return {
+        ...this.summarizeEcommRate(data, body),
+        distance,
+      }
+    } catch (error: any) {
+      this.handleError(error, 'Innofulfill hyperlocal rate calculation failed')
     }
   }
 

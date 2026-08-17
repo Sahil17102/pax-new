@@ -281,3 +281,11 @@ Kharadi in Pune with carrier `SMILE`.
 Through Pax** returns normalized base rate, total amount, charges, GST summary,
 weight calculation, pincode details, zone resolution, and the raw provider
 response.
+
+**Calculate Hyperlocal Rates** uses the same rate-calculation endpoint with
+static `serviceType=HYPERLOCAL` and `productType=HYPERLOCAL`. The `distance`
+field is required in kilometres and `filters` must stay empty because delivery
+mode is not applicable. The default sample uses 400101 to 400063 with 4 kg,
+3 x 2 x 3 cm dimensions, and 6.16 km distance. **Test Hyperlocal Rates Through
+Pax** returns the same normalized amount, GST, weight, pincode, zone, distance,
+and raw provider data.

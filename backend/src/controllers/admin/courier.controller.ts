@@ -976,6 +976,48 @@ export const testInnofulfillEcommRateController = async (req: Request, res: Resp
   }
 }
 
+export const testInnofulfillHyperlocalRateController = async (req: Request, res: Response) => {
+  try {
+    const service = new InnofulfillService({
+      apiBase: req.body?.apiBase,
+      username: req.body?.username,
+      password: req.body?.password,
+      apiKey: req.body?.apiKey,
+      tenantId: req.body?.tenantId,
+      userId: req.body?.userId,
+      refreshToken: req.body?.refreshToken,
+    })
+    const result = await service.calculateHyperlocalRate({
+      fromPincode: req.body?.fromPincode ?? req.body?.origin ?? req.body?.pickupPincode,
+      toPincode: req.body?.toPincode ?? req.body?.destination ?? req.body?.dropPincode,
+      serviceType: req.body?.serviceType,
+      productType: req.body?.productType,
+      weight: req.body?.weight,
+      length: req.body?.length,
+      height: req.body?.height,
+      width: req.body?.width ?? req.body?.breadth,
+      distance: req.body?.distance ?? req.body?.distanceKm ?? req.body?.distance_km,
+      includeDefaultCharges: req.body?.includeDefaultCharges,
+      userOptions: req.body?.userOptions,
+      paymentMode: req.body?.paymentMode,
+      payment_type: req.body?.payment_type,
+      insurance: req.body?.insurance,
+      order_amount: req.body?.order_amount,
+    })
+
+    res.json({
+      success: true,
+      data: result,
+    })
+  } catch (err: any) {
+    const statusCode = typeof err?.statusCode === 'number' ? err.statusCode : 500
+    res.status(statusCode).json({
+      success: false,
+      message: err?.message || 'Failed to test Innofulfill Hyperlocal rate calculation',
+    })
+  }
+}
+
 export const updateXpressbeesAwbRangeController = async (req: any, res: Response) => {
   try {
     const result = await createXpressbeesManualAwbRange({

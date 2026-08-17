@@ -186,6 +186,41 @@
             "url": "{{innofulfillApiBase}}/gateway/ure/api/external/rate-calculation/calculate/v2",
             "description": "Direct Innofulfill ECOMM rate calculation. Run Innofulfill Login first for Bearer + TenantId auth, or enable api-key and set innofulfillApiKey."
           }
+        },
+        {
+          "name": "Calculate Hyperlocal Rates",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var body = pm.response.json();",
+                  "pm.test('Provider hyperlocal rate payload returned', function () { pm.expect(body.data).to.be.an('object'); });",
+                  "pm.test('Total amount is numeric', function () { pm.expect(body.data.calculation.totalAmount).to.be.a('number'); });",
+                  "pm.test('Hyperlocal zone resolution returned', function () { pm.expect(body.data.zoneResolution.zoneType).to.eql('hyperlocal_rule'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{innofulfillIdToken}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "tenantid", "value": "{{innofulfillTenantId}}" },
+              { "key": "api-key", "value": "{{innofulfillApiKey}}", "disabled": true }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fromPincode\": {{innofulfillHyperlocalRateFromPincode}},\n  \"toPincode\": {{innofulfillHyperlocalRateToPincode}},\n  \"serviceType\": \"HYPERLOCAL\",\n  \"productType\": \"HYPERLOCAL\",\n  \"weight\": {{innofulfillHyperlocalRateWeight}},\n  \"length\": {{innofulfillHyperlocalRateLength}},\n  \"height\": {{innofulfillHyperlocalRateHeight}},\n  \"width\": {{innofulfillHyperlocalRateWidth}},\n  \"distance\": {{innofulfillHyperlocalDistance}},\n  \"includeDefaultCharges\": false,\n  \"userOptions\": {\n    \"insurance\": {\n      \"enabled\": {{innofulfillHyperlocalInsuranceEnabled}},\n      \"amount\": {{innofulfillHyperlocalInsuranceAmount}}\n    },\n    \"cod\": {{innofulfillHyperlocalCodEnabled}}\n  },\n  \"filters\": {}\n}"
+            },
+            "url": "{{innofulfillApiBase}}/gateway/ure/api/external/rate-calculation/calculate/v2",
+            "description": "Direct Innofulfill Hyperlocal rate calculation. Hyperlocal uses distance in km and an empty filters object."
+          }
         }
       ]
     },
@@ -379,6 +414,35 @@
               "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\",\n  \"apiKey\": \"{{innofulfillApiKey}}\",\n  \"fromPincode\": {{innofulfillRateFromPincode}},\n  \"toPincode\": {{innofulfillRateToPincode}},\n  \"serviceType\": \"ECOMM\",\n  \"productType\": \"ECOMM\",\n  \"weight\": {{innofulfillRateWeight}},\n  \"length\": {{innofulfillRateLength}},\n  \"height\": {{innofulfillRateHeight}},\n  \"width\": {{innofulfillRateWidth}},\n  \"includeDefaultCharges\": false,\n  \"userOptions\": {\n    \"insurance\": {\n      \"enabled\": {{innofulfillInsuranceEnabled}},\n      \"amount\": {{innofulfillInsuranceAmount}}\n    },\n    \"cod\": {{innofulfillCodEnabled}}\n  },\n  \"filters\": {\n    \"delivery_mode\": \"{{innofulfillDeliveryMode}}\"\n  }\n}"
             },
             "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill/rates/ecomm/test"
+          }
+        },
+        {
+          "name": "Test Hyperlocal Rates Through Pax",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var body = pm.response.json();",
+                  "pm.test('Proxy hyperlocal rate calculation succeeded', function () { pm.expect(body.success).to.eql(true); });",
+                  "pm.test('Normalized hyperlocal amount fields returned', function () {",
+                  "  pm.expect(body.data).to.have.property('baseRate');",
+                  "  pm.expect(body.data).to.have.property('totalAmount');",
+                  "  pm.expect(body.data).to.have.property('distance');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\",\n  \"apiKey\": \"{{innofulfillApiKey}}\",\n  \"fromPincode\": {{innofulfillHyperlocalRateFromPincode}},\n  \"toPincode\": {{innofulfillHyperlocalRateToPincode}},\n  \"serviceType\": \"HYPERLOCAL\",\n  \"productType\": \"HYPERLOCAL\",\n  \"weight\": {{innofulfillHyperlocalRateWeight}},\n  \"length\": {{innofulfillHyperlocalRateLength}},\n  \"height\": {{innofulfillHyperlocalRateHeight}},\n  \"width\": {{innofulfillHyperlocalRateWidth}},\n  \"distance\": {{innofulfillHyperlocalDistance}},\n  \"includeDefaultCharges\": false,\n  \"userOptions\": {\n    \"insurance\": {\n      \"enabled\": {{innofulfillHyperlocalInsuranceEnabled}},\n      \"amount\": {{innofulfillHyperlocalInsuranceAmount}}\n    },\n    \"cod\": {{innofulfillHyperlocalCodEnabled}}\n  },\n  \"filters\": {}\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill/rates/hyperlocal/test"
           }
         },
         {
