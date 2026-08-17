@@ -91,6 +91,7 @@ export const shouldProxyBrowserUpload = ({
 
   return (
     normalizedFolder === 'ir' ||
+    normalizedFolder === 'invoices' ||
     normalizedFolder.startsWith(IR_FOLDER_PREFIX) ||
     isPdfContentType(contentType) ||
     normalizedFileName.endsWith('.pdf')

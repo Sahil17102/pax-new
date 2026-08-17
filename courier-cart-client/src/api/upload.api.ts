@@ -33,7 +33,7 @@ export const uploadFileToStorage = async (
   });
 
   return {
-    url: data.publicUrl,
+    url: data.publicUrl || data.url,
     key: data.key,
     originalName: file.name,
     size: file.size,

@@ -210,7 +210,8 @@ const FileUploader: React.FC<FileUploaderProps> = ({
           const isPdfUpload =
             contentType.toLowerCase().includes('pdf') || fileName.endsWith('.pdf')
           const shouldStoreKycPdfLocally = folderKey === 'kyc' && isPdfUpload
-          const shouldProxyUploadThroughBackend = folderKey === 'ir' || isPdfUpload
+          const shouldProxyUploadThroughBackend =
+            folderKey === 'ir' || folderKey === 'invoices' || isPdfUpload
 
           if (shouldStoreKycPdfLocally) {
             const stored = await uploadKycPdfToBackend(file, (progressValue) =>
