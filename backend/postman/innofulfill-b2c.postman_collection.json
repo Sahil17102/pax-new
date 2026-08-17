@@ -301,6 +301,59 @@
           }
         },
         {
+          "name": "Create ECOMM Order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('Provider ECOMM order created', function () { pm.expect(pm.response.code).to.eql(201); });",
+                  "pm.test('Provider returned order data', function () { pm.expect(body.data).to.be.an('object'); });",
+                  "if (body.data?.orderId) { pm.environment.set('innofulfillCreatedOrderId', body.data.orderId); }",
+                  "if (body.data?.referenceId) { pm.environment.set('innofulfillCreatedReferenceId', body.data.referenceId); }",
+                  "if (body.data?.shipments?.[0]?.awbNumber) { pm.environment.set('innofulfillCreatedAwbNumber', body.data.shipments[0].awbNumber); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{innofulfillIdToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "tenantId",
+                "value": "{{innofulfillTenantId}}"
+              },
+              {
+                "key": "api-key",
+                "value": "{{innofulfillApiKey}}",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"referenceId\": \"PAX-ECOMM-{{$timestamp}}\",\n  \"orderDate\": \"{{$isoTimestamp}}\",\n  \"orderType\": \"FORWARD\",\n  \"orderStatus\": \"CONFIRMED\",\n  \"parcelCategory\": \"ECOMM\",\n  \"autoManifest\": true,\n  \"eWaybills\": [],\n  \"deliveryPromise\": \"ECOMM\",\n  \"deliveryMode\": \"{{innofulfillDeliveryMode}}\",\n  \"documentType\": \"\",\n  \"taxes\": [\n    {\n      \"name\": \"GST\",\n      \"description\": \"GST @18%\",\n      \"type\": \"PERCENTAGE\",\n      \"value\": 18,\n      \"chargedAmount\": 12.24\n    }\n  ],\n  \"discounts\": [],\n  \"metadata\": {\n    \"source\": \"pax_postman\"\n  },\n  \"documents\": [],\n  \"addresses\": [\n    {\n      \"type\": \"PICKUP\",\n      \"zip\": \"{{innofulfillEcommPickupZip}}\",\n      \"name\": \"{{innofulfillEcommPickupName}}\",\n      \"phone\": \"{{innofulfillEcommPickupPhone}}\",\n      \"email\": \"{{innofulfillEcommPickupEmail}}\",\n      \"street\": \"{{innofulfillEcommPickupStreet}}\",\n      \"landmark\": \"{{innofulfillEcommPickupLandmark}}\",\n      \"city\": \"{{innofulfillEcommPickupCity}}\",\n      \"state\": \"{{innofulfillEcommPickupState}}\",\n      \"country\": \"India\",\n      \"latitude\": {{innofulfillEcommPickupLatitude}},\n      \"longitude\": {{innofulfillEcommPickupLongitude}},\n      \"addressName\": \"{{innofulfillEcommPickupAddressName}}\",\n      \"GSTNumber\": \"\"\n    },\n    {\n      \"type\": \"DELIVERY\",\n      \"zip\": \"{{innofulfillEcommDeliveryZip}}\",\n      \"name\": \"{{innofulfillEcommDeliveryName}}\",\n      \"phone\": \"{{innofulfillEcommDeliveryPhone}}\",\n      \"email\": \"{{innofulfillEcommDeliveryEmail}}\",\n      \"street\": \"{{innofulfillEcommDeliveryStreet}}\",\n      \"landmark\": \"{{innofulfillEcommDeliveryLandmark}}\",\n      \"city\": \"{{innofulfillEcommDeliveryCity}}\",\n      \"state\": \"{{innofulfillEcommDeliveryState}}\",\n      \"country\": \"India\",\n      \"latitude\": {{innofulfillEcommDeliveryLatitude}},\n      \"longitude\": {{innofulfillEcommDeliveryLongitude}},\n      \"addressName\": \"{{innofulfillEcommDeliveryAddressName}}\"\n    },\n    {\n      \"type\": \"BILLING\",\n      \"zip\": \"{{innofulfillEcommDeliveryZip}}\",\n      \"name\": \"{{innofulfillEcommDeliveryName}}\",\n      \"phone\": \"{{innofulfillEcommDeliveryPhone}}\",\n      \"email\": \"{{innofulfillEcommDeliveryEmail}}\",\n      \"street\": \"{{innofulfillEcommDeliveryStreet}}\",\n      \"landmark\": \"{{innofulfillEcommDeliveryLandmark}}\",\n      \"city\": \"{{innofulfillEcommDeliveryCity}}\",\n      \"state\": \"{{innofulfillEcommDeliveryState}}\",\n      \"country\": \"India\",\n      \"latitude\": {{innofulfillEcommDeliveryLatitude}},\n      \"longitude\": {{innofulfillEcommDeliveryLongitude}},\n      \"addressName\": \"{{innofulfillEcommDeliveryAddressName}}\"\n    },\n    {\n      \"type\": \"RETURN\",\n      \"zip\": \"{{innofulfillEcommPickupZip}}\",\n      \"name\": \"{{innofulfillEcommPickupName}}\",\n      \"phone\": \"{{innofulfillEcommPickupPhone}}\",\n      \"email\": \"{{innofulfillEcommPickupEmail}}\",\n      \"street\": \"{{innofulfillEcommPickupStreet}}\",\n      \"landmark\": \"{{innofulfillEcommPickupLandmark}}\",\n      \"city\": \"{{innofulfillEcommPickupCity}}\",\n      \"state\": \"{{innofulfillEcommPickupState}}\",\n      \"country\": \"India\",\n      \"latitude\": {{innofulfillEcommPickupLatitude}},\n      \"longitude\": {{innofulfillEcommPickupLongitude}},\n      \"addressName\": \"{{innofulfillEcommPickupAddressName}}\"\n    }\n  ],\n  \"shipments\": [\n    {\n      \"dimensions\": {\n        \"length\": {{innofulfillEcommLength}},\n        \"width\": {{innofulfillEcommWidth}},\n        \"height\": {{innofulfillEcommHeight}}\n      },\n      \"shipmentStatus\": \"CONFIRMED\",\n      \"physicalWeight\": {{innofulfillEcommWeight}},\n      \"physicalWeightUnit\": \"KG\",\n      \"volumetricWeight\": {{innofulfillEcommVolumetricWeight}},\n      \"note\": \"{{innofulfillEcommNote}}\",\n      \"items\": [\n        {\n          \"name\": \"{{innofulfillEcommItemName}}\",\n          \"quantity\": {{innofulfillEcommItemQuantity}},\n          \"unitPrice\": {{innofulfillEcommItemUnitPrice}},\n          \"sku\": \"{{innofulfillEcommItemSku}}\",\n          \"hsnCode\": \"\",\n          \"description\": \"{{innofulfillEcommItemDescription}}\"\n        }\n      ]\n    }\n  ],\n  \"carrierId\": \"dee69b40-c0f3-4a44-879a-8b6f6849efaa\",\n  \"carrierName\": \"innofulfill_ecomm\",\n  \"payment\": {\n    \"type\": \"{{innofulfillEcommPaymentType}}\",\n    \"currency\": \"INR\",\n    \"paymentMethod\": \"{{innofulfillEcommPaymentMethod}}\"\n  }\n}"
+            },
+            "url": "{{innofulfillApiBase}}/gateway/booking-service/orders",
+            "description": "Creates a real Innofulfill ECOMM order. This mutates provider state; run only with intentional test data."
+          }
+        },
+        {
           "name": "List Orders",
           "event": [
             {
@@ -706,6 +759,44 @@
               "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\",\n  \"apiKey\": \"{{innofulfillApiKey}}\",\n  \"fromPincode\": {{innofulfillHyperlocalRateFromPincode}},\n  \"toPincode\": {{innofulfillHyperlocalRateToPincode}},\n  \"serviceType\": \"HYPERLOCAL\",\n  \"productType\": \"HYPERLOCAL\",\n  \"weight\": {{innofulfillHyperlocalRateWeight}},\n  \"length\": {{innofulfillHyperlocalRateLength}},\n  \"height\": {{innofulfillHyperlocalRateHeight}},\n  \"width\": {{innofulfillHyperlocalRateWidth}},\n  \"distance\": {{innofulfillHyperlocalDistance}},\n  \"includeDefaultCharges\": false,\n  \"userOptions\": {\n    \"insurance\": {\n      \"enabled\": {{innofulfillHyperlocalInsuranceEnabled}},\n      \"amount\": {{innofulfillHyperlocalInsuranceAmount}}\n    },\n    \"cod\": {{innofulfillHyperlocalCodEnabled}}\n  },\n  \"filters\": {}\n}"
             },
             "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill/rates/hyperlocal/test"
+          }
+        },
+        {
+          "name": "Test Create ECOMM Order Through Pax",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('Proxy ECOMM order creation succeeded', function () { pm.expect(body.success).to.eql(true); });",
+                  "pm.test('Proxy returned normalized order identifiers', function () { pm.expect(body.data).to.have.property('orderId'); });",
+                  "if (body.data?.orderId) { pm.environment.set('innofulfillCreatedOrderId', body.data.orderId); }",
+                  "if (body.data?.referenceId) { pm.environment.set('innofulfillCreatedReferenceId', body.data.referenceId); }",
+                  "if (body.data?.awbNumber) { pm.environment.set('innofulfillCreatedAwbNumber', body.data.awbNumber); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\",\n  \"apiKey\": \"{{innofulfillApiKey}}\",\n  \"order\": {\n    \"referenceId\": \"PAX-ECOMM-{{$timestamp}}\",\n    \"orderDate\": \"{{$isoTimestamp}}\",\n    \"orderType\": \"FORWARD\",\n    \"orderStatus\": \"CONFIRMED\",\n    \"parcelCategory\": \"ECOMM\",\n    \"autoManifest\": true,\n    \"eWaybills\": [],\n    \"deliveryPromise\": \"ECOMM\",\n    \"deliveryMode\": \"{{innofulfillDeliveryMode}}\",\n    \"documentType\": \"\",\n    \"taxes\": [\n      {\n        \"name\": \"GST\",\n        \"description\": \"GST @18%\",\n        \"type\": \"PERCENTAGE\",\n        \"value\": 18,\n        \"chargedAmount\": 12.24\n      }\n    ],\n    \"discounts\": [],\n    \"metadata\": {\n      \"source\": \"pax_postman\"\n    },\n    \"documents\": [],\n    \"addresses\": [\n      {\n        \"type\": \"PICKUP\",\n        \"zip\": \"{{innofulfillEcommPickupZip}}\",\n        \"name\": \"{{innofulfillEcommPickupName}}\",\n        \"phone\": \"{{innofulfillEcommPickupPhone}}\",\n        \"email\": \"{{innofulfillEcommPickupEmail}}\",\n        \"street\": \"{{innofulfillEcommPickupStreet}}\",\n        \"landmark\": \"{{innofulfillEcommPickupLandmark}}\",\n        \"city\": \"{{innofulfillEcommPickupCity}}\",\n        \"state\": \"{{innofulfillEcommPickupState}}\",\n        \"country\": \"India\",\n        \"latitude\": {{innofulfillEcommPickupLatitude}},\n        \"longitude\": {{innofulfillEcommPickupLongitude}},\n        \"addressName\": \"{{innofulfillEcommPickupAddressName}}\",\n        \"GSTNumber\": \"\"\n      },\n      {\n        \"type\": \"DELIVERY\",\n        \"zip\": \"{{innofulfillEcommDeliveryZip}}\",\n        \"name\": \"{{innofulfillEcommDeliveryName}}\",\n        \"phone\": \"{{innofulfillEcommDeliveryPhone}}\",\n        \"email\": \"{{innofulfillEcommDeliveryEmail}}\",\n        \"street\": \"{{innofulfillEcommDeliveryStreet}}\",\n        \"landmark\": \"{{innofulfillEcommDeliveryLandmark}}\",\n        \"city\": \"{{innofulfillEcommDeliveryCity}}\",\n        \"state\": \"{{innofulfillEcommDeliveryState}}\",\n        \"country\": \"India\",\n        \"latitude\": {{innofulfillEcommDeliveryLatitude}},\n        \"longitude\": {{innofulfillEcommDeliveryLongitude}},\n        \"addressName\": \"{{innofulfillEcommDeliveryAddressName}}\"\n      },\n      {\n        \"type\": \"BILLING\",\n        \"zip\": \"{{innofulfillEcommDeliveryZip}}\",\n        \"name\": \"{{innofulfillEcommDeliveryName}}\",\n        \"phone\": \"{{innofulfillEcommDeliveryPhone}}\",\n        \"email\": \"{{innofulfillEcommDeliveryEmail}}\",\n        \"street\": \"{{innofulfillEcommDeliveryStreet}}\",\n        \"landmark\": \"{{innofulfillEcommDeliveryLandmark}}\",\n        \"city\": \"{{innofulfillEcommDeliveryCity}}\",\n        \"state\": \"{{innofulfillEcommDeliveryState}}\",\n        \"country\": \"India\",\n        \"latitude\": {{innofulfillEcommDeliveryLatitude}},\n        \"longitude\": {{innofulfillEcommDeliveryLongitude}},\n        \"addressName\": \"{{innofulfillEcommDeliveryAddressName}}\"\n      },\n      {\n        \"type\": \"RETURN\",\n        \"zip\": \"{{innofulfillEcommPickupZip}}\",\n        \"name\": \"{{innofulfillEcommPickupName}}\",\n        \"phone\": \"{{innofulfillEcommPickupPhone}}\",\n        \"email\": \"{{innofulfillEcommPickupEmail}}\",\n        \"street\": \"{{innofulfillEcommPickupStreet}}\",\n        \"landmark\": \"{{innofulfillEcommPickupLandmark}}\",\n        \"city\": \"{{innofulfillEcommPickupCity}}\",\n        \"state\": \"{{innofulfillEcommPickupState}}\",\n        \"country\": \"India\",\n        \"latitude\": {{innofulfillEcommPickupLatitude}},\n        \"longitude\": {{innofulfillEcommPickupLongitude}},\n        \"addressName\": \"{{innofulfillEcommPickupAddressName}}\"\n      }\n    ],\n    \"shipments\": [\n      {\n        \"dimensions\": {\n          \"length\": {{innofulfillEcommLength}},\n          \"width\": {{innofulfillEcommWidth}},\n          \"height\": {{innofulfillEcommHeight}}\n        },\n        \"shipmentStatus\": \"CONFIRMED\",\n        \"physicalWeight\": {{innofulfillEcommWeight}},\n        \"physicalWeightUnit\": \"KG\",\n        \"volumetricWeight\": {{innofulfillEcommVolumetricWeight}},\n        \"note\": \"{{innofulfillEcommNote}}\",\n        \"items\": [\n          {\n            \"name\": \"{{innofulfillEcommItemName}}\",\n            \"quantity\": {{innofulfillEcommItemQuantity}},\n            \"unitPrice\": {{innofulfillEcommItemUnitPrice}},\n            \"sku\": \"{{innofulfillEcommItemSku}}\",\n            \"hsnCode\": \"\",\n            \"description\": \"{{innofulfillEcommItemDescription}}\"\n          }\n        ]\n      }\n    ],\n    \"carrierId\": \"dee69b40-c0f3-4a44-879a-8b6f6849efaa\",\n    \"carrierName\": \"innofulfill_ecomm\",\n    \"payment\": {\n      \"type\": \"{{innofulfillEcommPaymentType}}\",\n      \"currency\": \"INR\",\n      \"paymentMethod\": \"{{innofulfillEcommPaymentMethod}}\"\n    }\n  }\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill/orders/ecomm/test",
+            "description": "Creates a real ECOMM order through the Pax admin proxy and returns normalized order identifiers plus the raw provider response."
           }
         },
         {

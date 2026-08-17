@@ -290,6 +290,15 @@ mode is not applicable. The default sample uses 400101 to 400063 with 4 kg,
 Pax** returns the same normalized amount, GST, weight, pincode, zone, distance,
 and raw provider data.
 
+**Create ECOMM Order** calls `POST /gateway/booking-service/orders` with
+`parcelCategory=ECOMM`, `deliveryPromise=ECOMM`, the static
+`innofulfill_ecomm` carrier fields, pickup/delivery/billing/return addresses,
+shipment dimensions, tax details, and PREPAID payment metadata. This creates a
+real provider order, so run it only with intentional test data. **Test Create
+ECOMM Order Through Pax** performs the same mutation through the backend proxy
+and stores returned `orderId`, `referenceId`, and AWB values in the active
+Postman environment when present.
+
 **List Orders** calls `GET /gateway/booking-service/orders` directly with
 `page`, `limit`, `sortOrder`, and optional disabled filters for order status,
 AWB, phone, payment type, dates, destination zip, and `addresses.*` fields.

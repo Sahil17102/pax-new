@@ -1075,6 +1075,33 @@ export const testInnofulfillListOrdersController = async (req: Request, res: Res
   }
 }
 
+export const testInnofulfillCreateEcommOrderController = async (req: Request, res: Response) => {
+  try {
+    const service = new InnofulfillService({
+      apiBase: req.body?.apiBase,
+      username: req.body?.username,
+      password: req.body?.password,
+      apiKey: req.body?.apiKey,
+      tenantId: req.body?.tenantId,
+      userId: req.body?.userId,
+      refreshToken: req.body?.refreshToken,
+    })
+    const orderPayload = req.body?.order && typeof req.body.order === 'object' ? req.body.order : req.body
+    const result = await service.createEcommOrder(orderPayload)
+
+    res.status(201).json({
+      success: true,
+      data: result,
+    })
+  } catch (err: any) {
+    const statusCode = typeof err?.statusCode === 'number' ? err.statusCode : 500
+    res.status(statusCode).json({
+      success: false,
+      message: err?.message || 'Failed to test Innofulfill ECOMM order creation',
+    })
+  }
+}
+
 export const updateXpressbeesAwbRangeController = async (req: any, res: Response) => {
   try {
     const result = await createXpressbeesManualAwbRange({

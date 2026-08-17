@@ -8,6 +8,7 @@ import {
   getShippingRatesController,
   importShippingRatesController,
   testDelhiveryB2BCredentialsController,
+  testInnofulfillCreateEcommOrderController,
   testInnofulfillCredentialsController,
   testInnofulfillEcommRateController,
   testInnofulfillEcommServiceabilityController,
@@ -145,6 +146,12 @@ router.post(
   requireAuth,
   isAdminMiddleware,
   testInnofulfillListOrdersController,
+)
+router.post(
+  '/credentials/innofulfill/orders/ecomm/test',
+  requireAuth,
+  isAdminMiddleware,
+  testInnofulfillCreateEcommOrderController,
 )
 router.put(
   '/credentials/amazon',

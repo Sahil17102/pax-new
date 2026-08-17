@@ -179,6 +179,18 @@ export type InnofulfillOrderListResult = {
   raw: any
 }
 
+export type InnofulfillCreateOrderResult = {
+  orderId: string
+  referenceId: string
+  awbNumber: string
+  orderStatus: string
+  parcelCategory: string
+  deliveryMode: string
+  carrierName: string
+  carrierId: string
+  raw: any
+}
+
 const ORDER_LIST_QUERY_KEYS = [
   'page',
   'limit',
@@ -315,6 +327,72 @@ export class InnofulfillService {
     }
 
     return query
+  }
+
+  private buildEcommOrderPayload(params: any) {
+    const body = params?.referenceId && Array.isArray(params?.shipments) ? { ...params } : this.buildOrderPayload(params)
+    const deliveryMode = normalizeText(body.deliveryMode || params?.deliveryMode || params?.shipping_mode, 'SURFACE').toUpperCase()
+    const orderType = normalizeText(body.orderType || params?.orderType || 'FORWARD').toUpperCase()
+    const pickup = Array.isArray(body.addresses)
+      ? body.addresses.find((address: any) => normalizeText(address?.type).toUpperCase() === 'PICKUP')
+      : null
+    const delivery = Array.isArray(body.addresses)
+      ? body.addresses.find((address: any) => normalizeText(address?.type).toUpperCase() === 'DELIVERY')
+      : null
+
+    if (!['FORWARD', 'REVERSE'].includes(orderType)) {
+      throw new HttpError(400, 'Innofulfill ECOMM orderType must be FORWARD or REVERSE')
+    }
+    if (!['SURFACE', 'AIR'].includes(deliveryMode)) {
+      throw new HttpError(400, 'Innofulfill ECOMM deliveryMode must be SURFACE or AIR')
+    }
+    if (!pickup || !delivery) {
+      throw new HttpError(400, 'Innofulfill ECOMM order requires PICKUP and DELIVERY addresses')
+    }
+    if (!Array.isArray(body.shipments) || body.shipments.length === 0) {
+      throw new HttpError(400, 'Innofulfill ECOMM order requires at least one shipment')
+    }
+
+    return {
+      ...body,
+      referenceId: normalizeText(body.referenceId, `REF-${Date.now()}`),
+      orderDate: normalizeText(body.orderDate, new Date().toISOString()),
+      orderType,
+      orderStatus: normalizeText(body.orderStatus, 'CONFIRMED').toUpperCase(),
+      parcelCategory: 'ECOMM',
+      autoManifest: body.autoManifest ?? true,
+      eWaybills: Array.isArray(body.eWaybills) ? body.eWaybills.map((value: any) => normalizeText(value)).filter(Boolean) : [],
+      deliveryPromise: 'ECOMM',
+      deliveryMode,
+      documentType: normalizeText(body.documentType),
+      taxes: Array.isArray(body.taxes) ? body.taxes : [],
+      discounts: Array.isArray(body.discounts) ? body.discounts : [],
+      metadata: body.metadata && typeof body.metadata === 'object' ? body.metadata : { source: 'pax_backend' },
+      documents: Array.isArray(body.documents) ? body.documents : [],
+      carrierId: ECOMM_CARRIER_ID,
+      carrierName: ECOMM_CARRIER_NAME,
+      payment: {
+        ...(body.payment && typeof body.payment === 'object' ? body.payment : {}),
+        type: normalizeText(body.payment?.type || params?.paymentType || params?.payment_type, 'PREPAID').toUpperCase(),
+        currency: normalizeText(body.payment?.currency, 'INR').toUpperCase(),
+        paymentMethod: normalizeText(body.payment?.paymentMethod, 'ONLINE').toUpperCase(),
+      },
+    }
+  }
+
+  private summarizeCreateOrder(payload: any): InnofulfillCreateOrderResult {
+    const data = extractProviderData(payload) || {}
+    return {
+      orderId: extractOrderId(payload),
+      referenceId: normalizeText(data?.referenceId || data?.reference_id),
+      awbNumber: extractAwb(payload),
+      orderStatus: normalizeText(data?.orderStatus || data?.status),
+      parcelCategory: normalizeText(data?.parcelCategory),
+      deliveryMode: normalizeText(data?.deliveryMode),
+      carrierName: normalizeText(data?.carrierName),
+      carrierId: normalizeText(data?.carrierId),
+      raw: payload,
+    }
   }
 
   private async persistAuthTokens(payload: any) {
@@ -721,6 +799,8 @@ export class InnofulfillService {
       city: normalizeText(source?.city),
       state: normalizeText(source?.state),
       country: normalizeText(source?.country, 'India'),
+      ...(source?.latitude !== undefined ? { latitude: toNumber(source.latitude) } : {}),
+      ...(source?.longitude !== undefined ? { longitude: toNumber(source.longitude) } : {}),
       addressName: buildAddressName(source),
       GSTNumber: normalizeText(source?.gst_number || source?.gstin || params.company?.gst),
     })
@@ -797,6 +877,17 @@ export class InnofulfillService {
       return data
     } catch (error: any) {
       this.handleError(error, 'Innofulfill order creation failed')
+    }
+  }
+
+  async createEcommOrder(params: any): Promise<InnofulfillCreateOrderResult> {
+    const body = this.buildEcommOrderPayload(params)
+    try {
+      const client = await this.getClient()
+      const { data } = await client.post('/gateway/booking-service/orders', body)
+      return this.summarizeCreateOrder(data)
+    } catch (error: any) {
+      this.handleError(error, 'Innofulfill ECOMM order creation failed')
     }
   }
 
