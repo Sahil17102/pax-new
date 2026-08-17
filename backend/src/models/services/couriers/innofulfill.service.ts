@@ -109,6 +109,16 @@ const readBoolean = (value: unknown) => {
   return undefined
 }
 
+const isNonServiceableReason = (value: unknown) => {
+  const normalized = normalizeText(value).toLowerCase()
+  return (
+    normalized.includes('not serviceable') ||
+    normalized.includes('non-serviceable') ||
+    normalized.includes('not available') ||
+    normalized.includes('not servicable')
+  )
+}
+
 export type InnofulfillServiceabilityResult = {
   serviceable: boolean
   codAvailable: boolean
@@ -1415,16 +1425,21 @@ export class InnofulfillService {
     const carrierRows = rows.flatMap((row: any) =>
       Array.isArray(row?.carriers) ? row.carriers : row?.carrier ? [row] : [],
     )
-    const carriers = carrierRows.map((row: any) => ({
-      carrier: normalizeText(row?.carrier || row?.carrierName || row?.name),
-      serviceable: readBoolean(row?.serviceable) === true,
-      reason: normalizeText(row?.reason || row?.message || row?.remarks),
-    }))
+    const carriers = carrierRows.map((row: any) => {
+      const reason = normalizeText(row?.reason || row?.message || row?.remarks)
+      return {
+        carrier: normalizeText(row?.carrier || row?.carrierName || row?.name),
+        serviceable: readBoolean(row?.serviceable) === true && !isNonServiceableReason(reason),
+        reason,
+      }
+    })
+    const firstRow = rows.find((row: any) => row && typeof row === 'object') || {}
+    const availableModes = Array.isArray(firstRow?.availableModes) ? firstRow.availableModes : null
     const serviceable =
       carriers.length > 0
-        ? carriers.some((row: { serviceable: boolean }) => row.serviceable === true)
+        ? carriers.some((row: { serviceable: boolean }) => row.serviceable === true) &&
+          (availableModes === null || availableModes.length > 0)
         : readBoolean(payload?.serviceable ?? payload?.success) === true
-    const firstRow = rows.find((row: any) => row && typeof row === 'object') || {}
     return {
       serviceable,
       codAvailable: serviceable,
