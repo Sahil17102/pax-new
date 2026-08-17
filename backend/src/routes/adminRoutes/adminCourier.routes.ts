@@ -13,6 +13,7 @@ import {
   testInnofulfillCredentialsController,
   testInnofulfillEcommRateController,
   testInnofulfillEcommServiceabilityController,
+  testInnofulfillGetOrderController,
   testInnofulfillHyperlocalServiceabilityController,
   testInnofulfillHyperlocalRateController,
   testInnofulfillListOrdersController,
@@ -147,6 +148,12 @@ router.post(
   requireAuth,
   isAdminMiddleware,
   testInnofulfillListOrdersController,
+)
+router.post(
+  '/credentials/innofulfill/orders/get/test',
+  requireAuth,
+  isAdminMiddleware,
+  testInnofulfillGetOrderController,
 )
 router.post(
   '/credentials/innofulfill/orders/ecomm/test',

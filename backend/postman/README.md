@@ -306,6 +306,13 @@ Pickup and delivery should be same-city test addresses. This also creates a
 real provider order; **Test Create HYPERLOCAL Order Through Pax** runs it via
 the backend proxy and stores returned order identifiers when present.
 
+**Get Order Details** calls `GET /gateway/booking-service/orders/{orderId}`.
+It uses `innofulfillCreatedOrderId` from a previous create-order response, or
+falls back to `innofulfillSampleOrderId` if you set that variable manually.
+**Test Get Order Details Through Pax** returns normalized order identifiers,
+status, category, carrier, AWB, addresses, shipments, payment, taxes,
+documents, and the raw provider response.
+
 **List Orders** calls `GET /gateway/booking-service/orders` directly with
 `page`, `limit`, `sortOrder`, and optional disabled filters for order status,
 AWB, phone, payment type, dates, destination zip, and `addresses.*` fields.

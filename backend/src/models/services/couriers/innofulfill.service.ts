@@ -191,6 +191,19 @@ export type InnofulfillCreateOrderResult = {
   raw: any
 }
 
+export type InnofulfillOrderDetailsResult = InnofulfillCreateOrderResult & {
+  id: number | string | null
+  orderType: string
+  deliveryPromise: string
+  expectedDeliveryDate: string
+  addresses: any[]
+  shipments: any[]
+  payment: any
+  taxes: any[]
+  discounts: any[]
+  documents: any[]
+}
+
 const ORDER_LIST_QUERY_KEYS = [
   'page',
   'limit',
@@ -443,6 +456,23 @@ export class InnofulfillService {
       carrierName: normalizeText(data?.carrierName),
       carrierId: normalizeText(data?.carrierId),
       raw: payload,
+    }
+  }
+
+  private summarizeOrderDetails(payload: any): InnofulfillOrderDetailsResult {
+    const data = extractProviderData(payload) || {}
+    return {
+      ...this.summarizeCreateOrder(payload),
+      id: data?.id ?? null,
+      orderType: normalizeText(data?.orderType),
+      deliveryPromise: normalizeText(data?.deliveryPromise),
+      expectedDeliveryDate: normalizeText(data?.expectedDeliveryDate),
+      addresses: Array.isArray(data?.addresses) ? data.addresses : [],
+      shipments: Array.isArray(data?.shipments) ? data.shipments : [],
+      payment: data?.payment ?? null,
+      taxes: Array.isArray(data?.taxes) ? data.taxes : [],
+      discounts: Array.isArray(data?.discounts) ? data.discounts : [],
+      documents: Array.isArray(data?.documents) ? data.documents : [],
     }
   }
 
@@ -958,6 +988,24 @@ export class InnofulfillService {
       const client = await this.getClient()
       const { data } = await client.get(`/gateway/booking-service/orders/${encodeURIComponent(orderId)}`)
       return data
+    } catch (error: any) {
+      this.handleError(error, 'Innofulfill get-order request failed')
+    }
+  }
+
+  async getOrderDetails(orderId: string): Promise<InnofulfillOrderDetailsResult> {
+    const normalizedOrderId = normalizeText(orderId)
+    if (!normalizedOrderId) {
+      throw new HttpError(400, 'Innofulfill get-order request requires orderId')
+    }
+
+    try {
+      const client = await this.getClient()
+      const { data } = await client.get(
+        `/gateway/booking-service/orders/${encodeURIComponent(normalizedOrderId)}`,
+        { headers: { accept: 'application/json' } },
+      )
+      return this.summarizeOrderDetails(data)
     } catch (error: any) {
       this.handleError(error, 'Innofulfill get-order request failed')
     }
