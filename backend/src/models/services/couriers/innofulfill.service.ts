@@ -238,6 +238,19 @@ export type InnofulfillShippingLabelResult = {
   raw: any
 }
 
+export type InnofulfillInvoiceResult = {
+  orderId: string
+  type: string
+  level: string
+  contentType: string
+  contentLength: number
+  isPdf: boolean
+  isBase64: boolean
+  invoiceData: string
+  message: string
+  raw: any
+}
+
 const ORDER_LIST_QUERY_KEYS = [
   'page',
   'limit',
@@ -613,6 +626,69 @@ export class InnofulfillService {
       isPdf,
       isBase64,
       labelData,
+      message,
+      raw,
+    }
+  }
+
+  private buildInvoiceRequest(orderId: unknown, params: { type?: string; level?: string } = {}) {
+    const normalizedOrderId = normalizeText(orderId)
+    const type = normalizeText(params.type, 'domestic').toLowerCase()
+    const level = normalizeText(params.level, 'product').toLowerCase()
+
+    if (!normalizedOrderId) throw new HttpError(400, 'Innofulfill invoice download requires orderId')
+    if (!type) throw new HttpError(400, 'Innofulfill invoice type is required')
+    if (!['product', 'shipping'].includes(level)) {
+      throw new HttpError(400, 'Innofulfill invoice level must be product or shipping')
+    }
+
+    return { orderId: normalizedOrderId, type, level }
+  }
+
+  private summarizeInvoice(responseData: any, headers: any, request: { orderId: string; type: string; level: string }): InnofulfillInvoiceResult {
+    const contentType = normalizeText(headers?.['content-type'] || headers?.['Content-Type'])
+    const buffer = Buffer.isBuffer(responseData)
+      ? responseData
+      : responseData instanceof ArrayBuffer
+        ? Buffer.from(responseData)
+        : null
+    let raw: any = responseData
+    let invoiceData = ''
+    let message = ''
+    let isPdf = contentType.toLowerCase().includes('pdf')
+    let isBase64 = false
+
+    if (buffer) {
+      const text = buffer.toString('utf8').trim()
+      const looksJson = contentType.toLowerCase().includes('json') || text.startsWith('{') || text.startsWith('[')
+      if (looksJson) {
+        try {
+          raw = JSON.parse(text)
+        } catch {
+          raw = text
+        }
+      } else {
+        invoiceData = buffer.toString('base64')
+        isBase64 = true
+        isPdf = isPdf || buffer.subarray(0, 4).toString('utf8') === '%PDF'
+      }
+    }
+
+    const providerData = typeof raw === 'object' && raw !== null ? raw?.data : raw
+    if (!invoiceData && typeof providerData === 'string') {
+      invoiceData = providerData
+      isBase64 = /^[A-Za-z0-9+/=\r\n]+$/.test(providerData) && providerData.replace(/\s/g, '').length > 32
+    }
+
+    message = typeof raw === 'object' && raw !== null ? normalizeText(raw?.message) : ''
+
+    return {
+      ...request,
+      contentType,
+      contentLength: buffer ? buffer.length : invoiceData.length,
+      isPdf,
+      isBase64,
+      invoiceData,
       message,
       raw,
     }
@@ -1287,13 +1363,34 @@ export class InnofulfillService {
 
   async downloadInvoice(orderId: string, params: { type?: string; level?: string } = {}) {
     const client = await this.getClient()
-    const { data } = await client.get(`/gateway/pdf-generator/invoice/${encodeURIComponent(orderId)}`, {
+    const request = this.buildInvoiceRequest(orderId, params)
+    const { data } = await client.get(`/gateway/pdf-generator/invoice/${encodeURIComponent(request.orderId)}`, {
       params: {
-        type: params.type || 'domestic',
-        level: params.level || 'product',
+        type: request.type,
+        level: request.level,
       },
     })
     return data
+  }
+
+  async downloadInvoiceDetails(orderId: unknown, params: { type?: string; level?: string } = {}): Promise<InnofulfillInvoiceResult> {
+    const request = this.buildInvoiceRequest(orderId, params)
+    try {
+      const client = await this.getClient()
+      const { data, headers } = await client.get(
+        `/gateway/pdf-generator/invoice/${encodeURIComponent(request.orderId)}`,
+        {
+          params: {
+            type: request.type,
+            level: request.level,
+          },
+          responseType: 'arraybuffer',
+        },
+      )
+      return this.summarizeInvoice(data, headers, request)
+    } catch (error: any) {
+      this.handleError(error, 'Innofulfill invoice download failed')
+    }
   }
 
   normalizeBookingResponse(payload: any, params: any) {

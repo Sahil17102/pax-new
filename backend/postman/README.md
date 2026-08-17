@@ -339,6 +339,14 @@ data. **Test Download Shipping Label Through Pax** returns content type, byte
 length, PDF/base64 detection, label data, and raw provider payload when JSON is
 returned.
 
+**Download Invoice** calls
+`GET /gateway/pdf-generator/invoice/{orderId}?type=domestic&level=product`.
+Set `innofulfillInvoiceOrderId`, or leave it blank to fall back to the
+created/sample order ID. Use `innofulfillInvoiceLevel=product` for product/tax
+invoice or `shipping` for shipping invoice. **Test Download Invoice Through
+Pax** returns content type, byte length, PDF/base64 detection, invoice data, and
+raw provider payload when JSON is returned.
+
 **List Orders** calls `GET /gateway/booking-service/orders` directly with
 `page`, `limit`, `sortOrder`, and optional disabled filters for order status,
 AWB, phone, payment type, dates, destination zip, and `addresses.*` fields.

@@ -1183,6 +1183,35 @@ export const testInnofulfillShippingLabelController = async (req: Request, res: 
   }
 }
 
+export const testInnofulfillInvoiceController = async (req: Request, res: Response) => {
+  try {
+    const service = new InnofulfillService({
+      apiBase: req.body?.apiBase,
+      username: req.body?.username,
+      password: req.body?.password,
+      apiKey: req.body?.apiKey,
+      tenantId: req.body?.tenantId,
+      userId: req.body?.userId,
+      refreshToken: req.body?.refreshToken,
+    })
+    const result = await service.downloadInvoiceDetails(req.body?.orderId, {
+      type: req.body?.type,
+      level: req.body?.level,
+    })
+
+    res.json({
+      success: true,
+      data: result,
+    })
+  } catch (err: any) {
+    const statusCode = typeof err?.statusCode === 'number' ? err.statusCode : 500
+    res.status(statusCode).json({
+      success: false,
+      message: err?.message || 'Failed to test Innofulfill invoice download',
+    })
+  }
+}
+
 export const testInnofulfillCreateEcommOrderController = async (req: Request, res: Response) => {
   try {
     const service = new InnofulfillService({
