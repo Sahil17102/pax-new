@@ -269,6 +269,50 @@ export type InnofulfillLabelConfigListResult = {
   raw: any
 }
 
+export type InnofulfillLabelConfigSeller = {
+  id: string
+  name: string
+  tenantId: string
+}
+
+export type InnofulfillLabelConfigFields = {
+  companyLogo?: boolean
+  companyName?: boolean
+  gstNumber?: boolean
+  orderId?: boolean
+  orderDate?: boolean
+  qrurl?: boolean
+  shipFromPhone?: boolean
+  shipToMobile?: boolean
+  returnAddress?: boolean
+  productName?: boolean
+  productQty?: boolean
+  productValue?: boolean
+  subTotal?: boolean
+  labelSize?: string
+}
+
+export type InnofulfillLabelConfigPayload = {
+  name?: string
+  sellerSelection?: string
+  sellers?: InnofulfillLabelConfigSeller[]
+  fields?: InnofulfillLabelConfigFields
+}
+
+export type InnofulfillLabelConfigMutationResult = {
+  id: string
+  name: string
+  sellerSelection: string
+  sellers: any[]
+  fields: any
+  tenantId: string
+  createdAt: string
+  updatedAt: string
+  message: string
+  statusCode: number
+  raw: any
+}
+
 export type InnofulfillTrackingResult = {
   awbNumber: string
   orderId: string
@@ -448,6 +492,72 @@ export class InnofulfillService {
     if (search) query.search = search
 
     return query
+  }
+
+  private buildLabelConfigPayload(params: InnofulfillLabelConfigPayload) {
+    const name = normalizeText(params?.name)
+    if (!name) throw new HttpError(400, 'Innofulfill label configuration name is required')
+
+    const sellerSelection = normalizeText(params?.sellerSelection, 'SPECIFIC').toUpperCase()
+    if (!['SPECIFIC', 'ALL'].includes(sellerSelection)) {
+      throw new HttpError(400, 'Innofulfill label configuration sellerSelection must be SPECIFIC or ALL')
+    }
+
+    const sellers = Array.isArray(params?.sellers)
+      ? params.sellers
+          .map((seller) => ({
+            id: normalizeText(seller?.id),
+            name: normalizeText(seller?.name),
+            tenantId: normalizeText(seller?.tenantId),
+          }))
+          .filter((seller) => seller.id && seller.name && seller.tenantId)
+      : []
+
+    if (sellerSelection === 'SPECIFIC' && sellers.length === 0) {
+      throw new HttpError(400, 'Innofulfill SPECIFIC label configuration requires at least one seller')
+    }
+
+    const fields = params?.fields && typeof params.fields === 'object' ? params.fields : {}
+    const labelSize = normalizeText(fields.labelSize, '4x6')
+
+    return {
+      name,
+      sellerSelection,
+      sellers,
+      fields: {
+        companyLogo: fields.companyLogo !== false,
+        companyName: fields.companyName !== false,
+        gstNumber: fields.gstNumber === true,
+        orderId: fields.orderId !== false,
+        orderDate: fields.orderDate !== false,
+        qrurl: fields.qrurl === true,
+        shipFromPhone: fields.shipFromPhone === true,
+        shipToMobile: fields.shipToMobile !== false,
+        returnAddress: fields.returnAddress !== false,
+        productName: fields.productName !== false,
+        productQty: fields.productQty !== false,
+        productValue: fields.productValue !== false,
+        subTotal: fields.subTotal !== false,
+        labelSize,
+      },
+    }
+  }
+
+  private summarizeLabelConfigMutation(payload: any): InnofulfillLabelConfigMutationResult {
+    const data = extractProviderData(payload) || {}
+    return {
+      id: normalizeText(data?.id),
+      name: normalizeText(data?.name),
+      sellerSelection: normalizeText(data?.sellerSelection),
+      sellers: Array.isArray(data?.sellers) ? data.sellers : [],
+      fields: data?.fields && typeof data.fields === 'object' ? data.fields : {},
+      tenantId: normalizeText(data?.tenantId || data?.tenant_id),
+      createdAt: normalizeText(data?.createdAt || data?.created_at),
+      updatedAt: normalizeText(data?.updatedAt || data?.updated_at),
+      message: normalizeText(payload?.message),
+      statusCode: Number(payload?.statusCode || payload?.status_code || 0),
+      raw: payload,
+    }
   }
 
   private buildEcommOrderPayload(params: any) {
@@ -1460,6 +1570,21 @@ export class InnofulfillService {
       }
     } catch (error: any) {
       this.handleError(error, 'Innofulfill list label configurations failed')
+    }
+  }
+
+  async createLabelConfiguration(
+    payload: InnofulfillLabelConfigPayload,
+  ): Promise<InnofulfillLabelConfigMutationResult> {
+    const body = this.buildLabelConfigPayload(payload)
+    try {
+      const client = await this.getClient()
+      const { data } = await client.post('/gateway/pdf-generator/label-configs', body, {
+        headers: { accept: 'application/json' },
+      })
+      return this.summarizeLabelConfigMutation(data)
+    } catch (error: any) {
+      this.handleError(error, 'Innofulfill create label configuration failed')
     }
   }
 

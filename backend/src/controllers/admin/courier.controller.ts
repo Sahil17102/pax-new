@@ -1257,6 +1257,41 @@ export const testInnofulfillLabelConfigsController = async (req: Request, res: R
   }
 }
 
+export const testInnofulfillCreateLabelConfigController = async (req: Request, res: Response) => {
+  try {
+    const service = new InnofulfillService({
+      apiBase: req.body?.apiBase,
+      username: req.body?.username,
+      password: req.body?.password,
+      apiKey: req.body?.apiKey,
+      tenantId: req.body?.tenantId,
+      userId: req.body?.userId,
+      refreshToken: req.body?.refreshToken,
+    })
+    const labelConfig =
+      req.body?.labelConfig && typeof req.body.labelConfig === 'object'
+        ? req.body.labelConfig
+        : {
+            name: req.body?.name,
+            sellerSelection: req.body?.sellerSelection,
+            sellers: req.body?.sellers,
+            fields: req.body?.fields,
+          }
+    const result = await service.createLabelConfiguration(labelConfig)
+
+    res.status(result.statusCode === 201 ? 201 : 200).json({
+      success: true,
+      data: result,
+    })
+  } catch (err: any) {
+    const statusCode = typeof err?.statusCode === 'number' ? err.statusCode : 500
+    res.status(statusCode).json({
+      success: false,
+      message: err?.message || 'Failed to test Innofulfill create label configuration',
+    })
+  }
+}
+
 export const testInnofulfillInvoiceController = async (req: Request, res: Response) => {
   try {
     const service = new InnofulfillService({

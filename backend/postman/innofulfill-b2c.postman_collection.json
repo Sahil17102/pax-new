@@ -733,6 +733,67 @@
           }
         },
         {
+          "name": "Create Label Config (Specific Customer)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.environment.get('innofulfillLabelConfigSellerTenantId')) { pm.environment.set('innofulfillLabelConfigSellerTenantId', pm.environment.get('innofulfillTenantId') || ''); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('Provider label config create/update succeeded', function () { pm.expect([200, 201]).to.include(pm.response.code); });",
+                  "pm.test('Provider returned label config data', function () { pm.expect(body.data).to.be.an('object'); });",
+                  "if (body.data?.id) { pm.environment.set('innofulfillCreatedLabelConfigId', body.data.id); }",
+                  "if (body.data?.name) { pm.environment.set('innofulfillCreatedLabelConfigName', body.data.name); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{innofulfillIdToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "tenantid",
+                "value": "{{innofulfillTenantId}}"
+              },
+              {
+                "key": "api-key",
+                "value": "{{innofulfillApiKey}}",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{innofulfillLabelConfigName}}\",\n  \"sellerSelection\": \"SPECIFIC\",\n  \"sellers\": [\n    {\n      \"id\": \"{{innofulfillLabelConfigSellerId}}\",\n      \"name\": \"{{innofulfillLabelConfigSellerName}}\",\n      \"tenantId\": \"{{innofulfillLabelConfigSellerTenantId}}\"\n    }\n  ],\n  \"fields\": {\n    \"companyLogo\": true,\n    \"companyName\": true,\n    \"gstNumber\": false,\n    \"orderId\": true,\n    \"orderDate\": true,\n    \"qrurl\": false,\n    \"shipFromPhone\": false,\n    \"shipToMobile\": true,\n    \"returnAddress\": true,\n    \"productName\": true,\n    \"productQty\": true,\n    \"productValue\": true,\n    \"subTotal\": true,\n    \"labelSize\": \"{{innofulfillLabelConfigSize}}\"\n  }\n}"
+            },
+            "url": "{{innofulfillApiBase}}/gateway/pdf-generator/label-configs",
+            "description": "Creates or updates a real Innofulfill label configuration restricted to the configured seller. This mutates provider label-template state."
+          }
+        },
+        {
           "name": "Download Invoice",
           "event": [
             {
@@ -1587,6 +1648,52 @@
             },
             "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill/labels/configs/test",
             "description": "Calls Pax admin proxy for Innofulfill label configurations and returns normalized pagination plus raw provider payload."
+          }
+        },
+        {
+          "name": "Test Create Label Config Through Pax",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.environment.get('innofulfillLabelConfigSellerTenantId')) { pm.environment.set('innofulfillLabelConfigSellerTenantId', pm.environment.get('innofulfillTenantId') || ''); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('Proxy label config create/update succeeded', function () { pm.expect(body.success).to.eql(true); });",
+                  "pm.test('Proxy normalized label config mutation returned', function () { pm.expect(body.data).to.have.property('id'); });",
+                  "if (body.data?.id) { pm.environment.set('innofulfillCreatedLabelConfigId', body.data.id); }",
+                  "if (body.data?.name) { pm.environment.set('innofulfillCreatedLabelConfigName', body.data.name); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\",\n  \"apiKey\": \"{{innofulfillApiKey}}\",\n  \"labelConfig\": {\n    \"name\": \"{{innofulfillLabelConfigName}}\",\n    \"sellerSelection\": \"SPECIFIC\",\n    \"sellers\": [\n      {\n        \"id\": \"{{innofulfillLabelConfigSellerId}}\",\n        \"name\": \"{{innofulfillLabelConfigSellerName}}\",\n        \"tenantId\": \"{{innofulfillLabelConfigSellerTenantId}}\"\n      }\n    ],\n    \"fields\": {\n      \"companyLogo\": true,\n      \"companyName\": true,\n      \"gstNumber\": false,\n      \"orderId\": true,\n      \"orderDate\": true,\n      \"qrurl\": false,\n      \"shipFromPhone\": false,\n      \"shipToMobile\": true,\n      \"returnAddress\": true,\n      \"productName\": true,\n      \"productQty\": true,\n      \"productValue\": true,\n      \"subTotal\": true,\n      \"labelSize\": \"{{innofulfillLabelConfigSize}}\"\n    }\n  }\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill/labels/configs/create/test",
+            "description": "Calls Pax admin proxy to create/update an Innofulfill label configuration for a specific seller and returns normalized config metadata plus raw provider payload."
           }
         },
         {

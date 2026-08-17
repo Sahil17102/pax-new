@@ -11,6 +11,7 @@ import {
   testInnofulfillCancelOrdersController,
   testInnofulfillCreateEcommOrderController,
   testInnofulfillCreateHyperlocalOrderController,
+  testInnofulfillCreateLabelConfigController,
   testInnofulfillCredentialsController,
   testInnofulfillEcommRateController,
   testInnofulfillEcommServiceabilityController,
@@ -184,6 +185,12 @@ router.post(
   requireAuth,
   isAdminMiddleware,
   testInnofulfillLabelConfigsController,
+)
+router.post(
+  '/credentials/innofulfill/labels/configs/create/test',
+  requireAuth,
+  isAdminMiddleware,
+  testInnofulfillCreateLabelConfigController,
 )
 router.post(
   '/credentials/innofulfill/invoices/download/test',

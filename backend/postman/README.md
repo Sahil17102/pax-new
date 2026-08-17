@@ -347,6 +347,15 @@ the direct request. **Test List Label Configurations Through Pax** returns
 normalized `labelConfigs`, `count`, pagination fields, `traceId`, and the raw
 provider payload.
 
+**Create Label Config (Specific Customer)** calls
+`POST /gateway/pdf-generator/label-configs` with `sellerSelection=SPECIFIC`, a
+single seller from `innofulfillLabelConfigSellerId`,
+`innofulfillLabelConfigSellerName`, and `innofulfillLabelConfigSellerTenantId`,
+plus the documented label field toggles. This creates or updates real provider
+label-template state. **Test Create Label Config Through Pax** calls the backend
+proxy and stores `innofulfillCreatedLabelConfigId` and
+`innofulfillCreatedLabelConfigName` when returned.
+
 **Download Invoice** calls
 `GET /gateway/pdf-generator/invoice/{orderId}?type=domestic&level=product`.
 Set `innofulfillInvoiceOrderId`, or leave it blank to fall back to the
