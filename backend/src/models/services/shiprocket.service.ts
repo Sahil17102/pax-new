@@ -4394,15 +4394,9 @@ export const fetchAvailableCouriersWithRates = async (
           })
         } catch (err: any) {
           const liveServiceabilityError = err?.response?.data || err?.message || err
-          const logFn = localRateProviders.has('innofulfill')
-            ? console.warn.bind(console)
-            : console.error.bind(console)
-          logFn('[Serviceability] Innofulfill live serviceability unavailable', {
+          console.error('[Serviceability] Innofulfill live serviceability unavailable', {
             message: liveServiceabilityError,
-            fallback:
-              localRateProviders.has('innofulfill') && effectiveShipmentType === 'b2c'
-                ? 'local_rate_card'
-                : null,
+            fallback: null,
           })
         }
       }
@@ -4636,6 +4630,7 @@ export const fetchAvailableCouriersWithRates = async (
         if (serviceableProviders.has(providerKey) || !bucket.rows.length) continue
         if (!localRateProviders.has(providerKey)) continue
         if (providerKey === AMAZON_PROVIDER_KEY) continue
+        if (providerKey === 'innofulfill') continue
         if (providerKey === 'xpressbees' && !xpressbeesCredentialsReady) continue
 
         // If Shadowfax definitively rejects the lane, do not expose a local
