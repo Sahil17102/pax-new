@@ -20,6 +20,7 @@ import {
   testInnofulfillListOrdersController,
   testInnofulfillManifestOrdersController,
   testInnofulfillRefreshTokenController,
+  testInnofulfillShippingLabelController,
   testXpressbeesCredentialsController,
   updateAmazonCredentialsController,
   updateDelhiveryCredentialsController,
@@ -168,6 +169,12 @@ router.post(
   requireAuth,
   isAdminMiddleware,
   testInnofulfillCancelOrdersController,
+)
+router.post(
+  '/credentials/innofulfill/labels/shipping/test',
+  requireAuth,
+  isAdminMiddleware,
+  testInnofulfillShippingLabelController,
 )
 router.post(
   '/credentials/innofulfill/orders/ecomm/test',

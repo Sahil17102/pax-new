@@ -331,6 +331,14 @@ order ID. This cancels real provider orders. **Test Cancel Orders Through Pax**
 returns normalized `cancelledCount`, cancelled `orderIds`, `traceId`, and raw
 provider data.
 
+**Download Shipping Label** calls
+`POST /gateway/pdf-generator/shipping-label` with `orderId`, `tenantId`, and
+`userId`. Set `innofulfillLabelOrderId`, or leave it blank to fall back to the
+created/sample order ID. The provider may return binary PDF bytes or base64
+data. **Test Download Shipping Label Through Pax** returns content type, byte
+length, PDF/base64 detection, label data, and raw provider payload when JSON is
+returned.
+
 **List Orders** calls `GET /gateway/booking-service/orders` directly with
 `page`, `limit`, `sortOrder`, and optional disabled filters for order status,
 AWB, phone, payment type, dates, destination zip, and `addresses.*` fields.

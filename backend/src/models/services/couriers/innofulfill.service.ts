@@ -225,6 +225,19 @@ export type InnofulfillCancelOrdersResult = {
   raw: any
 }
 
+export type InnofulfillShippingLabelResult = {
+  orderId: string
+  tenantId: string
+  userId: string
+  contentType: string
+  contentLength: number
+  isPdf: boolean
+  isBase64: boolean
+  labelData: string
+  message: string
+  raw: any
+}
+
 const ORDER_LIST_QUERY_KEYS = [
   'page',
   'limit',
@@ -542,6 +555,67 @@ export class InnofulfillService {
     }
 
     return normalized
+  }
+
+  private buildShippingLabelPayload(payload: { orderId?: string; tenantId?: string; userId?: string }, config?: InnofulfillConfig | null) {
+    const orderId = normalizeText(payload?.orderId)
+    const tenantId = normalizeText(payload?.tenantId || config?.tenantId)
+    const userId = normalizeText(payload?.userId || config?.userId)
+
+    if (!orderId) throw new HttpError(400, 'Innofulfill shipping label requires orderId')
+    if (!tenantId) throw new HttpError(400, 'Innofulfill shipping label requires tenantId')
+    if (!userId) throw new HttpError(400, 'Innofulfill shipping label requires userId')
+
+    return { orderId, tenantId, userId }
+  }
+
+  private summarizeShippingLabel(responseData: any, headers: any, requestBody: { orderId: string; tenantId: string; userId: string }): InnofulfillShippingLabelResult {
+    const contentType = normalizeText(headers?.['content-type'] || headers?.['Content-Type'])
+    const buffer = Buffer.isBuffer(responseData)
+      ? responseData
+      : responseData instanceof ArrayBuffer
+        ? Buffer.from(responseData)
+        : null
+    let raw: any = responseData
+    let labelData = ''
+    let message = ''
+    let isPdf = contentType.toLowerCase().includes('pdf')
+    let isBase64 = false
+
+    if (buffer) {
+      const text = buffer.toString('utf8').trim()
+      const looksJson = contentType.toLowerCase().includes('json') || text.startsWith('{') || text.startsWith('[')
+      if (looksJson) {
+        try {
+          raw = JSON.parse(text)
+        } catch {
+          raw = text
+        }
+      } else {
+        labelData = buffer.toString('base64')
+        isBase64 = true
+        isPdf = isPdf || buffer.subarray(0, 4).toString('utf8') === '%PDF'
+      }
+    }
+
+    const providerData = typeof raw === 'object' && raw !== null ? raw?.data : raw
+    if (!labelData && typeof providerData === 'string') {
+      labelData = providerData
+      isBase64 = /^[A-Za-z0-9+/=\r\n]+$/.test(providerData) && providerData.replace(/\s/g, '').length > 32
+    }
+
+    message = typeof raw === 'object' && raw !== null ? normalizeText(raw?.message) : ''
+
+    return {
+      ...requestBody,
+      contentType,
+      contentLength: buffer ? buffer.length : labelData.length,
+      isPdf,
+      isBase64,
+      labelData,
+      message,
+      raw,
+    }
   }
 
   private async persistAuthTokens(payload: any) {
@@ -1192,12 +1266,23 @@ export class InnofulfillService {
   async downloadShippingLabel(payload: { orderId: string; tenantId?: string; userId?: string }) {
     const config = await this.getConfig()
     const client = await this.getClient()
-    const { data } = await client.post('/gateway/pdf-generator/shipping-label', {
-      orderId: payload.orderId,
-      tenantId: payload.tenantId || config?.tenantId,
-      userId: payload.userId || config?.userId,
-    })
+    const body = this.buildShippingLabelPayload(payload, config)
+    const { data } = await client.post('/gateway/pdf-generator/shipping-label', body)
     return data
+  }
+
+  async downloadShippingLabelDetails(payload: { orderId?: string; tenantId?: string; userId?: string }): Promise<InnofulfillShippingLabelResult> {
+    const config = await this.getConfig()
+    const body = this.buildShippingLabelPayload(payload, config)
+    try {
+      const client = await this.getClient()
+      const { data, headers } = await client.post('/gateway/pdf-generator/shipping-label', body, {
+        responseType: 'arraybuffer',
+      })
+      return this.summarizeShippingLabel(data, headers, body)
+    } catch (error: any) {
+      this.handleError(error, 'Innofulfill shipping label download failed')
+    }
   }
 
   async downloadInvoice(orderId: string, params: { type?: string; level?: string } = {}) {
