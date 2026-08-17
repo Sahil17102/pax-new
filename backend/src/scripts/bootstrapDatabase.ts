@@ -89,7 +89,24 @@ const b2cCourierSetupExists = async () => {
             and sr.business_type = 'b2c'
             and lower(coalesce(sr.service_provider, '')) = 'innofulfill'
             and sr.type = 'forward'
-        ) as has_innofulfill_rate
+        ) as has_innofulfill_rate,
+        (
+          select count(distinct lower(trim(code)))
+          from shiplifi_zones
+          where upper(business_type) = 'B2C'
+            and lower(trim(code)) in ('local', 'withinzone', 'metro', 'roi', 'nejk')
+        ) as innofulfill_zone_count,
+        (
+          select count(distinct lower(trim(z.code)))
+          from shipping_rates sr
+          join plans p on p.id = sr.plan_id
+          join shiplifi_zones z on z.id = sr.zone_id
+          where lower(p.name) = 'basic'
+            and sr.business_type = 'b2c'
+            and lower(coalesce(sr.service_provider, '')) = 'innofulfill'
+            and sr.type = 'forward'
+            and lower(trim(z.code)) in ('local', 'withinzone', 'metro', 'roi', 'nejk')
+        ) as innofulfill_rate_zone_count
     `)
 
     const state = result.rows[0]
@@ -98,7 +115,9 @@ const b2cCourierSetupExists = async () => {
         state?.has_innofulfill_courier &&
         state?.has_zone &&
         state?.has_rate &&
-        state?.has_innofulfill_rate,
+        state?.has_innofulfill_rate &&
+        Number(state?.innofulfill_zone_count ?? 0) >= 5 &&
+        Number(state?.innofulfill_rate_zone_count ?? 0) >= 5,
     )
   } finally {
     await pool.end()

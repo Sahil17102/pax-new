@@ -21,6 +21,21 @@ const EXTRA_WEIGHT_UNIT_KG = 1
 const FIRST_SLAB_TO_KG = 0.5
 const LOCAL_FALLBACK_DATABASE_URL = 'postgres://postgres@127.0.0.1:5432/meracourier'
 
+const INNOFULFILL_ECOMM_FORWARD_RATES: Record<string, number[]> = {
+  local: [0, 0, 0, 0],
+  withinZone: [32, 55, 113, 48],
+  metro: [48, 89, 145, 53],
+  roi: [54, 99, 163, 63],
+  neJk: [73, 131, 223, 68],
+}
+
+const INNOFULFILL_ECOMM_SLABS = [
+  { weight_from: 0, weight_to: 0.5 },
+  { weight_from: 0.5, weight_to: 1 },
+  { weight_from: 1, weight_to: 2 },
+  { weight_from: 2, weight_to: null },
+]
+
 type Provider = (typeof TARGET_PROVIDERS)[number]
 
 type CourierSeed = {
@@ -34,6 +49,14 @@ type ZoneRow = {
   id: string
   code: string
   name: string
+}
+
+type RateSlabSeed = {
+  weight_from: number
+  weight_to: number | null
+  rate: number
+  extra_rate: number | null
+  extra_weight_unit: number | null
 }
 
 type CourierRow = {
@@ -218,6 +241,36 @@ const ensureBasicPlan = async (client: PoolClient) => {
 
 const ensureB2CZones = async (client: PoolClient, zonesTable: string): Promise<ZoneRow[]> => {
   const seeds = [
+    {
+      code: 'local',
+      name: 'local',
+      description: 'Innofulfill ECOMM local/same-city B2C lane.',
+      region: 'local',
+    },
+    {
+      code: 'withinZone',
+      name: 'withinZone',
+      description: 'Innofulfill ECOMM within-zone B2C lane.',
+      region: 'withinZone',
+    },
+    {
+      code: 'metro',
+      name: 'metro',
+      description: 'Innofulfill ECOMM metro B2C lane.',
+      region: 'metro',
+    },
+    {
+      code: 'roi',
+      name: 'roi',
+      description: 'Innofulfill ECOMM rest-of-India B2C lane.',
+      region: 'roi',
+    },
+    {
+      code: 'neJk',
+      name: 'neJk',
+      description: 'Innofulfill ECOMM north-east and Jammu/Kashmir B2C lane.',
+      region: 'neJk',
+    },
     {
       code: 'METRO_TO_METRO',
       name: 'Metro to Metro',
@@ -419,6 +472,40 @@ const deleteDuplicateRates = async (client: PoolClient, ids: string[]) => {
   await client.query(`delete from shipping_rates where id = any($1::uuid[])`, [ids])
 }
 
+const buildDefaultRateSlabs = (): RateSlabSeed[] => [
+  {
+    weight_from: 0,
+    weight_to: FIRST_SLAB_TO_KG,
+    rate: RATE,
+    extra_rate: EXTRA_RATE,
+    extra_weight_unit: EXTRA_WEIGHT_UNIT_KG,
+  },
+]
+
+const buildInnofulfillRateSlabs = (zoneCode: string): RateSlabSeed[] => {
+  const rates = INNOFULFILL_ECOMM_FORWARD_RATES[zoneCode]
+  if (!rates) return buildDefaultRateSlabs()
+
+  return INNOFULFILL_ECOMM_SLABS.map((slab, index) => ({
+    ...slab,
+    rate: rates[index] ?? 0,
+    extra_rate: slab.weight_to === null ? 1 : null,
+    extra_weight_unit: slab.weight_to === null ? EXTRA_WEIGHT_UNIT_KG : null,
+  }))
+}
+
+const getRateSeed = (courier: CourierRow, zone: ZoneRow) => {
+  const isInnofulfill = courier.serviceProvider === 'innofulfill'
+  const slabs = isInnofulfill ? buildInnofulfillRateSlabs(zone.code) : buildDefaultRateSlabs()
+  const baseRate = slabs[0]?.rate ?? RATE
+
+  return {
+    baseRate,
+    slabs,
+    overwriteExisting: isInnofulfill,
+  }
+}
+
 const upsertRate = async (
   client: PoolClient,
   params: {
@@ -453,6 +540,7 @@ const upsertRate = async (
   const duplicateIds = existing.rows.slice(1).map((row) => row.id as string)
   await deleteDuplicateRates(client, duplicateIds)
 
+  const rateSeed = getRateSeed(params.courier, params.zone)
   const codCharges = COD_CHARGES
   const codPercent = COD_PERCENT
 
@@ -460,10 +548,10 @@ const upsertRate = async (
     await client.query(
       `update shipping_rates set
         service_provider = $1,
-        cod_charges = coalesce(cod_charges, $2),
-        cod_percent = coalesce(cod_percent, $3),
+        cod_charges = case when $9 then $2 else coalesce(cod_charges, $2) end,
+        cod_percent = case when $9 then $3 else coalesce(cod_percent, $3) end,
         other_charges = coalesce(other_charges, 0),
-        rate = case when rate <= 0 then $4 else rate end,
+        rate = case when $9 then $4 when rate <= 0 then $4 else rate end,
         last_updated = now(),
         courier_name = $5,
         mode = $6,
@@ -473,11 +561,12 @@ const upsertRate = async (
         params.courier.serviceProvider,
         codCharges,
         codPercent,
-        RATE,
+        rateSeed.baseRate,
         params.courier.name,
         params.courier.mode,
         FIRST_SLAB_TO_KG,
         rateId,
+        rateSeed.overwriteExisting,
       ],
     )
   } else {
@@ -492,7 +581,7 @@ const upsertRate = async (
         params.courier.serviceProvider,
         codCharges,
         codPercent,
-        RATE,
+        rateSeed.baseRate,
         params.courier.id,
         params.courier.name,
         params.courier.mode,
@@ -503,17 +592,31 @@ const upsertRate = async (
     )
   }
 
+  if (rateSeed.overwriteExisting) {
+    await client.query(`delete from shipping_rate_slabs where shipping_rate_id = $1`, [rateId])
+  }
+
   const slabCount = await client.query(
     `select count(*)::int as count from shipping_rate_slabs where shipping_rate_id = $1`,
     [rateId],
   )
   if (!Number(slabCount.rows[0]?.count || 0)) {
-    await client.query(
-      `insert into shipping_rate_slabs
-        (id, shipping_rate_id, weight_from, weight_to, rate, extra_rate, extra_weight_unit, created_at, updated_at)
-       values ($1, $2, 0, $3, $4, $5, $6, now(), now())`,
-      [randomUUID(), rateId, FIRST_SLAB_TO_KG, RATE, EXTRA_RATE, EXTRA_WEIGHT_UNIT_KG],
-    )
+    for (const slab of rateSeed.slabs) {
+      await client.query(
+        `insert into shipping_rate_slabs
+          (id, shipping_rate_id, weight_from, weight_to, rate, extra_rate, extra_weight_unit, created_at, updated_at)
+         values ($1, $2, $3, $4, $5, $6, $7, now(), now())`,
+        [
+          randomUUID(),
+          rateId,
+          slab.weight_from,
+          slab.weight_to,
+          slab.rate,
+          slab.extra_rate,
+          slab.extra_weight_unit,
+        ],
+      )
+    }
   }
 
   return rateId
