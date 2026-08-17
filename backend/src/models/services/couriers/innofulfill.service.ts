@@ -279,6 +279,8 @@ export type InnofulfillInvoiceConfigFields = {
   pickupMobile?: boolean
   deliveryAddress?: boolean
   deliveryMobile?: boolean
+  billingAddress?: boolean
+  shippingAddress?: boolean
   orderId?: boolean
   orderDate?: boolean
   placeOfSupply?: boolean
@@ -618,26 +620,39 @@ export class InnofulfillService {
     }
 
     const fields = params?.fields && typeof params.fields === 'object' ? params.fields : {}
+    const normalizedFields =
+      invoiceLevel === 'product level'
+        ? {
+            companyLogo: fields.companyLogo !== false,
+            pickupAddress: fields.pickupAddress !== false,
+            billingAddress: fields.billingAddress !== false,
+            shippingAddress: fields.shippingAddress !== false,
+            orderId: fields.orderId !== false,
+            orderDate: fields.orderDate !== false,
+            placeOfSupply: fields.placeOfSupply !== false,
+            placeOfDelivery: fields.placeOfDelivery !== false,
+          }
+        : {
+            companyLogo: fields.companyLogo !== false,
+            gstNumber: fields.gstNumber !== false,
+            providerEmail: fields.providerEmail !== false,
+            providerPhone: fields.providerPhone !== false,
+            pickupAddress: fields.pickupAddress !== false,
+            pickupMobile: fields.pickupMobile !== false,
+            deliveryAddress: fields.deliveryAddress !== false,
+            deliveryMobile: fields.deliveryMobile !== false,
+            orderId: fields.orderId !== false,
+            orderDate: fields.orderDate !== false,
+            placeOfSupply: fields.placeOfSupply !== false,
+            placeOfDelivery: fields.placeOfDelivery !== false,
+            travelBy: fields.travelBy !== false,
+          }
 
     return {
       name,
       sellerSelection,
       sellers: sellerSelection === 'ALL' ? [] : sellers,
-      fields: {
-        companyLogo: fields.companyLogo !== false,
-        gstNumber: fields.gstNumber !== false,
-        providerEmail: fields.providerEmail !== false,
-        providerPhone: fields.providerPhone !== false,
-        pickupAddress: fields.pickupAddress !== false,
-        pickupMobile: fields.pickupMobile !== false,
-        deliveryAddress: fields.deliveryAddress !== false,
-        deliveryMobile: fields.deliveryMobile !== false,
-        orderId: fields.orderId !== false,
-        orderDate: fields.orderDate !== false,
-        placeOfSupply: fields.placeOfSupply !== false,
-        placeOfDelivery: fields.placeOfDelivery !== false,
-        travelBy: fields.travelBy !== false,
-      },
+      fields: normalizedFields,
       invoiceLevel,
     }
   }

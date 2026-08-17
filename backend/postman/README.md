@@ -385,6 +385,12 @@ all shipping-summary fields enabled, and `invoiceLevel=shipping level`. Use
 Create All-Customer Shipping Invoice Config Through Pax** stores the returned
 all-customer invoice config ID/name separately.
 
+**Create Invoice Config (Product Level - Specific Customer)** uses
+`sellerSelection=SPECIFIC`, one seller, the product-level fields
+`pickupAddress`, `billingAddress`, `shippingAddress`, order details, and
+place-of-supply/delivery toggles, plus `invoiceLevel=product level`. Use the
+`innofulfillProductInvoiceConfig*` variables for this itemized invoice template.
+
 **Download Invoice** calls
 `GET /gateway/pdf-generator/invoice/{orderId}?type=domestic&level=product`.
 Set `innofulfillInvoiceOrderId`, or leave it blank to fall back to the
