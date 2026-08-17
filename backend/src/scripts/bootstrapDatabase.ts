@@ -63,6 +63,12 @@ const b2cCourierSetupExists = async () => {
             and business_type @> '["b2c"]'::jsonb
         ) as has_courier,
         exists (
+          select 1 from couriers
+          where lower("serviceProvider") = 'innofulfill'
+            and "isEnabled" = true
+            and business_type @> '["b2c"]'::jsonb
+        ) as has_innofulfill_courier,
+        exists (
           select 1 from shiplifi_zones
           where upper(business_type) = 'B2C'
         ) as has_zone,
@@ -74,11 +80,26 @@ const b2cCourierSetupExists = async () => {
             and sr.business_type = 'b2c'
             and lower(coalesce(sr.service_provider, '')) = 'delhivery'
             and sr.type = 'forward'
-        ) as has_rate
+        ) as has_rate,
+        exists (
+          select 1
+          from shipping_rates sr
+          join plans p on p.id = sr.plan_id
+          where lower(p.name) = 'basic'
+            and sr.business_type = 'b2c'
+            and lower(coalesce(sr.service_provider, '')) = 'innofulfill'
+            and sr.type = 'forward'
+        ) as has_innofulfill_rate
     `)
 
     const state = result.rows[0]
-    return Boolean(state?.has_courier && state?.has_zone && state?.has_rate)
+    return Boolean(
+      state?.has_courier &&
+        state?.has_innofulfill_courier &&
+        state?.has_zone &&
+        state?.has_rate &&
+        state?.has_innofulfill_rate,
+    )
   } finally {
     await pool.end()
   }

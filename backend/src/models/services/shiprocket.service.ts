@@ -3482,7 +3482,14 @@ export const fetchAvailableCouriersWithRates = async (
 
     // Build registry of enabled couriers by service provider
     // Filter by business type: check if business_type JSONB array contains 'b2c'
-    const SUPPORTED_PROVIDERS = ['delhivery', 'ekart', 'xpressbees', 'shadowfax', 'amazon']
+    const SUPPORTED_PROVIDERS = [
+      'delhivery',
+      'ekart',
+      'xpressbees',
+      'shadowfax',
+      'amazon',
+      'innofulfill',
+    ]
     const allSystemCourierRows = await db
       .select({
         id: couriers.id,
@@ -3862,6 +3869,9 @@ export const fetchAvailableCouriersWithRates = async (
       if (courierName.includes('ekart')) return 'ekart'
       if (courierName.includes('shadowfax')) return 'shadowfax'
       if (courierName.includes('xpress')) return 'xpressbees'
+      if (courierName.includes('innofulfill') || courierName.includes('innofulfil')) {
+        return 'innofulfill'
+      }
       return ''
     }
 
@@ -4619,6 +4629,7 @@ export const fetchAvailableCouriersWithRates = async (
       xpressbees: 'Xpressbees',
       shadowfax: 'Shadowfax',
       amazon: 'Amazon Shipping',
+      innofulfill: 'Innofulfill',
     }
 
     const fallbackProviderDetails: Array<{

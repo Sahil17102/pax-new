@@ -4,7 +4,14 @@ import * as path from 'path'
 import { Pool, PoolClient } from 'pg'
 import forwardRateCardData from './forwardRateCardData.json'
 
-const TARGET_PROVIDERS = ['delhivery', 'ekart', 'xpressbees', 'amazon', 'shadowfax'] as const
+const TARGET_PROVIDERS = [
+  'delhivery',
+  'ekart',
+  'xpressbees',
+  'amazon',
+  'shadowfax',
+  'innofulfill',
+] as const
 const BASIC_PLAN_NAME = 'Basic'
 const RATE = 10
 const COD_CHARGES = 10
@@ -55,6 +62,12 @@ const REQUIRED_COURIER_SEEDS: CourierSeed[] = [
     serviceProvider: 'xpressbees',
     mode: 'surface',
   },
+  {
+    id: 601,
+    name: 'Innofulfill ECOMM',
+    serviceProvider: 'innofulfill',
+    mode: 'surface',
+  },
 ]
 const REQUIRED_COURIER_SEED_KEYS = new Set(
   REQUIRED_COURIER_SEEDS.map((seed) => `${seed.serviceProvider}:${seed.id}`),
@@ -72,6 +85,7 @@ const normalizeProvider = (value: unknown): Provider | null => {
   if (raw === 'xpressbees') return 'xpressbees'
   if (raw === 'amazon') return 'amazon'
   if (raw === 'shadowfax') return 'shadowfax'
+  if (raw === 'innofulfill' || raw === 'innofulfil') return 'innofulfill'
   return null
 }
 
@@ -82,6 +96,7 @@ const providerFromCourierName = (name: string): Provider | null => {
   if (lower.includes('xpressbees')) return 'xpressbees'
   if (lower.includes('amazon')) return 'amazon'
   if (lower.includes('shadowfax')) return 'shadowfax'
+  if (lower.includes('innofulfill') || lower.includes('innofulfil')) return 'innofulfill'
   return null
 }
 
@@ -525,7 +540,7 @@ async function main() {
     const couriers = await loadTargetCouriers(client)
 
     if (!couriers.length) {
-      throw new Error('No target couriers found or seeded for the five B2C providers')
+      throw new Error('No target couriers found or seeded for the supported B2C providers')
     }
 
     let savedRates = 0
