@@ -220,6 +220,7 @@ const getProviderKey = (courier: Partial<ReverseCourierOption>) => {
   if (normalized.includes('shadowfax')) return 'shadowfax'
   if (normalized.includes('xpress')) return 'xpressbees'
   if (normalized.includes('ekart')) return 'ekart'
+  if (normalized.includes('innofulfill') || normalized.includes('innofulfil')) return 'innofulfill'
   if (normalized.includes('delhivery')) return 'delhivery'
   return normalized
 }
@@ -629,7 +630,12 @@ export default function ReversePickupForm({
       prepaid_amount: 0,
       is_rto_different: 'no' as const,
       discount: 0,
-      integration_type: providerKey as 'delhivery' | 'ekart' | 'shadowfax' | 'xpressbees',
+      integration_type: providerKey as
+        | 'delhivery'
+        | 'ekart'
+        | 'shadowfax'
+        | 'xpressbees'
+        | 'innofulfill',
       transaction_fee: 0,
       gift_wrap: 0,
       courier_id: Number(selectedCourier.id),
@@ -1419,10 +1425,7 @@ export default function ReversePickupForm({
                   }
                 >
                   <MenuItem value="">Best available</MenuItem>
-                  <MenuItem value="delhivery">Delhivery</MenuItem>
-                  <MenuItem value="shadowfax">Shadowfax</MenuItem>
-                  <MenuItem value="xpressbees">Xpressbees</MenuItem>
-                  <MenuItem value="ekart">Ekart</MenuItem>
+                  <MenuItem value="innofulfill">Innofulfill</MenuItem>
                 </TextField>
               </Grid>
               <Grid size={{ xs: 12, md: 8 }}>

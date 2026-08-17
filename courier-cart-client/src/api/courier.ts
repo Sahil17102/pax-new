@@ -49,9 +49,9 @@ export interface CourierSummary {
   updatedAt?: string
 }
 
-const isAmazonCourierEntry = (entry: any) => {
+const isInnofulfillCourierEntry = (entry: any) => {
   if (typeof entry === 'string') {
-    return entry.trim().toLowerCase().includes('amazon')
+    return entry.trim().toLowerCase().includes('innofulfill')
   }
 
   const tokens = [
@@ -68,12 +68,15 @@ const isAmazonCourierEntry = (entry: any) => {
     entry?.label,
   ]
 
-  return tokens.some((value) => String(value || '').trim().toLowerCase().includes('amazon'))
+  return tokens.some((value) => {
+    const normalized = String(value || '').trim().toLowerCase()
+    return normalized.includes('innofulfill') || normalized.includes('innofulfil')
+  })
 }
 
-const filterAmazonCouriers = <T,>(items: T[] | undefined | null): T[] => {
+const filterVisibleCouriers = <T,>(items: T[] | undefined | null): T[] => {
   if (!Array.isArray(items)) return []
-  return items.filter((item) => !isAmazonCourierEntry(item))
+  return items.filter((item) => isInnofulfillCourierEntry(item))
 }
 
 // src/api/courier.ts
@@ -115,7 +118,7 @@ export const getCouriers = async ({
 
   const res = await axiosInstance.get<{ status: string; data: CourierListResponse }>(url)
   const payload = res.data.data
-  const filteredCouriers = filterAmazonCouriers(payload?.couriers)
+  const filteredCouriers = filterVisibleCouriers(payload?.couriers)
   const removedCount = Math.max((payload?.couriers?.length ?? 0) - filteredCouriers.length, 0)
 
   return {
@@ -178,7 +181,7 @@ export const fetchAvailableCouriers = async (params: any): Promise<any[]> => {
         throw new Error(res.data.error || 'Failed to fetch couriers')
       }
 
-      return Array.isArray(res.data.data) ? res.data.data : []
+      return filterVisibleCouriers(res.data.data)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error('fetchAvailableCouriers error:', error.response?.data || error.message)
@@ -201,7 +204,7 @@ interface ShippingRatesFilters {
   // add more fields if needed
 }
 
-export const fetchShippingRates = async (filters: ShippingRatesFilters = {}) => {
+export const fetchShippingRates = async (filters: ShippingRatesFilters = {}): Promise<any[]> => {
   const params: Record<string, string | number> = {}
 
   if (filters.courier) params.courier_name = filters.courier
@@ -210,19 +213,19 @@ export const fetchShippingRates = async (filters: ShippingRatesFilters = {}) => 
   if (filters.businessType) params.businessType = filters.businessType
 
   const response = await axiosInstance.get('/couriers/shipping-rates', { params })
-  return response.data.data
+  return filterVisibleCouriers(response.data.data)
 }
 
 export const fetchAllCouriers = async () => {
   const res = await axiosInstance.get(`/couriers/list`)
   if (!res.data?.success) throw new Error('Failed to fetch couriers')
-  return filterAmazonCouriers(res.data.data) // returns an array of courier names
+  return filterVisibleCouriers(res.data.data) // returns an array of courier names
 }
 
 export const fetchCouriersWithDetails = async () => {
   const res = await axiosInstance.get(`/couriers/full-list`)
   if (!res.data?.success) throw new Error('Failed to fetch couriers')
-  return filterAmazonCouriers(res.data.data) // returns an array of courier names
+  return filterVisibleCouriers(res.data.data) // returns an array of courier names
 }
 export const getZones = async () => {
   const res = await axiosInstance.get('/admin/zones')

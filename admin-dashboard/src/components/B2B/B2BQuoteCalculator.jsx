@@ -207,8 +207,7 @@ const B2BQuoteCalculator = ({ planId }) => {
                 value={formData.serviceProvider}
                 onChange={(e) => setFormData({ ...formData, serviceProvider: e.target.value })}
               >
-                <option value="delhivery">Delhivery</option>
-                <option value="ekart">Ekart</option>
+                <option value="innofulfill">Innofulfill</option>
               </Select>
             </FormControl>
 

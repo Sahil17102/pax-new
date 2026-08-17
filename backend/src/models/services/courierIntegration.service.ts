@@ -47,7 +47,7 @@ export interface CourierFilters {
 }
 
 export const buildCourierWhereClause = (filters: CourierFilters = {}) => {
-  const conditions = []
+  const conditions = [eq(couriers.serviceProvider, 'innofulfill')]
 
   if (filters.name) {
     conditions.push(ilike(couriers.name, `%${filters.name}%`))
@@ -107,7 +107,10 @@ export const getCourierCount = async (filters: CourierFilters = {}) => {
 // 🔍 Get Courier by ID
 // =========================
 export const getCourierById = async (id: number) => {
-  const [courier] = await db.select().from(couriers).where(eq(couriers.id, id))
+  const [courier] = await db
+    .select()
+    .from(couriers)
+    .where(and(eq(couriers.id, id), eq(couriers.serviceProvider, 'innofulfill')))
 
   return courier
 }
@@ -122,7 +125,7 @@ export const getCourierSummary = async () => {
 }
 
 export const getShippingRates = async (filters: ShippingRateFilters = {}) => {
-  const conditions: any[] = []
+  const conditions: any[] = [eq(sql`LOWER(${shippingRates.service_provider})`, 'innofulfill')]
   const normalizedModeFilter = normalizeB2CShippingMode(filters.mode)
 
   if (filters.courier_name?.length) {
@@ -797,7 +800,7 @@ export const createCourier = async (data: {
   if (!data?.serviceProvider) throw new Error('Service provider is required')
   
   // Validate service provider is one of the allowed providers
-  const allowedProviders = ['delhivery', 'ekart', 'xpressbees', 'shadowfax', 'amazon', 'innofulfill']
+  const allowedProviders = ['innofulfill']
   const normalizedProvider = (data.serviceProvider || '').toLowerCase().trim()
   if (!allowedProviders.includes(normalizedProvider)) {
     throw new Error(

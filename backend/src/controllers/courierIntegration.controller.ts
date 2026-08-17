@@ -149,13 +149,7 @@ const buildServiceabilityOptions = (body: any): Record<string, any> => {
   return options
 }
 
-const SUPPORTED_B2C_FALLBACK_PROVIDERS = [
-  'delhivery',
-  'ekart',
-  'xpressbees',
-  'shadowfax',
-  'amazon',
-]
+const SUPPORTED_B2C_FALLBACK_PROVIDERS = ['innofulfill']
 
 const toNumber = (value: unknown, fallback = 0) => {
   const parsed = Number(value)
@@ -263,6 +257,7 @@ const inferB2CFallbackProvider = (rate: typeof shippingRates.$inferSelect) => {
   if (name.includes('xpress')) return 'xpressbees'
   if (name.includes('shadowfax')) return 'shadowfax'
   if (name.includes('amazon')) return 'amazon'
+  if (name.includes('innofulfill') || name.includes('innofulfil')) return 'innofulfill'
   return ''
 }
 

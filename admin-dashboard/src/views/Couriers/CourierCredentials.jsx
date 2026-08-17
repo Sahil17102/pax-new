@@ -29,6 +29,8 @@ import {
   useUpdateXpressbeesCredentials,
 } from 'hooks/useCouriers'
 
+const SHOW_LEGACY_COURIER_CREDENTIALS = false
+
 const CourierCredentials = () => {
   const toast = useToast()
   const { data, isLoading, error } = useCourierCredentials()
@@ -494,7 +496,9 @@ const CourierCredentials = () => {
       </Text>
 
       <Flex gap={4} flexWrap="wrap">
-        <Box
+        {SHOW_LEGACY_COURIER_CREDENTIALS && (
+          <>
+            <Box
           borderWidth="1px"
           borderRadius="lg"
           p={5}
@@ -847,14 +851,14 @@ const CourierCredentials = () => {
           </VStack>
         </Box>
 
-        <Box
+            <Box
           borderWidth="1px"
           borderRadius="lg"
           p={5}
           minW="320px"
           flex="1"
           maxW="520px"
-        >
+            >
           <VStack spacing={4} align="stretch">
             <Flex justify="space-between" align="center">
               <Text fontWeight="semibold">Xpressbees</Text>
@@ -964,6 +968,9 @@ const CourierCredentials = () => {
             </Flex>
           </VStack>
         </Box>
+
+          </>
+        )}
 
         <Box
           borderWidth="1px"

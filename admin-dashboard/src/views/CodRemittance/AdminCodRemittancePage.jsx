@@ -104,7 +104,7 @@ export default function AdminCodRemittancePage() {
 
   // CSV Upload States
   const [csvFile, setCsvFile] = useState(null)
-  const [courierPartner, setCourierPartner] = useState('delhivery')
+  const [courierPartner, setCourierPartner] = useState('innofulfill')
   const [csvPreviewData, setCsvPreviewData] = useState(null)
   const [selectedForCredit, setSelectedForCredit] = useState([])
   const [utrNumber, setUtrNumber] = useState('')
@@ -1234,9 +1234,7 @@ export default function AdminCodRemittancePage() {
                   Courier Partner
                 </FormLabel>
                 <Select value={courierPartner} onChange={(e) => setCourierPartner(e.target.value)}>
-                  <option value="delhivery">Delhivery</option>
-                  <option value="ekart">Ekart</option>
-                  <option value="xpressbees">Xpressbees</option>
+                  <option value="innofulfill">Innofulfill</option>
                 </Select>
               </FormControl>
 

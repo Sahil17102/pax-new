@@ -49,7 +49,6 @@ import {
   useSyncShopifyOrders,
   useUpdateWebhook,
 } from 'hooks/useApiIntegration'
-import DelhiveryLifecyclePanel from './DelhiveryLifecyclePanel'
 
 const WEBHOOK_EVENTS = [
   'order.created',
@@ -75,7 +74,7 @@ const normalizeShopifyStoreUrl = (value) =>
     .replace(/\/admin(?:\/.*)?$/, '')
 
 const ApiIntegration = () => {
-  const [activeTab, setActiveTab] = useState('delhivery')
+  const [activeTab, setActiveTab] = useState('apiKeys')
   const [copiedKey, setCopiedKey] = useState(null)
   const [shopifyTargetUserId, setShopifyTargetUserId] = useState('')
   const [shopifySyncLimit, setShopifySyncLimit] = useState(50)
@@ -287,13 +286,6 @@ const ApiIntegration = () => {
       {/* Tabs */}
       <HStack spacing={4} borderBottom="1px" borderColor="gray.200">
         <Button
-          variant={activeTab === 'delhivery' ? 'solid' : 'ghost'}
-          colorScheme={activeTab === 'delhivery' ? 'blue' : 'gray'}
-          onClick={() => setActiveTab('delhivery')}
-        >
-          Delhivery ONE
-        </Button>
-        <Button
           variant={activeTab === 'apiKeys' ? 'solid' : 'ghost'}
           colorScheme={activeTab === 'apiKeys' ? 'blue' : 'gray'}
           onClick={() => setActiveTab('apiKeys')}
@@ -315,9 +307,6 @@ const ApiIntegration = () => {
           Shopify
         </Button>
       </HStack>
-
-      {/* Delhivery ONE Tab */}
-      {activeTab === 'delhivery' && <DelhiveryLifecyclePanel />}
 
       {/* API Keys Tab */}
       {activeTab === 'apiKeys' && (

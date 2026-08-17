@@ -1,11 +1,6 @@
 import { AddIcon, DeleteIcon, SearchIcon } from '@chakra-ui/icons'
 import {
-  Alert,
-  AlertDescription,
-  AlertIcon,
-  AlertTitle,
   Badge,
-  Box,
   Button,
   Flex,
   FormControl,
@@ -246,45 +241,8 @@ const Couriers = () => {
   if (isLoading) return <Spinner size="md" />
   if (error) return <Text color="red.500">Failed to load couriers</Text>
 
-  // Check if there are Delhivery couriers and show info
-  const delhiveryCouriers = couriers.filter((c) => c.serviceProvider === 'delhivery')
-  const hasDelhiveryExpress = delhiveryCouriers.some((c) => c.id === 99)
-  const hasDelhiverySurface = delhiveryCouriers.some((c) => c.id === 100)
-
   return (
     <Flex direction="column" pt={{ base: '120px', md: '75px' }} gap={4}>
-      {/* Delhivery Service Info */}
-      {delhiveryCouriers.length > 0 && (
-        <Alert status="info" borderRadius="md">
-          <AlertIcon />
-          <Box flex="1">
-            <AlertTitle fontSize="sm" mb={1}>
-              Delhivery Service Information
-            </AlertTitle>
-            <AlertDescription fontSize="xs">
-              <Text mb={1}>
-                <strong>Delhivery Express</strong> (ID: 99) - Uses{' '}
-                <Badge colorScheme="blue">Express</Badge> shipping mode (air transport)
-              </Text>
-              <Text>
-                <strong>Delhivery Surface</strong> (ID: 100) - Uses{' '}
-                <Badge colorScheme="green">Surface</Badge> shipping mode (road transport)
-              </Text>
-              {!hasDelhiveryExpress && (
-                <Text mt={2} color="orange.600" fontSize="xs">
-                  ⚠️ Delhivery Express (ID: 99) not found
-                </Text>
-              )}
-              {!hasDelhiverySurface && (
-                <Text mt={2} color="orange.600" fontSize="xs">
-                  ⚠️ Delhivery Surface (ID: 100) not found
-                </Text>
-              )}
-            </AlertDescription>
-          </Box>
-        </Alert>
-      )}
-
       {/* Filters and Add Courier Button */}
       <Flex direction={{ base: 'column', md: 'row' }} gap={4} justifyContent="space-between">
         <HStack spacing={3} flex={1} maxW={{ md: '600px' }}>
@@ -299,7 +257,7 @@ const Couriers = () => {
             />
           </InputGroup>
           <Select
-            placeholder="All Providers"
+            placeholder="Innofulfill"
             value={filters.serviceProvider}
             onChange={(e) => setFilters((prev) => ({ ...prev, serviceProvider: e.target.value }))}
             maxW="200px"

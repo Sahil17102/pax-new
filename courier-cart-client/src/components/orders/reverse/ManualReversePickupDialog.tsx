@@ -116,9 +116,7 @@ interface ManualReversePickupDialogProps {
 }
 
 const SUPPORTED_INTEGRATIONS = [
-  { label: 'Delhivery', value: 'delhivery' },
-  { label: 'Shadowfax', value: 'shadowfax' },
-  { label: 'Xpressbees', value: 'xpressbees' },
+  { label: 'Innofulfill', value: 'innofulfill' },
 ]
 
 const createEmptyItem = (): ManualReverseItemForm => ({
@@ -140,7 +138,7 @@ const buildInitialState = (
   return {
     order_number: '',
     original_order_id: '',
-    integration_type: defaultIntegrationType || 'delhivery',
+    integration_type: defaultIntegrationType || 'innofulfill',
     order_amount: '0',
     shipping_charges: '',
     package_weight: '',

@@ -161,6 +161,7 @@ export const getAllCouriersController = async (req: Request, res: Response) => {
         createdAt: couriers.createdAt,
       })
       .from(couriers)
+      .where(eq(couriers.serviceProvider, 'innofulfill'))
       .orderBy(desc(couriers.createdAt))
 
     res.json({ success: true, data: courierList })
@@ -174,7 +175,7 @@ export const getAllCouriersListController = async (req: Request, res: Response) 
   try {
     const { search, serviceProvider, businessType } = req.query
 
-    const whereClauses = []
+    const whereClauses = [eq(couriers.serviceProvider, 'innofulfill')]
 
     // Filter by search (name or id)
     if (search && typeof search === 'string' && search.trim()) {
@@ -188,6 +189,14 @@ export const getAllCouriersListController = async (req: Request, res: Response) 
     }
 
     // Filter by service provider
+    if (
+      serviceProvider &&
+      typeof serviceProvider === 'string' &&
+      serviceProvider.trim() &&
+      serviceProvider.trim().toLowerCase() !== 'innofulfill'
+    ) {
+      return res.json({ success: true, data: [] })
+    }
     if (serviceProvider && typeof serviceProvider === 'string' && serviceProvider.trim()) {
       whereClauses.push(eq(couriers.serviceProvider, serviceProvider.trim()))
     }
@@ -285,8 +294,7 @@ export const updateCourierStatusController = async (req: Request, res: Response)
 
 export const getServiceProvidersController = async (req: Request, res: Response) => {
   try {
-    // Only expose the main integrated service providers in the enable/disable UI
-    const allowedProviders = ['delhivery', 'ekart', 'xpressbees', 'shadowfax', 'amazon', 'innofulfill']
+    const allowedProviders = ['innofulfill']
 
     const rows = await db
       .select({
@@ -332,7 +340,7 @@ export const updateServiceProviderStatusController = async (req: Request, res: R
   const { isEnabled } = req.body
 
   try {
-    const allowedProviders = ['delhivery', 'ekart', 'xpressbees', 'shadowfax', 'amazon', 'innofulfill']
+    const allowedProviders = ['innofulfill']
 
     if (!serviceProvider || typeof isEnabled !== 'boolean') {
       return res.status(400).json({

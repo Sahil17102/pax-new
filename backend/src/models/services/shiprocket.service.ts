@@ -3482,14 +3482,7 @@ export const fetchAvailableCouriersWithRates = async (
 
     // Build registry of enabled couriers by service provider
     // Filter by business type: check if business_type JSONB array contains 'b2c'
-    const SUPPORTED_PROVIDERS = [
-      'delhivery',
-      'ekart',
-      'xpressbees',
-      'shadowfax',
-      'amazon',
-      'innofulfill',
-    ]
+    const SUPPORTED_PROVIDERS = ['innofulfill']
     const allSystemCourierRows = await db
       .select({
         id: couriers.id,
