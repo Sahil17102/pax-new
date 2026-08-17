@@ -17,7 +17,7 @@ import OptionalChargesForm from '../OptionalChargesForm'
 import OrderDetailsForm from '../OrderDetailsForm'
 import PickupLocationForm from '../PickupLocationForm'
 import { SelectCourierForm } from '../SelectCourierForm'
-import B2BInvoicesForm from './B2BInvoicesForm'
+import B2BInvoicesForm, { generateB2BInvoiceNumber } from './B2BInvoicesForm'
 import B2BProductsForm from './B2BProductsForm'
 // Box structure - top level array
 export type Box = {
@@ -144,7 +144,7 @@ export default function B2BOrderForm({ onClose }: { onClose?: () => void }) {
       ],
       invoices: [
         {
-          invoiceNumber: '',
+          invoiceNumber: generateB2BInvoiceNumber(),
           invoiceDate: '',
           invoiceValue: 0,
           invoiceFileUrl: '',
@@ -256,7 +256,7 @@ export default function B2BOrderForm({ onClose }: { onClose?: () => void }) {
         // Invoices array
         invoices:
           data?.invoices?.map((invoice) => ({
-            invoiceNumber: invoice.invoiceNumber,
+            invoiceNumber: invoice.invoiceNumber?.trim() || generateB2BInvoiceNumber(),
             invoiceDate: invoice.invoiceDate,
             invoiceValue: Number(invoice.invoiceValue || 0),
             invoiceFileUrl: invoice.invoiceFileUrl || undefined,

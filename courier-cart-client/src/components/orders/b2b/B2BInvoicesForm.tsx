@@ -1,11 +1,24 @@
 import { Alert, Box, Button, Grid, IconButton, Paper, Stack, Typography } from '@mui/material'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Controller, useFieldArray, useFormContext } from 'react-hook-form'
 import { AiOutlineDelete } from 'react-icons/ai'
 import { validateInvoiceContent } from '../../../api/b2b.api'
 import CustomInput from '../../UI/inputs/CustomInput'
 import FileUploader, { type UploadedFileInfo } from '../../UI/uploader/FileUploader'
 import type { B2BFormData } from './B2BOrderForm'
+
+export const generateB2BInvoiceNumber = () => {
+  const datePart = new Date()
+    .toISOString()
+    .slice(2, 10)
+    .replace(/-/g, '')
+  const uniquePart = `${Date.now().toString().slice(-6)}${Math.random()
+    .toString(36)
+    .slice(2, 5)
+    .toUpperCase()}`
+
+  return `INV-${datePart}-${uniquePart}`
+}
 
 export default function B2BInvoicesForm() {
   const { control, watch, setValue, getValues, trigger, setError, clearErrors } =
@@ -25,6 +38,20 @@ export default function B2BInvoicesForm() {
 
   // Watch boxes for validation
   const boxes = watch('boxes') || []
+
+  useEffect(() => {
+    invoiceFields.forEach((_, index) => {
+      const fieldName = `invoices.${index}.invoiceNumber` as const
+      const currentInvoiceNumber = getValues(fieldName)
+
+      if (!String(currentInvoiceNumber || '').trim()) {
+        setValue(fieldName, generateB2BInvoiceNumber(), {
+          shouldDirty: true,
+          shouldValidate: true,
+        })
+      }
+    })
+  }, [invoiceFields, getValues, setValue])
 
   // Calculate total chargeable weight for EBN validation
   const calculateTotalChargeableWeight = () => {
@@ -62,7 +89,7 @@ export default function B2BInvoicesForm() {
     if (!valid) return
 
     appendInvoice({
-      invoiceNumber: '',
+      invoiceNumber: generateB2BInvoiceNumber(),
       invoiceDate: '',
       invoiceValue: 0,
       invoiceFileUrl: '',
@@ -121,6 +148,7 @@ export default function B2BInvoicesForm() {
                         fullWidth
                         required
                         label="Invoice Number"
+                        InputProps={{ readOnly: true }}
                         error={!!fieldState.error}
                         helperText={fieldState.error?.message}
                       />
