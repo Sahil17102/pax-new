@@ -114,6 +114,25 @@ export type InnofulfillServiceabilityResult = {
   raw: any
 }
 
+export type InnofulfillEcommRateResult = {
+  baseRate: number | null
+  totalAmount: number | null
+  baseAmount: number | null
+  marginAmount: number | null
+  chargesAmount: number | null
+  discountsAmount: number | null
+  taxesAmount: number | null
+  charges: any[]
+  taxSummary: any
+  weightCalculation: any
+  pincodeDetails: any
+  zoneResolution: any
+  deliveryMode: string
+  serviceType: string
+  productType: string
+  raw: any
+}
+
 export class InnofulfillService {
   private config: InnofulfillConfig | null | undefined
   private token: string | null = null
@@ -343,15 +362,41 @@ export class InnofulfillService {
   }
 
   async calculateEcommRate(params: any) {
+    const fromPincode = Number(params.fromPincode ?? params.origin ?? params.pickupPincode)
+    const toPincode = Number(params.toPincode ?? params.destination ?? params.dropPincode)
+    const serviceType = normalizeText(params.serviceType || 'ECOMM').toUpperCase()
+    const productType = normalizeText(params.productType || 'ECOMM').toUpperCase()
+    const weight = toNumber(params.weight ?? params.package_weight, 0.5)
+    const length = toNumber(params.length ?? params.package_length, 10)
+    const height = toNumber(params.height ?? params.package_height, 10)
+    const width = toNumber(params.width ?? params.breadth ?? params.package_breadth, 10)
+    const deliveryMode = normalizeText(
+      params.filters?.delivery_mode || params.deliveryMode || params.delivery_mode,
+      'SURFACE',
+    ).toUpperCase()
+
+    if (!Number.isInteger(fromPincode) || !Number.isInteger(toPincode)) {
+      throw new HttpError(400, 'Innofulfill ECOMM rate calculation requires fromPincode and toPincode')
+    }
+    if (serviceType !== 'ECOMM' || productType !== 'ECOMM') {
+      throw new HttpError(400, 'Innofulfill serviceType and productType must both be ECOMM')
+    }
+    if (![weight, length, height, width].every((value) => Number.isFinite(value) && value > 0)) {
+      throw new HttpError(400, 'Innofulfill weight, length, height, and width must be positive numbers')
+    }
+    if (!['SURFACE', 'AIR'].includes(deliveryMode)) {
+      throw new HttpError(400, 'Innofulfill delivery_mode must be SURFACE or AIR')
+    }
+
     const body = {
-      fromPincode: Number(params.fromPincode ?? params.origin ?? params.pickupPincode),
-      toPincode: Number(params.toPincode ?? params.destination ?? params.dropPincode),
-      serviceType: params.serviceType || 'ECOMM',
-      productType: params.productType || 'ECOMM',
-      weight: toNumber(params.weight ?? params.package_weight, 0.5),
-      length: toNumber(params.length ?? params.package_length, 10),
-      height: toNumber(params.height ?? params.package_height, 10),
-      width: toNumber(params.width ?? params.breadth ?? params.package_breadth, 10),
+      fromPincode,
+      toPincode,
+      serviceType,
+      productType,
+      weight,
+      length,
+      height,
+      width,
       includeDefaultCharges: params.includeDefaultCharges ?? false,
       userOptions: {
         insurance: {
@@ -361,7 +406,7 @@ export class InnofulfillService {
         cod: String(params.payment_type || params.paymentMode || '').toLowerCase() === 'cod',
       },
       filters: {
-        delivery_mode: params.deliveryMode || params.delivery_mode || 'SURFACE',
+        delivery_mode: deliveryMode,
       },
     }
 
@@ -371,9 +416,43 @@ export class InnofulfillService {
         '/gateway/ure/api/external/rate-calculation/calculate/v2',
         body,
       )
-      return data
+      return this.summarizeEcommRate(data, body)
     } catch (error: any) {
       this.handleError(error, 'Innofulfill rate calculation failed')
+    }
+  }
+
+  private summarizeEcommRate(payload: any, requestBody: any): InnofulfillEcommRateResult {
+    const data = payload?.data ?? payload ?? {}
+    const pricing = data?.pricing ?? {}
+    const calculation = data?.calculation ?? {}
+    return {
+      baseRate: Number.isFinite(Number(pricing?.baseRate)) ? Number(pricing.baseRate) : null,
+      totalAmount: Number.isFinite(Number(calculation?.totalAmount))
+        ? Number(calculation.totalAmount)
+        : null,
+      baseAmount: Number.isFinite(Number(calculation?.baseAmount))
+        ? Number(calculation.baseAmount)
+        : null,
+      marginAmount: Number.isFinite(Number(calculation?.marginAmount))
+        ? Number(calculation.marginAmount)
+        : null,
+      chargesAmount: Number.isFinite(Number(calculation?.charges))
+        ? Number(calculation.charges)
+        : null,
+      discountsAmount: Number.isFinite(Number(calculation?.discounts))
+        ? Number(calculation.discounts)
+        : null,
+      taxesAmount: Number.isFinite(Number(calculation?.taxes)) ? Number(calculation.taxes) : null,
+      charges: Array.isArray(pricing?.charges) ? pricing.charges : [],
+      taxSummary: data?.taxSummary ?? null,
+      weightCalculation: data?.weightCalculation ?? null,
+      pincodeDetails: data?.pincodeDetails ?? null,
+      zoneResolution: data?.zoneResolution ?? null,
+      deliveryMode: normalizeText(requestBody?.filters?.delivery_mode),
+      serviceType: normalizeText(requestBody?.serviceType),
+      productType: normalizeText(requestBody?.productType),
+      raw: payload,
     }
   }
 

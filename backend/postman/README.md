@@ -272,3 +272,12 @@ carrier-wise `serviceable` boolean and `reason`, plus pickup/shipping address
 metadata, pincode metadata, account/configuration details, distance, duration,
 and the raw provider response. The default sample lane uses Koregaon Park to
 Kharadi in Pune with carrier `SMILE`.
+
+**Calculate ECOMM Rates** calls
+`POST /gateway/ure/api/external/rate-calculation/calculate/v2` with static
+`serviceType=ECOMM` and `productType=ECOMM`. The request uses
+`filters.delivery_mode` as `SURFACE` or `AIR`, and the default sample uses
+400101 to 411014 with 23 kg and 3 x 3 x 4 cm dimensions. **Test ECOMM Rates
+Through Pax** returns normalized base rate, total amount, charges, GST summary,
+weight calculation, pincode details, zone resolution, and the raw provider
+response.

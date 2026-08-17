@@ -151,6 +151,41 @@
             "url": "{{innofulfillApiBase}}/gateway/serviceability/hyperlocal",
             "description": "Direct Innofulfill Hyperlocal serviceability call. Run Innofulfill Login first for Bearer + TenantId auth, or enable Api-Key and set innofulfillApiKey."
           }
+        },
+        {
+          "name": "Calculate ECOMM Rates",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var body = pm.response.json();",
+                  "pm.test('Provider rate payload returned', function () { pm.expect(body.data).to.be.an('object'); });",
+                  "pm.test('Total amount is numeric', function () { pm.expect(body.data.calculation.totalAmount).to.be.a('number'); });",
+                  "pm.test('Weight calculation returned', function () { pm.expect(body.data.weightCalculation).to.be.an('object'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{innofulfillIdToken}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "tenantid", "value": "{{innofulfillTenantId}}" },
+              { "key": "api-key", "value": "{{innofulfillApiKey}}", "disabled": true }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fromPincode\": {{innofulfillRateFromPincode}},\n  \"toPincode\": {{innofulfillRateToPincode}},\n  \"serviceType\": \"ECOMM\",\n  \"productType\": \"ECOMM\",\n  \"weight\": {{innofulfillRateWeight}},\n  \"length\": {{innofulfillRateLength}},\n  \"height\": {{innofulfillRateHeight}},\n  \"width\": {{innofulfillRateWidth}},\n  \"includeDefaultCharges\": false,\n  \"userOptions\": {\n    \"insurance\": {\n      \"enabled\": {{innofulfillInsuranceEnabled}},\n      \"amount\": {{innofulfillInsuranceAmount}}\n    },\n    \"cod\": {{innofulfillCodEnabled}}\n  },\n  \"filters\": {\n    \"delivery_mode\": \"{{innofulfillDeliveryMode}}\"\n  }\n}"
+            },
+            "url": "{{innofulfillApiBase}}/gateway/ure/api/external/rate-calculation/calculate/v2",
+            "description": "Direct Innofulfill ECOMM rate calculation. Run Innofulfill Login first for Bearer + TenantId auth, or enable api-key and set innofulfillApiKey."
+          }
         }
       ]
     },
@@ -315,6 +350,35 @@
               "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\",\n  \"apiKey\": \"{{innofulfillApiKey}}\",\n  \"pickupAddress\": {\n    \"address\": \"{{innofulfillPickupAddress}}\",\n    \"pincode\": {{innofulfillPickupPincode}},\n    \"latitude\": {{innofulfillPickupLatitude}},\n    \"longitude\": {{innofulfillPickupLongitude}}\n  },\n  \"shippingAddress\": {\n    \"address\": \"{{innofulfillShippingAddress}}\",\n    \"pincode\": {{innofulfillShippingPincode}},\n    \"latitude\": {{innofulfillShippingLatitude}},\n    \"longitude\": {{innofulfillShippingLongitude}}\n  },\n  \"paymentMode\": \"{{innofulfillPaymentMode}}\",\n  \"operationType\": \"{{innofulfillOperationType}}\",\n  \"carriers\": [\n    \"{{innofulfillCarrier}}\"\n  ]\n}"
             },
             "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill/serviceability/hyperlocal/test"
+          }
+        },
+        {
+          "name": "Test ECOMM Rates Through Pax",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var body = pm.response.json();",
+                  "pm.test('Proxy rate calculation succeeded', function () { pm.expect(body.success).to.eql(true); });",
+                  "pm.test('Normalized amount fields returned', function () {",
+                  "  pm.expect(body.data).to.have.property('baseRate');",
+                  "  pm.expect(body.data).to.have.property('totalAmount');",
+                  "  pm.expect(body.data).to.have.property('weightCalculation');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\",\n  \"apiKey\": \"{{innofulfillApiKey}}\",\n  \"fromPincode\": {{innofulfillRateFromPincode}},\n  \"toPincode\": {{innofulfillRateToPincode}},\n  \"serviceType\": \"ECOMM\",\n  \"productType\": \"ECOMM\",\n  \"weight\": {{innofulfillRateWeight}},\n  \"length\": {{innofulfillRateLength}},\n  \"height\": {{innofulfillRateHeight}},\n  \"width\": {{innofulfillRateWidth}},\n  \"includeDefaultCharges\": false,\n  \"userOptions\": {\n    \"insurance\": {\n      \"enabled\": {{innofulfillInsuranceEnabled}},\n      \"amount\": {{innofulfillInsuranceAmount}}\n    },\n    \"cod\": {{innofulfillCodEnabled}}\n  },\n  \"filters\": {\n    \"delivery_mode\": \"{{innofulfillDeliveryMode}}\"\n  }\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill/rates/ecomm/test"
           }
         },
         {
