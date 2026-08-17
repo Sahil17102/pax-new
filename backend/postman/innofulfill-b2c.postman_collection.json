@@ -998,7 +998,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\"\n}"
+              "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\",\n  \"apiKey\": \"{{innofulfillApiKey}}\",\n  \"webhookSecret\": \"{{innofulfillWebhookSecret}}\"\n}"
             },
             "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill"
           }
@@ -1625,6 +1625,7 @@
                   "  pm.expect(body.success).to.eql(true);",
                   "  pm.expect(body.data.innofulfill).to.have.property('hasPassword');",
                   "  pm.expect(body.data.innofulfill).to.not.have.property('password');",
+                  "  pm.expect(body.data.innofulfill).to.have.property('hasWebhookSecret');",
                   "});"
                 ]
               }
@@ -1634,6 +1635,127 @@
             "method": "GET",
             "url": "{{baseUrl}}/api/admin/couriers/credentials"
           }
+        }
+      ]
+    },
+    {
+      "name": "Webhook Receiver",
+      "item": [
+        {
+          "name": "Innofulfill Delivery Webhook Health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var body = pm.response.json();",
+                  "pm.test('Webhook health exposes Innofulfill receiver', function () {",
+                  "  pm.expect(body.success).to.eql(true);",
+                  "  pm.expect(body.provider).to.eql('innofulfill');",
+                  "  pm.expect(body.deliveryUrl).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/webhooks/innofulfill/delivery",
+            "description": "Checks the Pax Innofulfill delivery webhook receiver configuration and supported event catalog."
+          },
+          "response": []
+        },
+        {
+          "name": "Simulate Innofulfill Delivery Webhook",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const createdOrderId = pm.environment.get('innofulfillCreatedOrderId') || pm.environment.get('innofulfillSampleOrderId') || '260723052127KFB9AA';",
+                  "const awbNumber = pm.environment.get('innofulfillTrackAwbNumber') || pm.environment.get('innofulfillCreatedAwbNumber') || pm.environment.get('innofulfillSampleAwbNumber') || 'ABCD0000076505';",
+                  "const webhookId = pm.environment.get('innofulfillWebhookId') || `pax-postman-${Date.now()}`;",
+                  "pm.environment.set('innofulfillWebhookId', webhookId);",
+                  "pm.variables.set('innofulfillWebhookOrderId', createdOrderId);",
+                  "pm.variables.set('innofulfillWebhookAwbNumber', awbNumber);",
+                  "const rawBody = pm.variables.replaceIn(pm.request.body.raw || '');",
+                  "const secret = pm.environment.get('innofulfillWebhookSecret') || '';",
+                  "const signature = secret ? CryptoJS.HmacSHA256(rawBody, secret).toString(CryptoJS.enc.Hex) : '';",
+                  "pm.variables.set('innofulfillWebhookSignature', signature);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var body = pm.response.json();",
+                  "pm.test('Webhook was acknowledged', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "  pm.expect(body.accepted).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "User-Agent",
+                "value": "webhook-service/2.0.0"
+              },
+              {
+                "key": "X-Webhook-ID",
+                "value": "{{innofulfillWebhookId}}"
+              },
+              {
+                "key": "X-Webhook-Event",
+                "value": "{{innofulfillWebhookEventName}}"
+              },
+              {
+                "key": "X-Webhook-Version",
+                "value": "2.0.0"
+              },
+              {
+                "key": "X-Webhook-Timestamp",
+                "value": "{{$isoTimestamp}}"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{innofulfillTenantId}}"
+              },
+              {
+                "key": "X-User-ID",
+                "value": "{{innofulfillUserId}}"
+              },
+              {
+                "key": "X-Webhook-Signature",
+                "value": "{{innofulfillWebhookSignature}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{innofulfillWebhookId}}\",\n  \"event\": {\n    \"businessLine\": \"{{innofulfillWebhookBusinessLine}}\",\n    \"categoryCode\": \"ORDER_STATUS\",\n    \"eventCode\": \"{{innofulfillWebhookEventCode}}\",\n    \"triggerEventName\": \"{{innofulfillWebhookEventName}}\"\n  },\n  \"version\": \"2.0.0\",\n  \"timestamp\": \"{{$isoTimestamp}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"source\": {\n    \"environment\": \"postman\",\n    \"service\": \"webhook\",\n    \"system\": \"innofulfill\",\n    \"version\": \"2.0.0\"\n  },\n  \"data\": {\n    \"awbNumber\": \"{{innofulfillWebhookAwbNumber}}\",\n    \"deliveryMode\": \"SURFACE\",\n    \"location\": \"PUNE CITY ECOM CP\",\n    \"orderAmount\": 457.1,\n    \"orderCreatedAt\": \"2026-06-23T05:21:27.481Z\",\n    \"orderId\": \"{{innofulfillWebhookOrderId}}\",\n    \"orderStatus\": \"{{innofulfillWebhookEventCode}}\",\n    \"orderType\": \"{{innofulfillWebhookBusinessLine}}\",\n    \"paymentMethod\": \"COD\",\n    \"paymentMode\": \"POSTPAID\",\n    \"paymentStatus\": \"PENDING\",\n    \"reason\": \"{{innofulfillWebhookReason}}\",\n    \"referenceId\": \"{{innofulfillCreatedReferenceId}}\",\n    \"referenceNumber\": \"REF-3242\",\n    \"shippingType\": \"FORWARD\",\n    \"statusUpdatedAt\": \"{{$isoTimestamp}}\",\n    \"utmProduct\": \"API\"\n  },\n  \"metadata\": {\n    \"path\": \"{{baseUrl}}/webhooks/innofulfill/delivery\",\n    \"triggerType\": \"event\",\n    \"triggeredBy\": \"postman\"\n  }\n}"
+            },
+            "url": "{{baseUrl}}/webhooks/innofulfill/delivery",
+            "description": "Simulates the documented Innofulfill delivery webhook. Set innofulfillWebhookSecret to generate a valid X-Webhook-Signature; if no server secret is configured, the receiver accepts unsigned local test payloads."
+          },
+          "response": []
         }
       ]
     }

@@ -355,6 +355,17 @@ normalized AWB, order ID, current status, route cities, shipment type, movement
 type, latest event, full chronological `statuses`, trace ID, and raw provider
 response.
 
+**Innofulfill Delivery Webhook** is received by Pax at
+`POST {{baseUrl}}/webhooks/innofulfill/delivery`, with legacy aliases
+`/api/webhook/innofulfill` and `/api/webhook/innofulfill/delivery`. Store the
+webhook signature key through **Save Innofulfill Credentials** using
+`innofulfillWebhookSecret`; the receiver validates `X-Webhook-Signature` as an
+HMAC-SHA256 of the raw request body before processing. **Simulate Innofulfill
+Delivery Webhook** builds the documented v2 payload, calculates the signature in
+Postman, and expects a fast `200` acknowledgement while the backend updates the
+matching B2C order, tracking timeline, NDR/RTO/COD flows, and duplicate webhook
+ID ledger in the background.
+
 **List Orders** calls `GET /gateway/booking-service/orders` directly with
 `page`, `limit`, `sortOrder`, and optional disabled filters for order status,
 AWB, phone, payment type, dates, destination zip, and `addresses.*` fields.

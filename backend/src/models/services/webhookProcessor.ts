@@ -2777,6 +2777,369 @@ export async function processXpressbeesWebhook(payload: any, tx = db) {
   return { success: true }
 }
 
+const unwrapInnofulfillPayload = (payload: any) => {
+  if (payload?.__provider === 'innofulfill' && payload?.body) return payload.body
+  if (payload?.data && typeof payload.data === 'object' && !Array.isArray(payload.data)) {
+    return payload.data
+  }
+  return payload || {}
+}
+
+const mapInnofulfillStatus = (status: string, triggerEventName?: string): string => {
+  const raw = String(status || triggerEventName || '').trim()
+  const normalized = raw.toUpperCase().replace(/[\s.-]+/g, '_')
+  const text = raw.toLowerCase().replace(/[_-]+/g, ' ')
+  if (!raw) return ''
+
+  if (
+    [
+      'CANCELLED',
+      'CANCELLED_BY_CUSTOMER',
+      'CANCELLED_BY_SHIPPER',
+      'PICKUP_CANCELLED',
+    ].includes(normalized) ||
+    text.includes('cancel')
+  ) {
+    return 'cancelled'
+  }
+
+  if (normalized === 'RTO_DELIVERED') return 'rto_delivered'
+  if (normalized === 'RTO_UNDELIVERED') return 'rto_in_transit'
+  if (normalized === 'RTO_REVOKED') return 'in_transit'
+  if (['RTO_REQUESTED', 'RTO_INITIATED', 'RTO', 'RTO_IN_TRANSIT'].includes(normalized)) {
+    return 'rto_in_transit'
+  }
+  if (normalized === 'RTO_OUT_FOR_DELIVERY') return 'out_for_delivery'
+
+  if (['UNDELIVERED', 'NOT_PICKED_UP'].includes(normalized) || text.includes('undelivered')) {
+    return 'ndr'
+  }
+  if (normalized === 'DELIVERED' || /\bdelivered\b/.test(text)) return 'delivered'
+  if (normalized === 'LOST' || text.includes('lost')) return 'lost'
+  if (normalized === 'DAMAGED' || text.includes('damage')) return 'damaged'
+  if (normalized === 'ERROR_ORDER' || text.includes('error')) return 'failed'
+
+  if (['OUT_FOR_DELIVERY', 'READY_FOR_DELIVERY'].includes(normalized) || text.includes('out for delivery')) {
+    return 'out_for_delivery'
+  }
+  if (['IN_TRANSIT', 'ON_HOLD'].includes(normalized) || text.includes('in transit')) {
+    return 'in_transit'
+  }
+  if (
+    [
+      'OUT_FOR_PICKUP',
+      'READY_FOR_DISPATCH',
+      'PICKED_UP',
+      'PICKUP_RESCHEDULED',
+    ].includes(normalized) ||
+    text.includes('picked') ||
+    text.includes('pickup')
+  ) {
+    return 'pickup_initiated'
+  }
+  if (['ORDER_CREATED', 'ORDER_CONFIRMED'].includes(normalized) || text.includes('order created')) {
+    return 'booked'
+  }
+
+  return ''
+}
+
+const innofulfillWebhookEventForStatus = (status: string) => {
+  if (status === 'delivered') return 'order.delivered'
+  if (status === 'cancelled') return 'order.cancelled'
+  if (['ndr', 'undelivered', 'lost', 'damaged', 'failed'].includes(status)) return 'order.failed'
+  if (status.startsWith('rto')) return 'order.rto'
+  if (['pickup_initiated', 'in_transit', 'out_for_delivery'].includes(status)) return 'order.shipped'
+  return 'order.updated'
+}
+
+export async function processInnofulfillWebhook(payload: any, tx = db) {
+  const event = unwrapInnofulfillPayload(payload)
+  const parent = payload?.__provider === 'innofulfill' && payload?.body ? payload.body : payload
+  const eventMeta = parent?.event && typeof parent.event === 'object' ? parent.event : {}
+
+  const awb = pickWebhookText(
+    event?.awbNumber,
+    event?.cAwbNumber,
+    event?.awb_number,
+    event?.awb,
+    event?.waybill,
+    event?.trackingId,
+    event?.tracking_id,
+    parent?.awbNumber,
+    parent?.awb_number,
+    parent?.awb,
+  )
+  const orderRef = pickWebhookText(
+    event?.orderId,
+    event?.orderNumber,
+    event?.referenceId,
+    event?.referenceNumber,
+    event?.shipmentId,
+    event?.shipment_id,
+    parent?.orderId,
+    parent?.orderNumber,
+    parent?.id,
+  )
+  const statusRaw = pickWebhookText(
+    event?.orderStatus,
+    event?.status,
+    eventMeta?.eventCode,
+    eventMeta?.triggerEventName,
+    parent?.event,
+    parent?.eventType,
+  )
+  const remarks = pickWebhookText(
+    event?.reason,
+    event?.remarks,
+    event?.message,
+    event?.description,
+  )
+  const location = pickWebhookText(event?.location, event?.currentLocation, event?.city) || null
+  const statusUpdatedAt = pickWebhookText(
+    event?.statusUpdatedAt,
+    event?.orderDate,
+    parent?.timestamp,
+    parent?.['x-webhook-timestamp'],
+  )
+
+  if (!awb && !orderRef) return { success: false, reason: 'missing_awb' }
+
+  let order
+  if (awb) {
+    ;[order] = await tx.select().from(b2c_orders).where(eq(b2c_orders.awb_number, String(awb)))
+  }
+  if (!order && orderRef) {
+    ;[order] = await tx.select().from(b2c_orders).where(eq(b2c_orders.order_number, String(orderRef)))
+  }
+  if (!order && orderRef) {
+    ;[order] = await tx.select().from(b2c_orders).where(eq(b2c_orders.order_id, String(orderRef)))
+  }
+  if (!order && awb) {
+    ;[order] = await tx.select().from(b2c_orders).where(eq(b2c_orders.shipment_id, String(awb)))
+  }
+  if (!order && awb) {
+    ;[order] = await tx.select().from(b2c_orders).where(eq(b2c_orders.provider_reference, String(awb)))
+  }
+  if (!order && awb) {
+    ;[order] = await tx.select().from(b2c_orders).where(eq(b2c_orders.provider_request_id, String(awb)))
+  }
+  if (!order && orderRef) {
+    ;[order] = await tx.select().from(b2c_orders).where(eq(b2c_orders.shipment_id, String(orderRef)))
+  }
+  if (!order && orderRef) {
+    ;[order] = await tx.select().from(b2c_orders).where(eq(b2c_orders.provider_reference, String(orderRef)))
+  }
+  if (!order && orderRef) {
+    ;[order] = await tx.select().from(b2c_orders).where(eq(b2c_orders.provider_request_id, String(orderRef)))
+  }
+
+  if (!order) {
+    console.warn(`No local order found for Innofulfill AWB ${awb || 'N/A'} ref ${orderRef || 'N/A'}`)
+    return { success: false, reason: 'order_not_found' }
+  }
+
+  const mappedStatus = mapInnofulfillStatus(statusRaw || remarks, eventMeta?.triggerEventName)
+  const internalStatus = preserveXpressbeesStatusTransition(
+    order.order_status,
+    mappedStatus,
+    [statusRaw, remarks, eventMeta?.triggerEventName].filter(Boolean).join(' | '),
+  )
+  const previousStatus = normalizeComparableText(order.order_status).replace(/\s+/g, '_')
+  const statusLower = internalStatus.toLowerCase()
+  const statusText = statusRaw || remarks || internalStatus
+
+  const existingProviderMeta =
+    order.provider_meta && typeof order.provider_meta === 'object' && !Array.isArray(order.provider_meta)
+      ? order.provider_meta
+      : {}
+  const updateData: any = {
+    order_status: internalStatus,
+    delivery_location: location,
+    delivery_message: remarks || null,
+    provider_last_status: String(statusRaw || remarks || internalStatus || '').slice(0, 80),
+    provider_meta: {
+      ...existingProviderMeta,
+      innofulfill_webhook: {
+        id: parent?.id || null,
+        event: eventMeta?.triggerEventName || parent?.eventType || parent?.event || null,
+        eventCode: eventMeta?.eventCode || null,
+        statusUpdatedAt: statusUpdatedAt || null,
+        payload,
+      },
+    },
+    updated_at: new Date(),
+  }
+
+  if (awb && !order.awb_number) updateData.awb_number = String(awb)
+  if (orderRef && !order.provider_reference) updateData.provider_reference = String(orderRef)
+
+  if (isXpressbeesPickupProgressStatus(internalStatus)) {
+    updateData.pickup_status = 'pickup_initiated'
+    updateData.pickup_error = null
+    updateData.manifest_error = null
+  }
+  if (internalStatus === 'cancelled') {
+    updateData.pickup_status = 'cancelled'
+    updateData.pickup_error = null
+  }
+
+  await tx.transaction(async (innerTx) => {
+    await innerTx.update(b2c_orders).set(updateData).where(eq(b2c_orders.id, order.id))
+    await syncShopifyStatusForLocalOrder({ ...order, ...updateData }, innerTx).catch((err) => {
+      console.warn('Failed Shopify status sync for Innofulfill webhook:', err)
+    })
+    await syncWooCommerceStatusForLocalOrder({ ...order, ...updateData }, innerTx).catch((err) => {
+      console.warn('Failed WooCommerce status sync for Innofulfill webhook:', err)
+    })
+
+    try {
+      await logTrackingEvent({
+        orderId: order.id,
+        userId: order.user_id,
+        awbNumber: order.awb_number || awb,
+        courier: 'Innofulfill',
+        statusCode: internalStatus,
+        statusText,
+        location,
+        raw: payload,
+      })
+    } catch (err: any) {
+      console.error('Failed to log Innofulfill tracking event:', err)
+    }
+  })
+
+  await notifyOrderStatusEmail({
+    order,
+    nextStatus: internalStatus,
+    previousStatus,
+    rawStatus: statusRaw,
+    location,
+    remarks: remarks || statusText,
+    source: 'innofulfill_webhook',
+  })
+
+  await sendWebhookEvent(order.user_id, 'tracking.updated', {
+    awb_number: order.awb_number || awb,
+    order_id: order.id,
+    order_number: order.order_number,
+    status: internalStatus,
+    raw_status: statusRaw,
+    courier_partner: order.courier_partner || 'Innofulfill',
+    provider_reference: order.provider_reference || orderRef || awb || null,
+    provider_request_id: order.provider_request_id || awb || null,
+    location,
+    remarks: remarks || statusText || null,
+    order_type: 'b2c',
+    source: 'innofulfill_webhook',
+  }).catch((err) => {
+    console.error('Failed to send Innofulfill tracking.updated webhook:', err)
+  })
+
+  if (internalStatus !== previousStatus) {
+    await sendWebhookEvent(order.user_id, innofulfillWebhookEventForStatus(internalStatus) as any, {
+      order_id: order.id,
+      order_number: order.order_number,
+      awb_number: order.awb_number || awb,
+      status: internalStatus,
+      raw_status: statusRaw,
+      courier_partner: order.courier_partner || 'Innofulfill',
+      provider_reference: order.provider_reference || orderRef || awb || null,
+      provider_request_id: order.provider_request_id || awb || null,
+      location,
+      remarks: remarks || statusText || null,
+      order_type: 'b2c',
+      source: 'innofulfill_webhook',
+    }).catch((err) => {
+      console.error('Failed to send Innofulfill status webhook:', err)
+    })
+  }
+
+  if (
+    ['ndr', 'undelivered'].includes(statusLower) ||
+    hasNdrSignal(statusRaw, remarks, statusText, location)
+  ) {
+    try {
+      await captureNdrEventFromWebhook({
+        order,
+        awbNumber: order.awb_number || awb || undefined,
+        status: statusLower,
+        reason: remarks || null,
+        remarks: statusText || null,
+        payload,
+        courierLabel: 'Innofulfill',
+        signalParts: [statusRaw, remarks, statusText, location],
+      })
+    } catch (err) {
+      console.error('Failed to record NDR event (Innofulfill):', err)
+    }
+  }
+
+  if (statusLower.includes('rto')) {
+    try {
+      const rtoCharge = await applyRtoChargeOnce(tx, order, 'Innofulfill')
+      await recordRtoEvent({
+        orderId: order.id,
+        userId: order.user_id,
+        awbNumber: order.awb_number || awb || undefined,
+        status: statusLower,
+        reason: remarks || null,
+        remarks: statusText || null,
+        rtoCharges: rtoCharge,
+        payload,
+      })
+      await createNotificationService({
+        targetRole: 'user',
+        userId: order.user_id,
+        title: 'RTO update (Innofulfill)',
+        message: `Order ${order.order_number} status ${statusLower}.`,
+      })
+      await createNotificationService({
+        targetRole: 'admin',
+        title: 'RTO event (Innofulfill)',
+        message: `User ${order.user_id} order ${order.order_number} ${statusLower}`,
+      })
+    } catch (err) {
+      console.error('Failed to record RTO event (Innofulfill):', err)
+    }
+  }
+
+  if (internalStatus === 'delivered' && order.order_type === 'cod') {
+    try {
+      const { remittance, created } = await createCodRemittance({
+        orderId: order.id,
+        orderType: 'b2c',
+        userId: order.user_id,
+        orderNumber: order.order_number,
+        awbNumber: order.awb_number || awb || undefined,
+        courierPartner: 'Innofulfill',
+        codAmount: Number(order.order_amount ?? 0),
+        codCharges: Number(order.cod_charges ?? 0),
+        freightCharges: Number(order.freight_charges ?? order.shipping_charges ?? 0),
+        collectedAt: new Date(),
+      })
+
+      if (created) {
+        await createNotificationService({
+          targetRole: 'admin',
+          title: 'COD remittance created',
+          message: `Order ${order.order_number} (${order.awb_number || awb || 'no AWB'}) created pending COD remittance of INR ${Number(
+            remittance.remittableAmount || 0,
+          ).toFixed(2)}.`,
+        })
+      }
+    } catch (err) {
+      console.error(`Failed to create COD remittance for Innofulfill order ${order.order_number}:`, err)
+    }
+  }
+
+  if (internalStatus === 'cancelled') {
+    await applyCancellationRefundOnce(tx, order, 'innofulfill_webhook')
+  }
+
+  return { success: true }
+}
+
 const isAmazonWebhookObject = (value: unknown): value is Record<string, any> =>
   Boolean(value && typeof value === 'object' && !Array.isArray(value))
 

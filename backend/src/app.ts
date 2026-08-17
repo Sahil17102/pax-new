@@ -28,6 +28,11 @@ import {
   xpressbeesWebhookHealthHandler,
 } from './controllers/webhooks/xpressbees.webhook'
 import {
+  INNOFULFILL_WEBHOOK_PATH,
+  innofulfillDeliveryWebhookHandler,
+  innofulfillWebhookHealthHandler,
+} from './controllers/webhooks/innofulfill.webhook'
+import {
   shopifyComplianceWebhookController,
   shopifyOrderWebhookController,
 } from './controllers/shopify.controller'
@@ -321,6 +326,34 @@ app.get(SHADOWFAX_WEBHOOK_PATH, shadowfaxWebhookHealthHandler)
 app.post(SHADOWFAX_WEBHOOK_PATH, express.json(), shadowfaxWebhookHandler)
 app.post('/api/webhook/shadowfax', express.json(), shadowfaxWebhookHandler)
 app.post('/api/webhook/shadowfax/track', express.json(), shadowfaxWebhookHandler)
+app.get(INNOFULFILL_WEBHOOK_PATH, innofulfillWebhookHealthHandler)
+app.post(
+  INNOFULFILL_WEBHOOK_PATH,
+  express.json({
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf.toString('utf8')
+    },
+  }),
+  innofulfillDeliveryWebhookHandler,
+)
+app.post(
+  '/api/webhook/innofulfill',
+  express.json({
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf.toString('utf8')
+    },
+  }),
+  innofulfillDeliveryWebhookHandler,
+)
+app.post(
+  '/api/webhook/innofulfill/delivery',
+  express.json({
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf.toString('utf8')
+    },
+  }),
+  innofulfillDeliveryWebhookHandler,
+)
 
 app.use((err: any, req: any, res: any, next: any) => {
   if (res.headersSent) {

@@ -5,6 +5,7 @@ import {
   processAmazonShippingTrackingWebhook,
   processDelhiveryWebhook,
   processEkartWebhook,
+  processInnofulfillWebhook,
   processShadowfaxWebhook,
   processXpressbeesWebhook,
 } from '../models/services/webhookProcessor'
@@ -20,19 +21,22 @@ let isProcessingPendingWebhooks = false
 const resolvePendingProvider = (payload: any, status: unknown) =>
   payload?.__provider ||
   (String(status || '').startsWith('xpressbees:')
-    ? 'xpressbees'
-    : String(status || '').startsWith('shadowfax:')
-      ? 'shadowfax'
-      : String(status || '').startsWith('ekart:')
-        ? 'ekart'
-        : String(status || '').startsWith('amazon:')
-          ? 'amazon'
-          : 'delhivery')
+      ? 'xpressbees'
+      : String(status || '').startsWith('shadowfax:')
+        ? 'shadowfax'
+        : String(status || '').startsWith('ekart:')
+          ? 'ekart'
+          : String(status || '').startsWith('amazon:')
+            ? 'amazon'
+            : String(status || '').startsWith('innofulfill:')
+              ? 'innofulfill'
+              : 'delhivery')
 
 const unwrapPendingPayload = (payload: any) =>
   payload?.__provider === 'xpressbees' ||
   payload?.__provider === 'ekart' ||
-  payload?.__provider === 'amazon'
+  payload?.__provider === 'amazon' ||
+  payload?.__provider === 'innofulfill'
     ? payload?.body || {}
     : payload
 
@@ -51,7 +55,11 @@ const resolvePendingAwb = (event: any, rawPayload: any) =>
   rawPayload?.track?.wbn ||
   rawPayload?.trackingNumber ||
   rawPayload?.shipmentId ||
-  rawPayload?.shipment_id
+  rawPayload?.shipment_id ||
+  rawPayload?.awbNumber ||
+  rawPayload?.cAwbNumber ||
+  rawPayload?.data?.awbNumber ||
+  rawPayload?.data?.cAwbNumber
 
 const pendingProviderLabel = (provider: string) =>
   provider === 'xpressbees'
@@ -62,7 +70,9 @@ const pendingProviderLabel = (provider: string) =>
         ? 'Ekart'
         : provider === 'amazon'
           ? 'Amazon Shipping'
-          : 'Delhivery'
+          : provider === 'innofulfill'
+            ? 'Innofulfill'
+            : 'Delhivery'
 
 export async function processPendingWebhooks() {
   if (isProcessingPendingWebhooks) {
@@ -182,13 +192,25 @@ export async function processPendingWebhooks() {
             typeof rawPayload?.orderNumber === 'string' ||
             typeof rawPayload?.order_number === 'string' ||
             typeof awb === 'string')
+        const looksLikeInnofulfill =
+          provider === 'innofulfill' &&
+          (typeof rawPayload?.awbNumber === 'string' ||
+            typeof rawPayload?.cAwbNumber === 'string' ||
+            typeof rawPayload?.orderId === 'string' ||
+            typeof rawPayload?.orderNumber === 'string' ||
+            typeof rawPayload?.referenceId === 'string' ||
+            typeof rawPayload?.referenceNumber === 'string' ||
+            typeof rawPayload?.data?.awbNumber === 'string' ||
+            typeof rawPayload?.data?.cAwbNumber === 'string' ||
+            typeof awb === 'string')
 
         if (
           !looksLikeDelhivery &&
           !looksLikeXpressbees &&
           !looksLikeShadowfax &&
           !looksLikeEkart &&
-          !looksLikeAmazon
+          !looksLikeAmazon &&
+          !looksLikeInnofulfill
         ) {
           console.warn(`⚠️ Skipping unsupported pending webhook ${event.id} (AWB: ${awb || 'N/A'})`)
           skippedCount++
@@ -206,8 +228,10 @@ export async function processPendingWebhooks() {
               ? await processShadowfaxWebhook(rawPayload)
               : provider === 'ekart'
                 ? await processEkartWebhook(rawPayload)
-                : provider === 'amazon'
-                  ? await processAmazonShippingTrackingWebhook(rawPayload)
+              : provider === 'amazon'
+                ? await processAmazonShippingTrackingWebhook(rawPayload)
+                : provider === 'innofulfill'
+                  ? await processInnofulfillWebhook(rawPayload)
                   : await processDelhiveryWebhook(rawPayload)
 
         if (result.success) {

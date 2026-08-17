@@ -35,6 +35,10 @@ import {
   XPRESSBEES_WEBHOOK_SIGNATURE_HEADER,
 } from '../../config/xpressbeesWebhook'
 import {
+  INNOFULFILL_WEBHOOK_PATH,
+  INNOFULFILL_WEBHOOK_SIGNATURE_HEADER,
+} from '../webhooks/innofulfill.webhook'
+import {
   createXpressbeesManualAwbRange,
 } from '../../models/services/xpressbeesAwbRange.service'
 import {
@@ -549,6 +553,34 @@ const buildXpressbeesWebhookConfig = () => ({
   ],
 })
 
+const buildInnofulfillWebhookConfig = () => ({
+  deliveryUrl: resolvePublicWebhookUrl('INNOFULFILL_WEBHOOK_URL', INNOFULFILL_WEBHOOK_PATH),
+  legacyUrl: resolvePublicWebhookUrl('INNOFULFILL_LEGACY_WEBHOOK_URL', '/api/webhook/innofulfill'),
+  deliveryAliasUrl: resolvePublicWebhookUrl(
+    'INNOFULFILL_DELIVERY_WEBHOOK_URL',
+    '/api/webhook/innofulfill/delivery',
+  ),
+  method: 'POST',
+  contentType: 'application/json',
+  expectedResponse: '200 OK',
+  authentication: {
+    type: 'hmac_sha256',
+    headerName: INNOFULFILL_WEBHOOK_SIGNATURE_HEADER,
+    encodings: ['hex', 'base64', 'sha256=hex', 'sha256=base64'],
+    secretRequired: true,
+  },
+  samplePayloadFields: [
+    'id',
+    'event.eventCode',
+    'event.triggerEventName',
+    'data.awbNumber',
+    'data.orderId',
+    'data.orderStatus',
+    'data.reason',
+    'data.statusUpdatedAt',
+  ],
+})
+
 const maskCredential = (value?: string | null) => {
   const normalized = String(value || '').trim()
   if (!normalized) return ''
@@ -636,6 +668,9 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
         hasApiKey: false,
         apiKeyMasked: '',
         hasRefreshToken: false,
+        hasWebhookSecret: false,
+        webhookSecretMasked: '',
+        webhookConfig: buildInnofulfillWebhookConfig(),
       },
       amazon: buildAmazonCredentialResponse(),
     }
@@ -704,6 +739,7 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
       } else if (provider === 'innofulfill') {
         const metadata = row.metadata || {}
         const apiKey = row.apiKey || ''
+        const webhookSecret = row.webhookSecret || ''
         const refreshToken = String(metadata.refreshToken || metadata.refresh_token || '')
         acc.innofulfill = {
           provider: 'innofulfill',
@@ -716,6 +752,9 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
           apiKeyMasked: maskCredential(apiKey),
           hasRefreshToken: Boolean(refreshToken.trim()),
           refreshTokenMasked: maskCredential(refreshToken),
+          hasWebhookSecret: Boolean(webhookSecret.trim()),
+          webhookSecretMasked: maskCredential(webhookSecret),
+          webhookConfig: buildInnofulfillWebhookConfig(),
         }
       } else if (provider === AMAZON_CREDENTIALS_PROVIDER) {
         acc.amazon = buildAmazonCredentialResponse(row)
@@ -734,7 +773,8 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
 }
 
 export const updateInnofulfillCredentialsController = async (req: Request, res: Response) => {
-  const { apiBase, username, password, apiKey, tenantId, userId, refreshToken } = req.body || {}
+  const { apiBase, username, password, apiKey, tenantId, userId, refreshToken, webhookSecret } =
+    req.body || {}
 
   try {
     const nextApiBase =
@@ -748,6 +788,8 @@ export const updateInnofulfillCredentialsController = async (req: Request, res: 
     const nextUserId = typeof userId === 'string' ? userId.trim() : undefined
     const nextRefreshToken =
       typeof refreshToken === 'string' ? refreshToken.trim() : undefined
+    const nextWebhookSecret =
+      typeof webhookSecret === 'string' ? webhookSecret.trim() : undefined
 
     const [existing] = await db
       .select({
@@ -755,6 +797,7 @@ export const updateInnofulfillCredentialsController = async (req: Request, res: 
         username: courier_credentials.username,
         password: courier_credentials.password,
         apiKey: courier_credentials.apiKey,
+        webhookSecret: courier_credentials.webhookSecret,
         metadata: courier_credentials.metadata,
       })
       .from(courier_credentials)
@@ -770,6 +813,7 @@ export const updateInnofulfillCredentialsController = async (req: Request, res: 
       username: nextUsername ?? existing?.username ?? '',
       password: nextPassword || existing?.password || '',
       apiKey: nextApiKey || existing?.apiKey || '',
+      webhookSecret: nextWebhookSecret || existing?.webhookSecret || '',
       metadata: {
         ...existingMetadata,
         tenantId: nextTenantId ?? String(existingMetadata.tenantId || existingMetadata.tenant_id || ''),
