@@ -24,6 +24,7 @@ import { getAllZones } from '../../models/services/zone.service'
 import { EkartService } from '../../models/services/couriers/ekart.service'
 import { XpressbeesService } from '../../models/services/couriers/xpressbees.service'
 import { ShadowfaxService } from '../../models/services/couriers/shadowfax.service'
+import { InnofulfillService } from '../../models/services/couriers/innofulfill.service'
 import { DelhiveryB2BService } from '../../models/services/couriers/delhiveryB2B.service'
 import {
   DEFAULT_DELHIVERY_B2B_API_BASE,
@@ -277,7 +278,7 @@ export const updateCourierStatusController = async (req: Request, res: Response)
 export const getServiceProvidersController = async (req: Request, res: Response) => {
   try {
     // Only expose the main integrated service providers in the enable/disable UI
-    const allowedProviders = ['delhivery', 'ekart', 'xpressbees', 'shadowfax', 'amazon']
+    const allowedProviders = ['delhivery', 'ekart', 'xpressbees', 'shadowfax', 'amazon', 'innofulfill']
 
     const rows = await db
       .select({
@@ -323,7 +324,7 @@ export const updateServiceProviderStatusController = async (req: Request, res: R
   const { isEnabled } = req.body
 
   try {
-    const allowedProviders = ['delhivery', 'ekart', 'xpressbees', 'shadowfax', 'amazon']
+    const allowedProviders = ['delhivery', 'ekart', 'xpressbees', 'shadowfax', 'amazon', 'innofulfill']
 
     if (!serviceProvider || typeof isEnabled !== 'boolean') {
       return res.status(400).json({
@@ -548,6 +549,13 @@ const buildXpressbeesWebhookConfig = () => ({
   ],
 })
 
+const maskCredential = (value?: string | null) => {
+  const normalized = String(value || '').trim()
+  if (!normalized) return ''
+  if (normalized.length <= 8) return `${normalized.slice(0, 2)}${'*'.repeat(Math.max(normalized.length - 2, 0))}`
+  return `${normalized.slice(0, 4)}${'*'.repeat(Math.max(normalized.length - 8, 0))}${normalized.slice(-4)}`
+}
+
 export const getCourierCredentialsController = async (req: Request, res: Response) => {
   try {
     const rows = await db
@@ -570,6 +578,7 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
           'ekart',
           'xpressbees',
           'shadowfax',
+          'innofulfill',
           AMAZON_CREDENTIALS_PROVIDER,
         ]),
       )
@@ -616,6 +625,16 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
         apiKeyMasked: '',
         hasWebhookSecret: false,
         webhookConfig: buildShadowfaxWebhookConfig(),
+      },
+      innofulfill: {
+        provider: 'innofulfill',
+        apiBase: 'https://apis.innofulfill.com',
+        username: '',
+        tenantId: '',
+        userId: '',
+        hasPassword: false,
+        hasApiKey: false,
+        apiKeyMasked: '',
       },
       amazon: buildAmazonCredentialResponse(),
     }
@@ -681,6 +700,19 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
           hasWebhookSecret,
           webhookConfig: buildShadowfaxWebhookConfig(),
         }
+      } else if (provider === 'innofulfill') {
+        const metadata = row.metadata || {}
+        const apiKey = row.apiKey || ''
+        acc.innofulfill = {
+          provider: 'innofulfill',
+          apiBase: row.apiBase || 'https://apis.innofulfill.com',
+          username: row.username || '',
+          tenantId: String(metadata.tenantId || metadata.tenant_id || ''),
+          userId: String(metadata.userId || metadata.user_id || ''),
+          hasPassword: Boolean((row.password || '').trim()),
+          hasApiKey: Boolean(apiKey.trim()),
+          apiKeyMasked: maskCredential(apiKey),
+        }
       } else if (provider === AMAZON_CREDENTIALS_PROVIDER) {
         acc.amazon = buildAmazonCredentialResponse(row)
       }
@@ -694,6 +726,92 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
   } catch (err) {
     console.error(err)
     res.status(500).json({ success: false, message: 'Failed to fetch courier credentials' })
+  }
+}
+
+export const updateInnofulfillCredentialsController = async (req: Request, res: Response) => {
+  const { apiBase, username, password, apiKey, tenantId, userId } = req.body || {}
+
+  try {
+    const nextApiBase =
+      typeof apiBase === 'string' && apiBase.trim()
+        ? apiBase.trim().replace(/\/+$/, '')
+        : 'https://apis.innofulfill.com'
+    const nextUsername = typeof username === 'string' ? username.trim() : undefined
+    const nextPassword = typeof password === 'string' ? password.trim() : undefined
+    const nextApiKey = typeof apiKey === 'string' ? apiKey.trim() : undefined
+    const nextTenantId = typeof tenantId === 'string' ? tenantId.trim() : ''
+    const nextUserId = typeof userId === 'string' ? userId.trim() : ''
+
+    const [existing] = await db
+      .select({
+        id: courier_credentials.id,
+        username: courier_credentials.username,
+        password: courier_credentials.password,
+        apiKey: courier_credentials.apiKey,
+      })
+      .from(courier_credentials)
+      .where(eq(courier_credentials.provider, 'innofulfill'))
+      .limit(1)
+
+    const values = {
+      provider: 'innofulfill',
+      apiBase: nextApiBase,
+      username: nextUsername ?? existing?.username ?? '',
+      password: nextPassword || existing?.password || '',
+      apiKey: nextApiKey || existing?.apiKey || '',
+      metadata: {
+        tenantId: nextTenantId,
+        userId: nextUserId,
+      },
+      updatedAt: new Date(),
+    }
+
+    await db
+      .insert(courier_credentials)
+      .values(values as any)
+      .onConflictDoUpdate({
+        target: courier_credentials.provider,
+        set: values as any,
+      })
+
+    res.json({ success: true, message: 'Innofulfill credentials updated successfully' })
+  } catch (err: any) {
+    console.error('Failed to update Innofulfill credentials:', err)
+    res.status(500).json({
+      success: false,
+      message: err?.message || 'Failed to update Innofulfill credentials',
+    })
+  }
+}
+
+export const testInnofulfillCredentialsController = async (req: Request, res: Response) => {
+  try {
+    const service = new InnofulfillService({
+      apiBase: req.body?.apiBase,
+      username: req.body?.username,
+      password: req.body?.password,
+      apiKey: req.body?.apiKey,
+      tenantId: req.body?.tenantId,
+      userId: req.body?.userId,
+    })
+    const result = req.body?.apiKey ? { ok: true, auth: 'api-key' } : await service.login()
+    res.json({
+      success: true,
+      data: {
+        ok: true,
+        auth: req.body?.apiKey ? 'api-key' : 'login',
+        userId: result?.user_id || result?.userId || null,
+        tenantId: result?.tenant_id || result?.tenantId || null,
+        expiresIn: result?.expires_in || null,
+      },
+    })
+  } catch (err: any) {
+    const statusCode = typeof err?.statusCode === 'number' ? err.statusCode : 500
+    res.status(statusCode).json({
+      success: false,
+      message: err?.message || 'Failed to test Innofulfill credentials',
+    })
   }
 }
 

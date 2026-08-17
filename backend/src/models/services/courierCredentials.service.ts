@@ -3,7 +3,13 @@ import { db } from '../client'
 import { courierCredentials } from '../schema/courierCredentials'
 
 export type BusinessType = 'b2b' | 'b2c'
-export type ServiceProviderId = 'delhivery' | 'shipway' | 'xpressbees' | 'ekart' | 'shadowfax'
+export type ServiceProviderId =
+  | 'delhivery'
+  | 'shipway'
+  | 'xpressbees'
+  | 'ekart'
+  | 'shadowfax'
+  | 'innofulfill'
 
 export type DelhiveryConfig = {
   apiKey?: string
@@ -71,6 +77,15 @@ export type ShadowfaxConfig = {
   webhookSecret?: string
 }
 
+export type InnofulfillConfig = {
+  apiBase?: string
+  username?: string
+  password?: string
+  apiKey?: string
+  tenantId?: string
+  userId?: string
+}
+
 export type CourierConfig =
   | DelhiveryConfig
   | SmartshipConfig
@@ -79,6 +94,7 @@ export type CourierConfig =
   | XpressbeesConfig
   | EkartConfig
   | ShadowfaxConfig
+  | InnofulfillConfig
 
 export interface CourierCredentialsUpsertPayload {
   serviceProvider: ServiceProviderId
@@ -112,6 +128,7 @@ const KNOWN_PROVIDERS: ServiceProviderId[] = [
   'xpressbees',
   'ekart',
   'shadowfax',
+  'innofulfill',
 ]
 
 const hasEnvForProviderAndType = (provider: ServiceProviderId, _type: BusinessType): boolean => {
@@ -142,6 +159,12 @@ const hasEnvForProviderAndType = (provider: ServiceProviderId, _type: BusinessTy
       process.env.SHADOWFAX_API_TOKEN ||
       process.env.SHADOWFAX_API_KEY ||
       process.env.SHADOWFAX_API_BASE
+    )
+  }
+  if (provider === 'innofulfill') {
+    return !!(
+      process.env.INNOFULFILL_API_KEY ||
+      (process.env.INNOFULFILL_USERNAME && process.env.INNOFULFILL_PASSWORD)
     )
   }
   return false
@@ -199,6 +222,18 @@ const buildConfigFromRow = (provider: ServiceProviderId, row: typeof courierCred
       apiToken: normalize(row.apiKey),
       clientName: normalize(row.clientName),
       webhookSecret: normalize(row.webhookSecret),
+    }
+    return cfg
+  }
+
+  if (provider === 'innofulfill') {
+    const cfg: InnofulfillConfig = {
+      apiBase: normalize(row.apiBase),
+      username: normalize(row.username),
+      password: normalize(row.password),
+      apiKey: normalize(row.apiKey),
+      tenantId: normalize((metadata.tenantId as string) || (metadata.tenant_id as string) || ''),
+      userId: normalize((metadata.userId as string) || (metadata.user_id as string) || ''),
     }
     return cfg
   }
@@ -294,6 +329,34 @@ export const upsertCourierCredentials = async (
     username: normalize((mergedConfig?.username as string) || (mergedConfig?.email as string) || ''),
     password: normalize((mergedConfig?.password as string) || ''),
     webhookSecret: normalize((mergedConfig?.webhookSecret as string) || ''),
+    metadata:
+      serviceProvider === 'innofulfill'
+        ? {
+            tenantId: normalize((mergedConfig?.tenantId as string) || ''),
+            userId: normalize((mergedConfig?.userId as string) || ''),
+          }
+        : serviceProvider === 'xpressbees'
+          ? {
+              authBearer: normalize((mergedConfig?.authBearer as string) || ''),
+              secretKey: normalize((mergedConfig?.secretKey as string) || ''),
+              xbKey: normalize((mergedConfig?.xbKey as string) || ''),
+              xbAccessKey: normalize((mergedConfig?.xbAccessKey as string) || ''),
+              businessUnit: normalize((mergedConfig?.businessUnit as string) || ''),
+              businessFlow: normalize((mergedConfig?.businessFlow as string) || ''),
+              businessService: normalize((mergedConfig?.businessService as string) || ''),
+              businessServices: normalize((mergedConfig?.businessServices as string) || ''),
+              businessAccountName: normalize((mergedConfig?.businessAccountName as string) || ''),
+              pickupVendorCode: normalize((mergedConfig?.pickupVendorCode as string) || ''),
+              manifestServiceType: normalize((mergedConfig?.manifestServiceType as string) || ''),
+              manifestPickupType: normalize((mergedConfig?.manifestPickupType as string) || ''),
+              pincodeBusinessUnit: normalize((mergedConfig?.pincodeBusinessUnit as string) || ''),
+              pincodeBusinessFlow: normalize((mergedConfig?.pincodeBusinessFlow as string) || ''),
+              pickupBusinessService: normalize((mergedConfig?.pickupBusinessService as string) || ''),
+              deliveryBusinessService: normalize((mergedConfig?.deliveryBusinessService as string) || ''),
+              serviceabilityVersion: normalize((mergedConfig?.serviceabilityVersion as string) || ''),
+              trackingVersion: normalize((mergedConfig?.trackingVersion as string) || ''),
+            }
+          : undefined,
     updatedAt: new Date(),
   }
 

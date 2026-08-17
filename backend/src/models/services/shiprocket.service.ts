@@ -114,6 +114,7 @@ import {
   mapDelhiveryB2BTrackingStatus,
 } from './couriers/delhiveryB2B.service'
 import { EkartService } from './couriers/ekart.service'
+import { InnofulfillService } from './couriers/innofulfill.service'
 import { ShadowfaxService } from './couriers/shadowfax.service'
 import { XpressbeesService } from './couriers/xpressbees.service'
 import { calculateOrderWeights } from './courierWeightCalculation.service'
@@ -4366,6 +4367,62 @@ export const fetchAvailableCouriersWithRates = async (
       })
     }
 
+    let innofulfillAvailable = false
+    let innofulfillResp: any = null
+    if (shouldRunLiveServiceability && enabledProviders.has('innofulfill')) {
+      const innofulfill = new InnofulfillService()
+      const originPincode = normalizePincode(params.origin ?? params.source_pincode)?.toString()
+      const destinationPincode = normalizePincode(
+        params.destination ?? params.destination_pincode,
+      )?.toString()
+
+      if (originPincode && destinationPincode) {
+        try {
+          innofulfillResp = await innofulfill.checkEcommServiceability({
+            fromPincode: originPincode,
+            toPincode: destinationPincode,
+            paymentMode: params.payment_type === 'cod' ? 'COD' : 'PREPAID',
+          })
+          innofulfillAvailable = innofulfillResp.serviceable === true
+          console.log('[Serviceability] Innofulfill response', {
+            serviceable: innofulfillResp.serviceable,
+            codAvailable: innofulfillResp.codAvailable,
+            prepaidAvailable: innofulfillResp.prepaidAvailable,
+          })
+        } catch (err: any) {
+          const liveServiceabilityError = err?.response?.data || err?.message || err
+          const logFn = localRateProviders.has('innofulfill')
+            ? console.warn.bind(console)
+            : console.error.bind(console)
+          logFn('[Serviceability] Innofulfill live serviceability unavailable', {
+            message: liveServiceabilityError,
+            fallback:
+              localRateProviders.has('innofulfill') && effectiveShipmentType === 'b2c'
+                ? 'local_rate_card'
+                : null,
+          })
+        }
+      }
+    }
+
+    if (innofulfillAvailable) {
+      registerServiceableProvider('innofulfill', {
+        providerId: 'innofulfill',
+        providerName: 'Innofulfill',
+        codAvailable: innofulfillResp?.codAvailable ?? true,
+        prepaidAvailable: innofulfillResp?.prepaidAvailable ?? true,
+        edd: innofulfillResp?.tat ? `${innofulfillResp.tat} Days` : '3-5 Days',
+        raw: innofulfillResp?.raw ?? innofulfillResp,
+      })
+
+      console.log('[Serviceability] Innofulfill candidate couriers prepared', {
+        mode: isCalculator ? 'calculator' : 'standard',
+        destination: params.destination?.toString(),
+        available: innofulfillAvailable,
+        candidates: providerCourierBuckets.get('innofulfill')?.rows.length ?? 0,
+      })
+    }
+
     const getShadowfaxBookingBlockReason = (resp: any) => {
       if (!resp || resp.serviceable !== false) return null
 
@@ -6908,10 +6965,15 @@ export const createB2CShipmentService = async (
           console.log(
             `âœ… Derived integration_type: ${params.integration_type} from courier_id: ${params.courier_id} (courier: ${matchedCourier.name})`,
           )
+        } else if (serviceProvider === 'innofulfill') {
+          params.integration_type = 'innofulfill'
+          console.log(
+            `Derived integration_type: ${params.integration_type} from courier_id: ${params.courier_id} (courier: ${matchedCourier.name})`,
+          )
         } else {
           throw new HttpError(
             400,
-            `Unsupported serviceProvider: ${serviceProvider}. Supported providers: delhivery, ekart, xpressbees, shadowfax, amazon.`,
+            `Unsupported serviceProvider: ${serviceProvider}. Supported providers: delhivery, ekart, xpressbees, shadowfax, amazon, innofulfill.`,
           )
         }
       } else {
@@ -7513,6 +7575,7 @@ export const createB2CShipmentService = async (
     pickup_vendor_code?: string
     manifest_attempts?: any
     xpressbees?: any
+    innofulfill?: any
     amazon_rate_id?: string
     amazon_carrier_id?: string
     amazon_tracking_id?: string
@@ -7529,10 +7592,10 @@ export const createB2CShipmentService = async (
   try {
     // 1️⃣ CREATE SHIPMENT
     const requestedIntegrationType = String(params.integration_type || '').toLowerCase()
-    const allowedIntegrationTypes = ['delhivery', 'ekart', 'xpressbees', 'shadowfax', 'amazon']
+    const allowedIntegrationTypes = ['delhivery', 'ekart', 'xpressbees', 'shadowfax', 'amazon', 'innofulfill']
     if (!requestedIntegrationType || !allowedIntegrationTypes.includes(requestedIntegrationType)) {
       throw new Error(
-        `Invalid integration_type: ${params.integration_type}. Supported values: delhivery, ekart, xpressbees, shadowfax, amazon.`,
+        `Invalid integration_type: ${params.integration_type}. Supported values: delhivery, ekart, xpressbees, shadowfax, amazon, innofulfill.`,
       )
     }
 
@@ -7542,6 +7605,7 @@ export const createB2CShipmentService = async (
       | 'xpressbees'
       | 'shadowfax'
       | 'amazon'
+      | 'innofulfill'
     const providerName =
       integrationType === 'delhivery'
         ? 'Delhivery'
@@ -7551,7 +7615,9 @@ export const createB2CShipmentService = async (
             ? 'Xpressbees'
             : integrationType === 'shadowfax'
               ? 'Shadowfax'
-              : 'Amazon Shipping'
+              : integrationType === 'amazon'
+                ? 'Amazon Shipping'
+                : 'Innofulfill'
 
     if (!isReverseShipment) {
       const orderDateRaw =
@@ -8234,6 +8300,39 @@ export const createB2CShipmentService = async (
         }
         ;(shipmentMeta as any).provider_mode = resolvedShadowfaxMode
         ;(shipmentMeta as any).provider_service = resolvedShadowfaxService
+      }
+    } else if (integrationType === 'innofulfill') {
+      if (isReverseShipment) {
+        throw new HttpError(400, 'Innofulfill reverse shipments are not supported yet')
+      }
+
+      console.log('Using Innofulfill B2C API...')
+      const innofulfill = new InnofulfillService()
+      shipmentData = await innofulfill.createOrder(params)
+      const innofulfillPackage = innofulfill.normalizeBookingResponse(shipmentData, params)
+
+      if (!innofulfillPackage.awb_number && !innofulfillPackage.order_id) {
+        console.error('Invalid Innofulfill shipment:', shipmentData)
+        throw new HttpError(502, 'Innofulfill shipment creation did not return an order ID or AWB')
+      }
+
+      shipmentMeta = {
+        shipment_id:
+          innofulfillPackage.shipment_id ||
+          innofulfillPackage.order_id ||
+          innofulfillPackage.awb_number,
+        awb_number: innofulfillPackage.awb_number || innofulfillPackage.order_id,
+        courier_name: innofulfillPackage.courier_name || 'Innofulfill',
+        courier_id: params.courier_id ? Number(params.courier_id) : null,
+        label: undefined,
+        manifest: undefined,
+        courier_cost: params?.courier_cost ? Number(params.courier_cost) : null,
+        sort_code: null,
+        provider_reference: innofulfillPackage.provider_reference,
+        provider_request_id: innofulfillPackage.provider_request_id,
+        provider_service: (params as any).innofulfill_service_type || 'ECOMM',
+        provider_mode: normalizeB2CShippingMode(params.shipping_mode) || undefined,
+        innofulfill: innofulfillPackage.raw,
       }
     } else if (integrationType === 'amazon') {
       console.log('Using Amazon Shipping API...')
@@ -15064,6 +15163,97 @@ const mapEkartTracking = (raw: any, order: OrderSummary): ProviderNormalizedTrac
   }
 }
 
+const mapInnofulfillTracking = (raw: any, order: OrderSummary): ProviderNormalizedTracking => {
+  const history: TrackingHistoryItem[] = []
+  const payload = raw?.data || raw?.payload || raw || {}
+  const tracking = payload?.tracking || payload?.trackingDetails || payload
+  const rawEvents =
+    findProviderValue(tracking, ['tracking_history', 'trackingHistory', 'history', 'events', 'scans']) ||
+    []
+  const events = Array.isArray(rawEvents)
+    ? rawEvents
+    : rawEvents && typeof rawEvents === 'object'
+      ? [rawEvents]
+      : []
+
+  events.forEach((entry: any) => {
+    pushHistoryEvent(history, {
+      statusCode:
+        entry?.status_code ||
+        entry?.statusCode ||
+        entry?.scanCode ||
+        entry?.eventCode ||
+        entry?.status ||
+        entry?.event,
+      message:
+        entry?.message ||
+        entry?.description ||
+        entry?.remarks ||
+        entry?.statusDescription ||
+        entry?.status ||
+        entry?.event,
+      location:
+        entry?.location ||
+        entry?.current_location ||
+        entry?.scan_location ||
+        entry?.hub ||
+        entry?.city,
+      time:
+        entry?.event_time ||
+        entry?.eventTime ||
+        entry?.scan_time ||
+        entry?.timestamp ||
+        entry?.updated_at ||
+        entry?.created_at,
+    })
+  })
+
+  const status = sanitizeString(
+    findProviderValue(tracking, [
+      'current_status',
+      'currentStatus',
+      'shipment_status',
+      'shipmentStatus',
+      'status',
+      'state',
+    ]) ||
+      history[0]?.message ||
+      order.order_status,
+    order.order_status || 'In Transit',
+  )
+
+  if (!history.length) {
+    pushHistoryEvent(history, {
+      statusCode: status,
+      message: status,
+      location: findProviderValue(tracking, ['current_location', 'currentLocation', 'location']),
+      time: findProviderValue(tracking, ['updated_at', 'updatedAt', 'timestamp']),
+    })
+  }
+
+  sortHistoryDescending(history)
+  return {
+    history,
+    status,
+    courier_name: sanitizeString(
+      findProviderValue(payload, ['carrierDisplayName', 'carrierName', 'courier_name']),
+      'Innofulfill',
+    ),
+    edd:
+      sanitizeString(
+        findProviderValue(payload, [
+          'expected_delivery_date',
+          'expectedDeliveryDate',
+          'estimatedDeliveryDate',
+          'edd',
+        ]),
+      ) || undefined,
+    shipment_info:
+      sanitizeString(findProviderValue(payload, ['message', 'description', 'remarks'])) ||
+      undefined,
+  }
+}
+
 const normalizeLiveTrackingStatusText = (value: unknown) =>
   sanitizeString(value)
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
@@ -16143,6 +16333,10 @@ export const trackByAwbService = async (awb: string): Promise<TrackingServiceRes
       const xpressbeesService = new XpressbeesService()
       const raw = await xpressbeesService.trackShipment(awb)
       providerData = mapXpressbeesTracking(raw, order)
+    } else if (providerKey === 'innofulfill') {
+      const innofulfillService = new InnofulfillService()
+      const raw = await innofulfillService.trackAwb(awb)
+      providerData = mapInnofulfillTracking(raw, order)
     } else if (providerKey === 'ekart') {
       const ekartService = new EkartService()
       const raw = await ekartService.track(awb)

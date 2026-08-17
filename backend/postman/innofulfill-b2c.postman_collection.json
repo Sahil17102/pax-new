@@ -1,0 +1,163 @@
+{
+  "info": {
+    "_postman_id": "cf54f5b8-1a6a-4c48-a42d-innofulfill-b2c",
+    "name": "Pax Logistics - Innofulfill B2C",
+    "description": "Postman collection for Innofulfill B2C authentication and Pax admin credential checks. Fill credentials in the local environment; do not export real tokens.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('HTTP status is successful', function () { pm.expect(pm.response.code).to.be.within(200, 299); });"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Provider Authentication",
+      "item": [
+        {
+          "name": "Innofulfill Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var body = pm.response.json();",
+                  "pm.test('ID token returned', function () { pm.expect(body.id_token).to.be.a('string').and.not.empty; });",
+                  "pm.test('Refresh token returned', function () { pm.expect(body.refresh_token).to.be.a('string').and.not.empty; });",
+                  "pm.environment.set('innofulfillIdToken', body.id_token || '');",
+                  "pm.environment.set('innofulfillRefreshToken', body.refresh_token || '');",
+                  "pm.environment.set('innofulfillTenantId', body.tenant_id || body.current_tenant?.tenant_id || pm.environment.get('innofulfillTenantId') || '');",
+                  "pm.environment.set('innofulfillUserId', body.user_id || pm.environment.get('innofulfillUserId') || '');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"signinType\": \"EMAIL\"\n}"
+            },
+            "url": "{{innofulfillApiBase}}/auth/login"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pax Admin Proxy",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+      },
+      "item": [
+        {
+          "name": "Admin Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var body = pm.response.json();",
+                  "if (body.token) { pm.environment.set('adminToken', body.token); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/admin/login"
+          }
+        },
+        {
+          "name": "Save Innofulfill Credentials",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var body = pm.response.json();",
+                  "pm.test('Credentials saved', function () { pm.expect(body.success).to.eql(true); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill"
+          }
+        },
+        {
+          "name": "Test Saved Login Credentials",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var body = pm.response.json();",
+                  "pm.test('Proxy login succeeded', function () { pm.expect(body.success).to.eql(true); pm.expect(body.data.ok).to.eql(true); });",
+                  "if (body.data?.tenantId) { pm.environment.set('innofulfillTenantId', body.data.tenantId); }",
+                  "if (body.data?.userId) { pm.environment.set('innofulfillUserId', body.data.userId); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill/test"
+          }
+        },
+        {
+          "name": "Fetch Courier Credentials",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var body = pm.response.json();",
+                  "pm.test('Innofulfill credentials are exposed safely', function () {",
+                  "  pm.expect(body.success).to.eql(true);",
+                  "  pm.expect(body.data.innofulfill).to.have.property('hasPassword');",
+                  "  pm.expect(body.data.innofulfill).to.not.have.property('password');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/couriers/credentials"
+          }
+        }
+      ]
+    }
+  ]
+}

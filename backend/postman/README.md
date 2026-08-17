@@ -229,3 +229,22 @@ warehouse/day, so that provider response is normalized as an idempotent success
 with `already_exists=true`. The request remains mutation-locked unless
 `allowMutating=true`. Delhivery documents a production limit of 4,000 requests
 per five-minute IP window.
+
+## Innofulfill B2C
+
+Import:
+
+- `innofulfill-b2c.postman_collection.json`
+- `innofulfill-b2c.local.postman_environment.json`
+
+Set `innofulfillUsername` and `innofulfillPassword` locally. Run
+**Innofulfill Login** to call `POST https://apis.innofulfill.com/auth/login`
+with `signinType: EMAIL`; the test script stores the returned `id_token`,
+`refresh_token`, `tenant_id`, and `user_id` only in your active Postman
+environment.
+
+Run **Admin Login** before the Pax admin proxy requests. **Save Innofulfill
+Credentials** stores the base URL, email login, tenant ID, and user ID through
+the admin Courier Credentials API. **Test Saved Login Credentials** verifies the
+same login path through the backend without exposing the provider token to the
+dashboard.

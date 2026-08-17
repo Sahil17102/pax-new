@@ -8,11 +8,13 @@ import {
   getShippingRatesController,
   importShippingRatesController,
   testDelhiveryB2BCredentialsController,
+  testInnofulfillCredentialsController,
   testXpressbeesCredentialsController,
   updateAmazonCredentialsController,
   updateDelhiveryCredentialsController,
   updateDelhiveryB2BCredentialsController,
   updateEkartCredentialsController,
+  updateInnofulfillCredentialsController,
   updateShadowfaxCredentialsController,
   updateXpressbeesAwbRangeController,
   updateXpressbeesCredentialsController,
@@ -89,6 +91,18 @@ router.put(
   requireAuth,
   isAdminMiddleware,
   updateXpressbeesAwbRangeController,
+)
+router.put(
+  '/credentials/innofulfill',
+  requireAuth,
+  isAdminMiddleware,
+  updateInnofulfillCredentialsController,
+)
+router.post(
+  '/credentials/innofulfill/test',
+  requireAuth,
+  isAdminMiddleware,
+  testInnofulfillCredentialsController,
 )
 router.put(
   '/credentials/amazon',

@@ -225,3 +225,15 @@ export const updateShadowfaxCredentials = async (payload) => {
   if (!data?.success) throw new Error('Failed to update Shadowfax credentials')
   return data.data
 }
+
+export const updateInnofulfillCredentials = async (payload) => {
+  const { data } = await api.put('/admin/couriers/credentials/innofulfill', payload)
+  if (!data?.success) throw new Error(data?.message || 'Failed to update Innofulfill credentials')
+  return data.data
+}
+
+export const testInnofulfillCredentials = async (payload) => {
+  const { data } = await api.post('/admin/couriers/credentials/innofulfill/test', payload)
+  if (!data?.success) throw new Error(data?.message || 'Failed to test Innofulfill credentials')
+  return data.data
+}

@@ -20,6 +20,8 @@ import {
   useUpdateDelhiveryCredentials,
   useUpdateDelhiveryB2BCredentials,
   useUpdateEkartCredentials,
+  useTestInnofulfillCredentials,
+  useUpdateInnofulfillCredentials,
   useUpdateShadowfaxCredentials,
   useTestXpressbeesCredentials,
   useUpdateXpressbeesCredentials,
@@ -35,6 +37,8 @@ const CourierCredentials = () => {
   const updateShadowfax = useUpdateShadowfaxCredentials()
   const updateXpressbees = useUpdateXpressbeesCredentials()
   const testXpressbees = useTestXpressbeesCredentials()
+  const updateInnofulfill = useUpdateInnofulfillCredentials()
+  const testInnofulfill = useTestInnofulfillCredentials()
 
   const [form, setForm] = useState({
     apiBase: '',
@@ -68,6 +72,15 @@ const CourierCredentials = () => {
     apiKey: '',
     webhookSecret: '',
   })
+  const [innofulfillForm, setInnofulfillForm] = useState({
+    apiBase: '',
+    username: '',
+    password: '',
+    apiKey: '',
+    tenantId: '',
+    userId: '',
+  })
+  const [innofulfillTestResult, setInnofulfillTestResult] = useState(null)
   useEffect(() => {
     if (data?.delhivery) {
       setForm({
@@ -108,6 +121,16 @@ const CourierCredentials = () => {
         clientName: data.shadowfax.clientName || '',
         apiKey: '',
         webhookSecret: '',
+      })
+    }
+    if (data?.innofulfill) {
+      setInnofulfillForm({
+        apiBase: data.innofulfill.apiBase || '',
+        username: data.innofulfill.username || '',
+        password: '',
+        apiKey: '',
+        tenantId: data.innofulfill.tenantId || '',
+        userId: data.innofulfill.userId || '',
       })
     }
   }, [data])
@@ -286,6 +309,65 @@ const CourierCredentials = () => {
         onError: (err) => {
           toast({
             title: 'Failed to update Shadowfax credentials',
+            description: err?.message,
+            status: 'error',
+          })
+        },
+      },
+    )
+  }
+
+  const handleSaveInnofulfill = () => {
+    updateInnofulfill.mutate(
+      {
+        apiBase: innofulfillForm.apiBase,
+        username: innofulfillForm.username,
+        tenantId: innofulfillForm.tenantId,
+        userId: innofulfillForm.userId,
+        ...(innofulfillForm.password ? { password: innofulfillForm.password } : {}),
+        ...(innofulfillForm.apiKey ? { apiKey: innofulfillForm.apiKey } : {}),
+      },
+      {
+        onSuccess: () => {
+          toast({ title: 'Innofulfill credentials updated', status: 'success' })
+          setInnofulfillTestResult(null)
+          setInnofulfillForm((prev) => ({ ...prev, password: '', apiKey: '' }))
+        },
+        onError: (err) => {
+          toast({
+            title: 'Failed to update Innofulfill credentials',
+            description: err?.message,
+            status: 'error',
+          })
+        },
+      },
+    )
+  }
+
+  const handleTestInnofulfill = () => {
+    testInnofulfill.mutate(
+      {
+        apiBase: innofulfillForm.apiBase,
+        username: innofulfillForm.username,
+        password: innofulfillForm.password,
+        apiKey: innofulfillForm.apiKey,
+        tenantId: innofulfillForm.tenantId,
+        userId: innofulfillForm.userId,
+      },
+      {
+        onSuccess: (result) => {
+          setInnofulfillTestResult(result)
+          toast({
+            title: 'Innofulfill connection test passed',
+            description: result?.tenantId
+              ? `Tenant ${result.tenantId} authenticated successfully.`
+              : 'Authentication details were accepted.',
+            status: 'success',
+          })
+        },
+        onError: (err) => {
+          toast({
+            title: 'Failed to test Innofulfill credentials',
             description: err?.message,
             status: 'error',
           })
@@ -763,6 +845,132 @@ const CourierCredentials = () => {
                 alignSelf="flex-start"
               >
                 Save Xpressbees Credentials
+              </Button>
+            </Flex>
+          </VStack>
+        </Box>
+
+        <Box borderWidth="1px" borderRadius="lg" p={5} minW="320px" flex="1" maxW="520px">
+          <VStack spacing={4} align="stretch">
+            <Flex justify="space-between" align="center">
+              <Text fontWeight="semibold">Innofulfill</Text>
+              <Badge
+                colorScheme={
+                  data?.innofulfill?.hasApiKey ||
+                  (data?.innofulfill?.username && data?.innofulfill?.hasPassword)
+                    ? 'green'
+                    : 'orange'
+                }
+              >
+                {data?.innofulfill?.hasApiKey
+                  ? 'API key set'
+                  : data?.innofulfill?.username && data?.innofulfill?.hasPassword
+                    ? 'Email login set'
+                    : 'Missing credentials'}
+              </Badge>
+            </Flex>
+
+            <FormControl>
+              <FormLabel>API Base URL</FormLabel>
+              <Input
+                value={innofulfillForm.apiBase}
+                onChange={(e) =>
+                  setInnofulfillForm((prev) => ({ ...prev, apiBase: e.target.value }))
+                }
+                placeholder="https://apis.innofulfill.com"
+              />
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Email Username</FormLabel>
+              <Input
+                value={innofulfillForm.username}
+                onChange={(e) =>
+                  setInnofulfillForm((prev) => ({ ...prev, username: e.target.value }))
+                }
+                placeholder="user@example.com"
+              />
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Password</FormLabel>
+              <Input
+                type="password"
+                value={innofulfillForm.password}
+                onChange={(e) =>
+                  setInnofulfillForm((prev) => ({ ...prev, password: e.target.value }))
+                }
+                placeholder="Leave blank to keep existing password"
+              />
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>API Key</FormLabel>
+              <Input
+                type="password"
+                value={innofulfillForm.apiKey}
+                onChange={(e) =>
+                  setInnofulfillForm((prev) => ({ ...prev, apiKey: e.target.value }))
+                }
+                placeholder={data?.innofulfill?.apiKeyMasked || 'Optional API key'}
+              />
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Tenant ID</FormLabel>
+              <Input
+                value={innofulfillForm.tenantId}
+                onChange={(e) =>
+                  setInnofulfillForm((prev) => ({ ...prev, tenantId: e.target.value }))
+                }
+                placeholder="tnt_..."
+              />
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>User ID</FormLabel>
+              <Input
+                value={innofulfillForm.userId}
+                onChange={(e) =>
+                  setInnofulfillForm((prev) => ({ ...prev, userId: e.target.value }))
+                }
+                placeholder="usr_..."
+              />
+            </FormControl>
+
+            <Text fontSize="xs" color="gray.500">
+              Email login calls `/auth/login` with `signinType: EMAIL`; the returned ID token is
+              used as a Bearer token for authenticated Innofulfill calls.
+            </Text>
+
+            {innofulfillTestResult && (
+              <Box borderWidth="1px" borderRadius="md" p={3}>
+                <Flex justify="space-between" align="center" gap={3}>
+                  <Text fontWeight="semibold">Latest Connection Test</Text>
+                  <Badge colorScheme="green">{innofulfillTestResult.auth}</Badge>
+                </Flex>
+                <Text fontSize="xs" color="gray.500" mt={2}>
+                  User: {innofulfillTestResult.userId || 'n/a'} | Tenant:{' '}
+                  {innofulfillTestResult.tenantId || 'n/a'}
+                </Text>
+              </Box>
+            )}
+
+            <Flex gap={3} flexWrap="wrap">
+              <Button
+                colorScheme="blue"
+                variant="outline"
+                onClick={handleTestInnofulfill}
+                isLoading={testInnofulfill.isPending}
+              >
+                Test Innofulfill Login
+              </Button>
+              <Button
+                colorScheme="blue"
+                onClick={handleSaveInnofulfill}
+                isLoading={updateInnofulfill.isPending}
+              >
+                Save Innofulfill Credentials
               </Button>
             </Flex>
           </VStack>

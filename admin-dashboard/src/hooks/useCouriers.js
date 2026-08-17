@@ -11,10 +11,12 @@ import {
   fetchServiceProviders,
   fetchShippingRates,
   testDelhiveryB2BCredentials,
+  testInnofulfillCredentials,
   testXpressbeesCredentials,
   updateDelhiveryCredentials,
   updateDelhiveryB2BCredentials,
   updateEkartCredentials,
+  updateInnofulfillCredentials,
   updateShadowfaxCredentials,
   updateXpressbeesAwbRange,
   updateXpressbeesCredentials,
@@ -195,6 +197,23 @@ export const useUpdateShadowfaxCredentials = () => {
     onSuccess: () => {
       queryClient.invalidateQueries(['courierCredentials'])
     },
+  })
+}
+
+export const useUpdateInnofulfillCredentials = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: updateInnofulfillCredentials,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['courierCredentials'])
+    },
+  })
+}
+
+export const useTestInnofulfillCredentials = () => {
+  return useMutation({
+    mutationFn: testInnofulfillCredentials,
   })
 }
 

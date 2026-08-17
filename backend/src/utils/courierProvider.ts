@@ -4,6 +4,7 @@ export const COURIER_PROVIDER_KEYS = [
   'amazon',
   'xpressbees',
   'ekart',
+  'innofulfill',
 ] as const
 
 export type CourierProviderKey = (typeof COURIER_PROVIDER_KEYS)[number]
@@ -14,6 +15,7 @@ const COURIER_PROVIDER_DISPLAY_NAMES: Record<CourierProviderKey, string> = {
   amazon: 'Amazon Shipping',
   xpressbees: 'Xpressbees',
   ekart: 'Ekart Logistics',
+  innofulfill: 'Innofulfill',
 }
 
 const normalizeText = (value: unknown) => String(value ?? '').trim()
@@ -47,6 +49,7 @@ export const normalizeCourierProviderKey = (value: unknown): CourierProviderKey 
   if (compact.includes('amazon')) return 'amazon'
   if (compact.includes('xpressbees') || compact.includes('xpressbee')) return 'xpressbees'
   if (compact.includes('ekart')) return 'ekart'
+  if (compact.includes('innofulfill') || compact.includes('innofulfil')) return 'innofulfill'
 
   return ''
 }
