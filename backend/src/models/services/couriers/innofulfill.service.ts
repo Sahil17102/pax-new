@@ -212,6 +212,19 @@ export type InnofulfillManifestOrdersResult = {
   raw: any
 }
 
+export type InnofulfillCancelOrderInput = {
+  orderId: string
+  reason: string
+}
+
+export type InnofulfillCancelOrdersResult = {
+  cancelledCount: number
+  orderIds: string[]
+  message: string
+  traceId: string
+  raw: any
+}
+
 const ORDER_LIST_QUERY_KEYS = [
   'page',
   'limit',
@@ -495,6 +508,39 @@ export class InnofulfillService {
     if (!normalized.length) {
       throw new HttpError(400, 'Innofulfill manifest requires at least one orderId')
     }
+    return normalized
+  }
+
+  private normalizeCancelOrders(orders: unknown, defaultReason = 'Customer Request'): InnofulfillCancelOrderInput[] {
+    const values = Array.isArray(orders)
+      ? orders
+      : String(orders ?? '')
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean)
+    const seen = new Set<string>()
+    const normalized: InnofulfillCancelOrderInput[] = []
+
+    for (const item of values) {
+      const orderId =
+        typeof item === 'object' && item !== null
+          ? normalizeText((item as any).orderId || (item as any).order_id)
+          : normalizeText(item)
+      const reason =
+        typeof item === 'object' && item !== null
+          ? normalizeText((item as any).reason, defaultReason)
+          : normalizeText(defaultReason)
+
+      if (!orderId || seen.has(orderId)) continue
+      if (!reason) throw new HttpError(400, 'Innofulfill cancellation reason is required for each order')
+      seen.add(orderId)
+      normalized.push({ orderId, reason })
+    }
+
+    if (!normalized.length) {
+      throw new HttpError(400, 'Innofulfill bulk cancel requires at least one order')
+    }
+
     return normalized
   }
 
@@ -1085,11 +1131,35 @@ export class InnofulfillService {
     }
   }
 
-  async cancelOrders(orderIds: string[]) {
+  async cancelOrders(orderIds: string[], reason = 'Customer Request') {
+    try {
+      const orders = this.normalizeCancelOrders(orderIds, reason)
+      const client = await this.getClient()
+      const { data } = await client.post('/gateway/booking-service/orders/cancel/bulk', { orders })
+      return data
+    } catch (error: any) {
+      this.handleError(error, 'Innofulfill bulk cancel failed')
+    }
+  }
+
+  async cancelOrdersBulk(orders: unknown, defaultReason = 'Customer Request'): Promise<InnofulfillCancelOrdersResult> {
+    const normalizedOrders = this.normalizeCancelOrders(orders, defaultReason)
     try {
       const client = await this.getClient()
-      const { data } = await client.post('/gateway/booking-service/orders/cancel/bulk', { orderIds })
-      return data
+      const { data } = await client.post('/gateway/booking-service/orders/cancel/bulk', {
+        orders: normalizedOrders,
+      })
+      const responseData = data?.data || {}
+      const orderIds = Array.isArray(responseData?.orderIds)
+        ? responseData.orderIds.map((value: any) => normalizeText(value)).filter(Boolean)
+        : normalizedOrders.map((order) => order.orderId)
+      return {
+        cancelledCount: Number(responseData?.cancelledCount || orderIds.length || 0),
+        orderIds,
+        message: normalizeText(data?.message),
+        traceId: normalizeText(data?.traceId || data?.trace_id),
+        raw: data,
+      }
     } catch (error: any) {
       this.handleError(error, 'Innofulfill bulk cancel failed')
     }

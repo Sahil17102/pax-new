@@ -322,6 +322,15 @@ manifest generation asynchronously, so HTTP 200 means the job started. **Test
 Manifest Orders Through Pax** returns normalized `queued`, `message`, `orderIds`,
 `traceId`, and raw provider data.
 
+**Cancel Orders Bulk** calls
+`POST /gateway/booking-service/orders/cancel/bulk` with documented
+`orders[].orderId` and `orders[].reason` entries. Set `innofulfillCancelOrderIds`
+to a single order ID or comma-separated IDs and `innofulfillCancelReason` to the
+audit reason; if IDs are blank, the request falls back to the created/sample
+order ID. This cancels real provider orders. **Test Cancel Orders Through Pax**
+returns normalized `cancelledCount`, cancelled `orderIds`, `traceId`, and raw
+provider data.
+
 **List Orders** calls `GET /gateway/booking-service/orders` directly with
 `page`, `limit`, `sortOrder`, and optional disabled filters for order status,
 AWB, phone, payment type, dates, destination zip, and `addresses.*` fields.

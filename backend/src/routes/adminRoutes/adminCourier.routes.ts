@@ -8,6 +8,7 @@ import {
   getShippingRatesController,
   importShippingRatesController,
   testDelhiveryB2BCredentialsController,
+  testInnofulfillCancelOrdersController,
   testInnofulfillCreateEcommOrderController,
   testInnofulfillCreateHyperlocalOrderController,
   testInnofulfillCredentialsController,
@@ -161,6 +162,12 @@ router.post(
   requireAuth,
   isAdminMiddleware,
   testInnofulfillManifestOrdersController,
+)
+router.post(
+  '/credentials/innofulfill/orders/cancel/test',
+  requireAuth,
+  isAdminMiddleware,
+  testInnofulfillCancelOrdersController,
 )
 router.post(
   '/credentials/innofulfill/orders/ecomm/test',
