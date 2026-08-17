@@ -849,7 +849,14 @@ const CourierCredentials = () => {
           </VStack>
         </Box>
 
-        <Box borderWidth="1px" borderRadius="lg" p={5} minW="320px" flex="1" maxW="520px">
+        <Box
+          borderWidth="1px"
+          borderRadius="lg"
+          p={5}
+          minW="320px"
+          flex="1"
+          maxW="520px"
+        >
           <VStack spacing={4} align="stretch">
             <Flex justify="space-between" align="center">
               <Text fontWeight="semibold">Xpressbees</Text>
@@ -960,7 +967,15 @@ const CourierCredentials = () => {
           </VStack>
         </Box>
 
-        <Box borderWidth="1px" borderRadius="lg" p={5} minW="320px" flex="1" maxW="520px">
+        <Box
+          borderWidth="1px"
+          borderRadius="lg"
+          p={5}
+          minW="320px"
+          flex="1"
+          maxW="520px"
+          order={-1}
+        >
           <VStack spacing={4} align="stretch">
             <Flex justify="space-between" align="flex-start" gap={3}>
               <Box>
