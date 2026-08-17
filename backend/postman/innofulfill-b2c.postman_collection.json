@@ -983,6 +983,58 @@
           }
         },
         {
+          "name": "Create Invoice Config (Shipping Level - All Customers)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('Provider all-customer shipping invoice config create/update succeeded', function () { pm.expect([200, 201]).to.include(pm.response.code); });",
+                  "pm.test('Provider returned shipping-level ALL invoice config', function () { pm.expect(body.data).to.be.an('object'); pm.expect(body.data.sellerSelection).to.eql('ALL'); pm.expect(body.data.invoiceLevel).to.eql('shipping level'); });",
+                  "if (body.data?.id) { pm.environment.set('innofulfillCreatedAllInvoiceConfigId', body.data.id); }",
+                  "if (body.data?.name) { pm.environment.set('innofulfillCreatedAllInvoiceConfigName', body.data.name); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{innofulfillIdToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "tenantid",
+                "value": "{{innofulfillTenantId}}"
+              },
+              {
+                "key": "api-key",
+                "value": "{{innofulfillApiKey}}",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{innofulfillAllInvoiceConfigName}}\",\n  \"sellerSelection\": \"ALL\",\n  \"sellers\": [],\n  \"fields\": {\n    \"companyLogo\": true,\n    \"gstNumber\": true,\n    \"providerEmail\": true,\n    \"providerPhone\": true,\n    \"pickupAddress\": true,\n    \"pickupMobile\": true,\n    \"deliveryAddress\": true,\n    \"deliveryMobile\": true,\n    \"orderId\": true,\n    \"orderDate\": true,\n    \"placeOfSupply\": true,\n    \"placeOfDelivery\": true,\n    \"travelBy\": true\n  },\n  \"invoiceLevel\": \"{{innofulfillAllInvoiceConfigLevel}}\"\n}"
+            },
+            "url": "{{innofulfillApiBase}}/gateway/pdf-generator/invoice-configs",
+            "description": "Creates or updates the real Innofulfill shipping-level invoice configuration for all sellers. This mutates provider invoice-template state."
+          }
+        },
+        {
           "name": "Download Invoice",
           "event": [
             {
@@ -2004,6 +2056,43 @@
             },
             "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill/invoices/configs/create/test",
             "description": "Calls Pax admin proxy to create/update a shipping-level Innofulfill invoice configuration for a specific seller and returns normalized config metadata plus raw provider payload."
+          }
+        },
+        {
+          "name": "Test Create All-Customer Shipping Invoice Config Through Pax",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('Proxy all-customer shipping invoice config create/update succeeded', function () { pm.expect(body.success).to.eql(true); });",
+                  "pm.test('Proxy normalized shipping-level ALL invoice config returned', function () { pm.expect(body.data.sellerSelection).to.eql('ALL'); pm.expect(body.data.invoiceLevel).to.eql('shipping level'); });",
+                  "if (body.data?.id) { pm.environment.set('innofulfillCreatedAllInvoiceConfigId', body.data.id); }",
+                  "if (body.data?.name) { pm.environment.set('innofulfillCreatedAllInvoiceConfigName', body.data.name); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\",\n  \"apiKey\": \"{{innofulfillApiKey}}\",\n  \"invoiceConfig\": {\n    \"name\": \"{{innofulfillAllInvoiceConfigName}}\",\n    \"sellerSelection\": \"ALL\",\n    \"sellers\": [],\n    \"fields\": {\n      \"companyLogo\": true,\n      \"gstNumber\": true,\n      \"providerEmail\": true,\n      \"providerPhone\": true,\n      \"pickupAddress\": true,\n      \"pickupMobile\": true,\n      \"deliveryAddress\": true,\n      \"deliveryMobile\": true,\n      \"orderId\": true,\n      \"orderDate\": true,\n      \"placeOfSupply\": true,\n      \"placeOfDelivery\": true,\n      \"travelBy\": true\n    },\n    \"invoiceLevel\": \"{{innofulfillAllInvoiceConfigLevel}}\"\n  }\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill/invoices/configs/create/test",
+            "description": "Calls Pax admin proxy to create/update the Innofulfill shipping-level invoice configuration for all sellers and returns normalized config metadata plus raw provider payload."
           }
         },
         {

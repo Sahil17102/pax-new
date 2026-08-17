@@ -378,6 +378,13 @@ one seller, all documented shipping-summary invoice fields enabled, and
 set the config name and seller. **Test Create Shipping Invoice Config Through
 Pax** stores the returned invoice config ID/name when present.
 
+**Create Invoice Config (Shipping Level - All Customers)** uses the same
+invoice-config endpoint with `sellerSelection=ALL`, an empty `sellers` array,
+all shipping-summary fields enabled, and `invoiceLevel=shipping level`. Use
+`innofulfillAllInvoiceConfigName` for the global fallback template. **Test
+Create All-Customer Shipping Invoice Config Through Pax** stores the returned
+all-customer invoice config ID/name separately.
+
 **Download Invoice** calls
 `GET /gateway/pdf-generator/invoice/{orderId}?type=domestic&level=product`.
 Set `innofulfillInvoiceOrderId`, or leave it blank to fall back to the
