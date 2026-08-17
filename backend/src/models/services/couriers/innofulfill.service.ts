@@ -21,6 +21,30 @@ const normalizeText = (value: unknown, fallback = '') => {
   return normalized || fallback
 }
 
+const normalizeRfc3339DateTime = (value: unknown, fallback = new Date()) => {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString()
+  }
+
+  const text = normalizeText(value)
+  if (!text) return fallback.toISOString()
+
+  const isoDateOnly = text.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (isoDateOnly) {
+    const [, year, month, day] = isoDateOnly
+    return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), 0, 0, 0)).toISOString()
+  }
+
+  const indianDateOnly = text.match(/^(\d{2})-(\d{2})-(\d{4})$/)
+  if (indianDateOnly) {
+    const [, day, month, year] = indianDateOnly
+    return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), 0, 0, 0)).toISOString()
+  }
+
+  const parsed = new Date(text)
+  return Number.isNaN(parsed.getTime()) ? fallback.toISOString() : parsed.toISOString()
+}
+
 const toNumber = (value: unknown, fallback = 0) => {
   const numeric = Number(value)
   return Number.isFinite(numeric) ? numeric : fallback
@@ -757,7 +781,7 @@ export class InnofulfillService {
     return {
       ...body,
       referenceId: normalizeText(body.referenceId, `REF-${Date.now()}`),
-      orderDate: normalizeText(body.orderDate, new Date().toISOString()),
+      orderDate: normalizeRfc3339DateTime(body.orderDate),
       orderType,
       orderStatus: normalizeText(body.orderStatus, 'CONFIRMED').toUpperCase(),
       parcelCategory: 'ECOMM',
@@ -810,7 +834,7 @@ export class InnofulfillService {
     return {
       ...rest,
       referenceId: normalizeText(body.referenceId, `REF-${Date.now()}`),
-      orderDate: normalizeText(body.orderDate, new Date().toISOString()),
+      orderDate: normalizeRfc3339DateTime(body.orderDate),
       orderType,
       orderStatus: normalizeText(body.orderStatus, 'CONFIRMED').toUpperCase(),
       parcelCategory: 'HYPERLOCAL',
@@ -1474,9 +1498,7 @@ export class InnofulfillService {
 
     return {
       referenceId: normalizeText(params.order_number, `REF-${Date.now()}`),
-      orderDate: params.order_date instanceof Date
-        ? params.order_date.toISOString()
-        : normalizeText(params.order_date, new Date().toISOString()),
+      orderDate: normalizeRfc3339DateTime(params.order_date),
       orderType: params.payment_type === 'reverse' || params.isReverse ? 'REVERSE' : 'FORWARD',
       orderStatus: 'CONFIRMED',
       parcelCategory: category,
