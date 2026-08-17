@@ -1212,6 +1212,32 @@ export const testInnofulfillInvoiceController = async (req: Request, res: Respon
   }
 }
 
+export const testInnofulfillTrackingController = async (req: Request, res: Response) => {
+  try {
+    const service = new InnofulfillService({
+      apiBase: req.body?.apiBase,
+      username: req.body?.username,
+      password: req.body?.password,
+      apiKey: req.body?.apiKey,
+      tenantId: req.body?.tenantId,
+      userId: req.body?.userId,
+      refreshToken: req.body?.refreshToken,
+    })
+    const result = await service.trackAwbDetails(req.body?.awbNumber)
+
+    res.json({
+      success: true,
+      data: result,
+    })
+  } catch (err: any) {
+    const statusCode = typeof err?.statusCode === 'number' ? err.statusCode : 500
+    res.status(statusCode).json({
+      success: false,
+      message: err?.message || 'Failed to test Innofulfill AWB tracking',
+    })
+  }
+}
+
 export const testInnofulfillCreateEcommOrderController = async (req: Request, res: Response) => {
   try {
     const service = new InnofulfillService({

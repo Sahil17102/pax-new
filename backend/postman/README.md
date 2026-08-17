@@ -347,6 +347,14 @@ invoice or `shipping` for shipping invoice. **Test Download Invoice Through
 Pax** returns content type, byte length, PDF/base64 detection, invoice data, and
 raw provider payload when JSON is returned.
 
+**Track Shipment by AWB** calls
+`GET /gateway/tracking-v2/api/tracking/awb/{awbNumber}`. It uses
+`innofulfillTrackAwbNumber`, or falls back to `innofulfillCreatedAwbNumber` /
+`innofulfillSampleAwbNumber`. **Test Track Shipment Through Pax** returns
+normalized AWB, order ID, current status, route cities, shipment type, movement
+type, latest event, full chronological `statuses`, trace ID, and raw provider
+response.
+
 **List Orders** calls `GET /gateway/booking-service/orders` directly with
 `page`, `limit`, `sortOrder`, and optional disabled filters for order status,
 AWB, phone, payment type, dates, destination zip, and `addresses.*` fields.

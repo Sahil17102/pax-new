@@ -251,6 +251,22 @@ export type InnofulfillInvoiceResult = {
   raw: any
 }
 
+export type InnofulfillTrackingResult = {
+  awbNumber: string
+  orderId: string
+  currentStatus: string
+  deliveryPartnerName: string
+  sourceCity: string
+  destinationCity: string
+  bookingDate: string
+  shipmentType: string
+  movementType: string
+  statuses: any[]
+  latestStatus: any
+  traceId: string
+  raw: any
+}
+
 const ORDER_LIST_QUERY_KEYS = [
   'page',
   'limit',
@@ -691,6 +707,33 @@ export class InnofulfillService {
       invoiceData,
       message,
       raw,
+    }
+  }
+
+  private summarizeTracking(payload: any, awbNumber: string): InnofulfillTrackingResult {
+    const orderInformation = payload?.orderInformation || payload?.data?.orderInformation || {}
+    const statuses = Array.isArray(payload?.statuses)
+      ? payload.statuses
+      : Array.isArray(payload?.data?.statuses)
+        ? payload.data.statuses
+        : []
+    return {
+      awbNumber: normalizeText(
+        orderInformation?.trackingId || orderInformation?.cAwbNumber || payload?.awbNumber,
+        awbNumber,
+      ),
+      orderId: normalizeText(orderInformation?.orderId || payload?.orderId),
+      currentStatus: normalizeText(orderInformation?.currentStatus || statuses.at(-1)?.status),
+      deliveryPartnerName: normalizeText(orderInformation?.deliveryPartnerName),
+      sourceCity: normalizeText(orderInformation?.sourceLocation?.city),
+      destinationCity: normalizeText(orderInformation?.destinationLocation?.city),
+      bookingDate: normalizeText(orderInformation?.bookingDate),
+      shipmentType: normalizeText(orderInformation?.type),
+      movementType: normalizeText(orderInformation?.movement_type || orderInformation?.movementType),
+      statuses,
+      latestStatus: statuses.at(-1) || null,
+      traceId: normalizeText(payload?.trace_id || payload?.traceId || payload?.data?.trace_id),
+      raw: payload,
     }
   }
 
@@ -1322,6 +1365,22 @@ export class InnofulfillService {
         `/gateway/tracking-v2/api/tracking/awb/${encodeURIComponent(awbNumber)}`,
       )
       return data
+    } catch (error: any) {
+      this.handleError(error, 'Innofulfill tracking failed')
+    }
+  }
+
+  async trackAwbDetails(awbNumber: unknown): Promise<InnofulfillTrackingResult> {
+    const normalizedAwb = normalizeText(awbNumber)
+    if (!normalizedAwb) throw new HttpError(400, 'Innofulfill tracking requires awbNumber')
+
+    try {
+      const client = await this.getClient()
+      const { data } = await client.get(
+        `/gateway/tracking-v2/api/tracking/awb/${encodeURIComponent(normalizedAwb)}`,
+        { headers: { accept: 'application/json' } },
+      )
+      return this.summarizeTracking(data, normalizedAwb)
     } catch (error: any) {
       this.handleError(error, 'Innofulfill tracking failed')
     }
