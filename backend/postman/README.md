@@ -363,6 +363,14 @@ toggles enabled by default. Use `innofulfillAllLabelConfigName` and
 All-Customer Label Config Through Pax** calls the same backend proxy and stores
 the returned all-customer config ID/name separately.
 
+**List Invoice Configurations** calls
+`GET /gateway/pdf-generator/invoice-configs` with optional `page`, `limit`,
+`search`, and `invoiceLevel` query parameters. Use
+`innofulfillInvoiceConfigsLevel=shipping level` or `product level` to filter
+the selector/table. **Test List Invoice Configurations Through Pax** returns
+normalized `invoiceConfigs`, `count`, pagination fields, `traceId`, and the raw
+provider payload.
+
 **Download Invoice** calls
 `GET /gateway/pdf-generator/invoice/{orderId}?type=domestic&level=product`.
 Set `innofulfillInvoiceOrderId`, or leave it blank to fall back to the

@@ -251,6 +251,25 @@ export type InnofulfillInvoiceResult = {
   raw: any
 }
 
+export type InnofulfillInvoiceConfigListQuery = {
+  page?: number | string
+  limit?: number | string
+  search?: string
+  invoiceLevel?: string
+}
+
+export type InnofulfillInvoiceConfigListResult = {
+  invoiceConfigs: any[]
+  configurations: any[]
+  count: number
+  page: number
+  limit: number
+  totalPages: number
+  currentPage: number
+  traceId: string
+  raw: any
+}
+
 export type InnofulfillLabelConfigListQuery = {
   page?: number | string
   limit?: number | string
@@ -490,6 +509,36 @@ export class InnofulfillService {
 
     const search = normalizeText(params.search)
     if (search) query.search = search
+
+    return query
+  }
+
+  private buildInvoiceConfigListQuery(params: InnofulfillInvoiceConfigListQuery = {}) {
+    const query: Record<string, string | number> = {}
+
+    const pageValue = params.page
+    if (pageValue !== undefined && pageValue !== null && pageValue !== '') {
+      const page = Number(pageValue)
+      if (!Number.isInteger(page) || page < 1) {
+        throw new HttpError(400, 'Innofulfill invoice configuration page must be a positive integer')
+      }
+      query.page = page
+    }
+
+    const limitValue = params.limit
+    if (limitValue !== undefined && limitValue !== null && limitValue !== '') {
+      const limit = Number(limitValue)
+      if (!Number.isInteger(limit) || limit < 1) {
+        throw new HttpError(400, 'Innofulfill invoice configuration limit must be a positive integer')
+      }
+      query.limit = limit
+    }
+
+    const search = normalizeText(params.search)
+    if (search) query.search = search
+
+    const invoiceLevel = normalizeText(params.invoiceLevel)
+    if (invoiceLevel) query.invoiceLevel = invoiceLevel
 
     return query
   }
@@ -1588,10 +1637,38 @@ export class InnofulfillService {
     }
   }
 
-  async getInvoiceConfigs() {
+  async getInvoiceConfigs(params: InnofulfillInvoiceConfigListQuery = {}) {
     const client = await this.getClient()
-    const { data } = await client.get('/gateway/pdf-generator/invoice-configs')
+    const { data } = await client.get('/gateway/pdf-generator/invoice-configs', {
+      params: this.buildInvoiceConfigListQuery(params),
+    })
     return data
+  }
+
+  async listInvoiceConfigurations(
+    params: InnofulfillInvoiceConfigListQuery = {},
+  ): Promise<InnofulfillInvoiceConfigListResult> {
+    try {
+      const client = await this.getClient()
+      const query = this.buildInvoiceConfigListQuery(params)
+      const { data } = await client.get('/gateway/pdf-generator/invoice-configs', {
+        params: query,
+      })
+      const invoiceConfigs = Array.isArray(data?.data) ? data.data : []
+      return {
+        invoiceConfigs,
+        configurations: invoiceConfigs,
+        count: Number(data?.count || invoiceConfigs.length || 0),
+        page: Number(data?.page || query.page || 1),
+        limit: Number(data?.limit || query.limit || invoiceConfigs.length || 0),
+        totalPages: Number(data?.totalPages || 0),
+        currentPage: Number(data?.currentPage || data?.page || query.page || 1),
+        traceId: normalizeText(data?.traceId || data?.trace_id),
+        raw: data,
+      }
+    } catch (error: any) {
+      this.handleError(error, 'Innofulfill list invoice configurations failed')
+    }
   }
 
   async downloadShippingLabel(payload: { orderId: string; tenantId?: string; userId?: string }) {

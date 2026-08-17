@@ -19,6 +19,7 @@ import {
   testInnofulfillHyperlocalServiceabilityController,
   testInnofulfillHyperlocalRateController,
   testInnofulfillInvoiceController,
+  testInnofulfillInvoiceConfigsController,
   testInnofulfillLabelConfigsController,
   testInnofulfillListOrdersController,
   testInnofulfillManifestOrdersController,
@@ -191,6 +192,12 @@ router.post(
   requireAuth,
   isAdminMiddleware,
   testInnofulfillCreateLabelConfigController,
+)
+router.post(
+  '/credentials/innofulfill/invoices/configs/test',
+  requireAuth,
+  isAdminMiddleware,
+  testInnofulfillInvoiceConfigsController,
 )
 router.post(
   '/credentials/innofulfill/invoices/download/test',
