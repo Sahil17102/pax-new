@@ -299,6 +299,13 @@ ECOMM Order Through Pax** performs the same mutation through the backend proxy
 and stores returned `orderId`, `referenceId`, and AWB values in the active
 Postman environment when present.
 
+**Create HYPERLOCAL Order** uses the same booking endpoint with
+`parcelCategory=HYPERLOCAL`, `deliveryPromise=HYPERLOCAL`, blank
+`deliveryMode`, no `carrierId`, and `carrierName=innofulfillHyperlocal`.
+Pickup and delivery should be same-city test addresses. This also creates a
+real provider order; **Test Create HYPERLOCAL Order Through Pax** runs it via
+the backend proxy and stores returned order identifiers when present.
+
 **List Orders** calls `GET /gateway/booking-service/orders` directly with
 `page`, `limit`, `sortOrder`, and optional disabled filters for order status,
 AWB, phone, payment type, dates, destination zip, and `addresses.*` fields.

@@ -9,6 +9,7 @@ import {
   importShippingRatesController,
   testDelhiveryB2BCredentialsController,
   testInnofulfillCreateEcommOrderController,
+  testInnofulfillCreateHyperlocalOrderController,
   testInnofulfillCredentialsController,
   testInnofulfillEcommRateController,
   testInnofulfillEcommServiceabilityController,
@@ -152,6 +153,12 @@ router.post(
   requireAuth,
   isAdminMiddleware,
   testInnofulfillCreateEcommOrderController,
+)
+router.post(
+  '/credentials/innofulfill/orders/hyperlocal/test',
+  requireAuth,
+  isAdminMiddleware,
+  testInnofulfillCreateHyperlocalOrderController,
 )
 router.put(
   '/credentials/amazon',

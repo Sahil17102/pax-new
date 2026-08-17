@@ -380,6 +380,57 @@ export class InnofulfillService {
     }
   }
 
+  private buildHyperlocalOrderPayload(params: any) {
+    const body = params?.referenceId && Array.isArray(params?.shipments) ? { ...params } : this.buildOrderPayload({
+      ...params,
+      parcelCategory: 'HYPERLOCAL',
+    })
+    const orderType = normalizeText(body.orderType || params?.orderType || 'FORWARD').toUpperCase()
+    const pickup = Array.isArray(body.addresses)
+      ? body.addresses.find((address: any) => normalizeText(address?.type).toUpperCase() === 'PICKUP')
+      : null
+    const delivery = Array.isArray(body.addresses)
+      ? body.addresses.find((address: any) => normalizeText(address?.type).toUpperCase() === 'DELIVERY')
+      : null
+
+    if (!['FORWARD', 'REVERSE'].includes(orderType)) {
+      throw new HttpError(400, 'Innofulfill HYPERLOCAL orderType must be FORWARD or REVERSE')
+    }
+    if (!pickup || !delivery) {
+      throw new HttpError(400, 'Innofulfill HYPERLOCAL order requires PICKUP and DELIVERY addresses')
+    }
+    if (!Array.isArray(body.shipments) || body.shipments.length === 0) {
+      throw new HttpError(400, 'Innofulfill HYPERLOCAL order requires at least one shipment')
+    }
+
+    const rest = { ...body }
+    delete rest.carrierId
+    delete rest.autoManifest
+    return {
+      ...rest,
+      referenceId: normalizeText(body.referenceId, `REF-${Date.now()}`),
+      orderDate: normalizeText(body.orderDate, new Date().toISOString()),
+      orderType,
+      orderStatus: normalizeText(body.orderStatus, 'CONFIRMED').toUpperCase(),
+      parcelCategory: 'HYPERLOCAL',
+      eWaybills: Array.isArray(body.eWaybills) ? body.eWaybills.map((value: any) => normalizeText(value)).filter(Boolean) : [],
+      deliveryPromise: 'HYPERLOCAL',
+      deliveryMode: '',
+      documentType: normalizeText(body.documentType),
+      taxes: Array.isArray(body.taxes) ? body.taxes : [],
+      discounts: Array.isArray(body.discounts) ? body.discounts : [],
+      metadata: body.metadata && typeof body.metadata === 'object' ? body.metadata : { source: 'pax_backend' },
+      documents: Array.isArray(body.documents) ? body.documents : [],
+      carrierName: HYPERLOCAL_CARRIER_NAME,
+      payment: {
+        ...(body.payment && typeof body.payment === 'object' ? body.payment : {}),
+        type: normalizeText(body.payment?.type || params?.paymentType || params?.payment_type, 'PREPAID').toUpperCase(),
+        currency: normalizeText(body.payment?.currency, 'INR').toUpperCase(),
+        paymentMethod: normalizeText(body.payment?.paymentMethod, 'ONLINE').toUpperCase(),
+      },
+    }
+  }
+
   private summarizeCreateOrder(payload: any): InnofulfillCreateOrderResult {
     const data = extractProviderData(payload) || {}
     return {
@@ -888,6 +939,17 @@ export class InnofulfillService {
       return this.summarizeCreateOrder(data)
     } catch (error: any) {
       this.handleError(error, 'Innofulfill ECOMM order creation failed')
+    }
+  }
+
+  async createHyperlocalOrder(params: any): Promise<InnofulfillCreateOrderResult> {
+    const body = this.buildHyperlocalOrderPayload(params)
+    try {
+      const client = await this.getClient()
+      const { data } = await client.post('/gateway/booking-service/orders', body)
+      return this.summarizeCreateOrder(data)
+    } catch (error: any) {
+      this.handleError(error, 'Innofulfill HYPERLOCAL order creation failed')
     }
   }
 
