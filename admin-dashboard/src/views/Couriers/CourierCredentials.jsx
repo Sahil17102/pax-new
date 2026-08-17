@@ -7,6 +7,7 @@ import {
   FormLabel,
   Input,
   Select,
+  SimpleGrid,
   Spinner,
   Switch,
   Text,
@@ -82,6 +83,7 @@ const CourierCredentials = () => {
     tenantId: '',
     userId: '',
     refreshToken: '',
+    webhookSecret: '',
   })
   const [innofulfillTestResult, setInnofulfillTestResult] = useState(null)
   useEffect(() => {
@@ -135,6 +137,7 @@ const CourierCredentials = () => {
         tenantId: data.innofulfill.tenantId || '',
         userId: data.innofulfill.userId || '',
         refreshToken: '',
+        webhookSecret: '',
       })
     }
   }, [data])
@@ -331,12 +334,21 @@ const CourierCredentials = () => {
         ...(innofulfillForm.password ? { password: innofulfillForm.password } : {}),
         ...(innofulfillForm.apiKey ? { apiKey: innofulfillForm.apiKey } : {}),
         ...(innofulfillForm.refreshToken ? { refreshToken: innofulfillForm.refreshToken } : {}),
+        ...(innofulfillForm.webhookSecret
+          ? { webhookSecret: innofulfillForm.webhookSecret }
+          : {}),
       },
       {
         onSuccess: () => {
           toast({ title: 'Innofulfill credentials updated', status: 'success' })
           setInnofulfillTestResult(null)
-          setInnofulfillForm((prev) => ({ ...prev, password: '', apiKey: '', refreshToken: '' }))
+          setInnofulfillForm((prev) => ({
+            ...prev,
+            password: '',
+            apiKey: '',
+            refreshToken: '',
+            webhookSecret: '',
+          }))
         },
         onError: (err) => {
           toast({
@@ -413,6 +425,66 @@ const CourierCredentials = () => {
       },
     )
   }
+
+  const innofulfillAuthReady =
+    Boolean(innofulfillForm.apiKey.trim() || data?.innofulfill?.hasApiKey) ||
+    Boolean(
+      innofulfillForm.username.trim() &&
+        (innofulfillForm.password.trim() || data?.innofulfill?.hasPassword),
+    )
+  const innofulfillTenantReady = Boolean(innofulfillForm.tenantId.trim())
+  const innofulfillUserReady = Boolean(innofulfillForm.userId.trim())
+  const innofulfillRefreshReady = Boolean(
+    innofulfillForm.refreshToken.trim() || data?.innofulfill?.hasRefreshToken,
+  )
+  const innofulfillWebhookReady = Boolean(
+    innofulfillForm.webhookSecret.trim() || data?.innofulfill?.hasWebhookSecret,
+  )
+  const innofulfillApiKeyReady = Boolean(
+    innofulfillForm.apiKey.trim() || data?.innofulfill?.hasApiKey,
+  )
+  const innofulfillCardReady =
+    innofulfillAuthReady &&
+    (innofulfillApiKeyReady || innofulfillTenantReady) &&
+    innofulfillUserReady
+  const innofulfillCredentialChecks = [
+    {
+      label: 'Authentication',
+      detail: 'Email + password for signinType EMAIL, or API key for API-key auth',
+      ready: innofulfillAuthReady,
+      required: true,
+    },
+    {
+      label: 'Tenant ID',
+      detail: 'Required with Bearer token for serviceability, rates, orders, labels, invoices',
+      ready: innofulfillTenantReady,
+      required: true,
+    },
+    {
+      label: 'User ID',
+      detail: 'Required for refresh-token rotation and shipping-label PDF payloads',
+      ready: innofulfillUserReady,
+      required: true,
+    },
+    {
+      label: 'Refresh Token',
+      detail: 'Optional to seed rotation; login and refresh calls will rotate it server-side',
+      ready: innofulfillRefreshReady,
+      required: false,
+    },
+    {
+      label: 'API Key',
+      detail: 'Optional alternate authentication for provider endpoints',
+      ready: innofulfillApiKeyReady,
+      required: false,
+    },
+    {
+      label: 'Webhook Secret',
+      detail: 'Optional HMAC key for verifying Innofulfill delivery webhooks',
+      ready: innofulfillWebhookReady,
+      required: false,
+    },
+  ]
 
   if (isLoading) return <Spinner size="md" />
   if (error) return <Text color="red.500">Failed to load courier credentials</Text>
@@ -890,8 +962,14 @@ const CourierCredentials = () => {
 
         <Box borderWidth="1px" borderRadius="lg" p={5} minW="320px" flex="1" maxW="520px">
           <VStack spacing={4} align="stretch">
-            <Flex justify="space-between" align="center">
-              <Text fontWeight="semibold">Innofulfill</Text>
+            <Flex justify="space-between" align="flex-start" gap={3}>
+              <Box>
+                <Text fontWeight="semibold">Innofulfill B2C</Text>
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  Authentication uses either email login or API key. Email login always sends
+                  `signinType: EMAIL`.
+                </Text>
+              </Box>
               <Badge
                 colorScheme={
                   data?.innofulfill?.hasApiKey ||
@@ -908,18 +986,54 @@ const CourierCredentials = () => {
               </Badge>
             </Flex>
 
-            <FormControl>
-              <FormLabel>API Base URL</FormLabel>
-              <Input
-                value={innofulfillForm.apiBase}
-                onChange={(e) =>
-                  setInnofulfillForm((prev) => ({ ...prev, apiBase: e.target.value }))
-                }
-                placeholder="https://apis.innofulfill.com"
-              />
-            </FormControl>
+            <Box bg="gray.50" borderRadius="md" p={3}>
+              <Flex justify="space-between" align="center" gap={3} mb={3}>
+                <Text fontSize="sm" fontWeight="semibold">
+                  Credential Checklist
+                </Text>
+                <Badge colorScheme={innofulfillCardReady ? 'green' : 'orange'}>
+                  {innofulfillCardReady ? 'Ready' : 'Needs setup'}
+                </Badge>
+              </Flex>
 
-            <FormControl>
+              <VStack spacing={2} align="stretch">
+                {innofulfillCredentialChecks.map((item) => (
+                  <Flex key={item.label} justify="space-between" align="flex-start" gap={3}>
+                    <Box>
+                      <Text fontSize="sm" fontWeight="semibold">
+                        {item.label}
+                      </Text>
+                      <Text fontSize="xs" color="gray.500">
+                        {item.detail}
+                      </Text>
+                    </Box>
+                    <Badge colorScheme={item.ready ? 'green' : item.required ? 'orange' : 'gray'}>
+                      {item.ready ? 'Set' : item.required ? 'Required' : 'Optional'}
+                    </Badge>
+                  </Flex>
+                ))}
+              </VStack>
+            </Box>
+
+            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+              <FormControl>
+                <FormLabel>API Base URL</FormLabel>
+                <Input
+                  value={innofulfillForm.apiBase}
+                  onChange={(e) =>
+                    setInnofulfillForm((prev) => ({ ...prev, apiBase: e.target.value }))
+                  }
+                  placeholder="https://apis.innofulfill.com"
+                />
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>Sign-in Type</FormLabel>
+                <Input value="EMAIL" isReadOnly bg="gray.50" />
+              </FormControl>
+            </SimpleGrid>
+
+            <FormControl isRequired>
               <FormLabel>Email Username</FormLabel>
               <Input
                 value={innofulfillForm.username}
@@ -930,7 +1044,7 @@ const CourierCredentials = () => {
               />
             </FormControl>
 
-            <FormControl>
+            <FormControl isRequired={!data?.innofulfill?.hasPassword && !innofulfillForm.apiKey}>
               <FormLabel>Password</FormLabel>
               <Input
                 type="password"
@@ -940,6 +1054,11 @@ const CourierCredentials = () => {
                 }
                 placeholder="Leave blank to keep existing password"
               />
+              {data?.innofulfill?.hasPassword && (
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  Saved password is present. Enter a new value only when rotating it.
+                </Text>
+              )}
             </FormControl>
 
             <FormControl>
@@ -952,29 +1071,36 @@ const CourierCredentials = () => {
                 }
                 placeholder={data?.innofulfill?.apiKeyMasked || 'Optional API key'}
               />
+              {data?.innofulfill?.hasApiKey && (
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  Current API key: {data.innofulfill.apiKeyMasked}
+                </Text>
+              )}
             </FormControl>
 
-            <FormControl>
-              <FormLabel>Tenant ID</FormLabel>
-              <Input
-                value={innofulfillForm.tenantId}
-                onChange={(e) =>
-                  setInnofulfillForm((prev) => ({ ...prev, tenantId: e.target.value }))
-                }
-                placeholder="tnt_..."
-              />
-            </FormControl>
+            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+              <FormControl isRequired>
+                <FormLabel>Tenant ID</FormLabel>
+                <Input
+                  value={innofulfillForm.tenantId}
+                  onChange={(e) =>
+                    setInnofulfillForm((prev) => ({ ...prev, tenantId: e.target.value }))
+                  }
+                  placeholder="tnt_..."
+                />
+              </FormControl>
 
-            <FormControl>
-              <FormLabel>User ID</FormLabel>
-              <Input
-                value={innofulfillForm.userId}
-                onChange={(e) =>
-                  setInnofulfillForm((prev) => ({ ...prev, userId: e.target.value }))
-                }
-                placeholder="usr_..."
-              />
-            </FormControl>
+              <FormControl isRequired>
+                <FormLabel>User ID</FormLabel>
+                <Input
+                  value={innofulfillForm.userId}
+                  onChange={(e) =>
+                    setInnofulfillForm((prev) => ({ ...prev, userId: e.target.value }))
+                  }
+                  placeholder="usr_..."
+                />
+              </FormControl>
+            </SimpleGrid>
 
             <FormControl>
               <FormLabel>Refresh Token</FormLabel>
@@ -995,11 +1121,30 @@ const CourierCredentials = () => {
               )}
             </FormControl>
 
-            <Text fontSize="xs" color="gray.500">
-              Email login calls `/auth/login` with `signinType: EMAIL`; the returned ID token is
-              used as a Bearer token for authenticated Innofulfill calls. Refresh tokens are
-              single-use and are rotated server-side after each successful refresh.
-            </Text>
+            <FormControl>
+              <FormLabel>Webhook Secret</FormLabel>
+              <Input
+                type="password"
+                value={innofulfillForm.webhookSecret}
+                onChange={(e) =>
+                  setInnofulfillForm((prev) => ({ ...prev, webhookSecret: e.target.value }))
+                }
+                placeholder={data?.innofulfill?.webhookSecretMasked || 'Optional webhook HMAC key'}
+              />
+              {data?.innofulfill?.hasWebhookSecret && (
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  Current webhook secret: {data.innofulfill.webhookSecretMasked}
+                </Text>
+              )}
+            </FormControl>
+
+            <Box bg="blue.50" borderRadius="md" p={3}>
+              <Text fontSize="xs" color="blue.700">
+                After login, Pax stores the returned `id_token`, rotated `refresh_token`, `tenant_id`,
+                and `user_id` server-side. Authenticated Innofulfill calls send
+                `Authorization: Bearer &lt;id_token&gt;` with `tenantid`.
+              </Text>
+            </Box>
 
             {innofulfillTestResult && (
               <Box borderWidth="1px" borderRadius="md" p={3}>
