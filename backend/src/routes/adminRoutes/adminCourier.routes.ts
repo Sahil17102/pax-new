@@ -9,6 +9,7 @@ import {
   importShippingRatesController,
   testDelhiveryB2BCredentialsController,
   testInnofulfillCredentialsController,
+  testInnofulfillRefreshTokenController,
   testXpressbeesCredentialsController,
   updateAmazonCredentialsController,
   updateDelhiveryCredentialsController,
@@ -103,6 +104,12 @@ router.post(
   requireAuth,
   isAdminMiddleware,
   testInnofulfillCredentialsController,
+)
+router.post(
+  '/credentials/innofulfill/refresh-token/test',
+  requireAuth,
+  isAdminMiddleware,
+  testInnofulfillRefreshTokenController,
 )
 router.put(
   '/credentials/amazon',

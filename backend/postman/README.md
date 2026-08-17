@@ -241,10 +241,14 @@ Set `innofulfillUsername` and `innofulfillPassword` locally. Run
 **Innofulfill Login** to call `POST https://apis.innofulfill.com/auth/login`
 with `signinType: EMAIL`; the test script stores the returned `id_token`,
 `refresh_token`, `tenant_id`, and `user_id` only in your active Postman
-environment.
+environment. Run **Innofulfill Refresh Token** after login to call
+`POST /auth/refresh-token`; the old refresh token is single-use, so the test
+script replaces it with the rotated value from the response.
 
 Run **Admin Login** before the Pax admin proxy requests. **Save Innofulfill
-Credentials** stores the base URL, email login, tenant ID, and user ID through
-the admin Courier Credentials API. **Test Saved Login Credentials** verifies the
-same login path through the backend without exposing the provider token to the
-dashboard.
+Credentials** stores the base URL, email login, tenant ID, user ID, and latest
+refresh token through the admin Courier Credentials API. **Test Saved Login
+Credentials** verifies the same login path through the backend without exposing
+the provider token to the dashboard. **Test Refresh Token Through Pax** verifies
+refresh-token rotation through the backend and persists the newly rotated
+refresh token server-side.

@@ -2,6 +2,7 @@ import axios, { type AxiosInstance } from 'axios'
 import { HttpError } from '../../../utils/classes'
 import {
   getEffectiveCourierConfig,
+  updateInnofulfillTokenCache,
   type InnofulfillConfig,
 } from '../courierCredentials.service'
 
@@ -150,6 +151,40 @@ export class InnofulfillService {
     throw new HttpError(status, `${fallback}: ${message}`)
   }
 
+  private async persistAuthTokens(payload: any) {
+    const config = await this.getConfig()
+    const idToken = normalizeText(payload?.id_token || payload?.idToken)
+    const refreshToken = normalizeText(payload?.refresh_token || payload?.refreshToken)
+    const expiresIn = Number(payload?.expires_in || 86400)
+    const userId = normalizeText(payload?.user_id || payload?.userId || config?.userId)
+    const tenantId = normalizeText(payload?.tenant_id || payload?.tenantId || config?.tenantId)
+
+    if (!idToken && !refreshToken) return
+
+    this.token = idToken || this.token
+    if (idToken) {
+      this.tokenExpiresAt = Date.now() + (Number.isFinite(expiresIn) ? expiresIn : 86400) * 1000
+    }
+    this.config = {
+      ...(config || {}),
+      ...(idToken ? { idToken } : {}),
+      ...(refreshToken ? { refreshToken } : {}),
+      ...(this.tokenExpiresAt ? { idTokenExpiresAt: new Date(this.tokenExpiresAt).toISOString() } : {}),
+      ...(userId ? { userId } : {}),
+      ...(tenantId ? { tenantId } : {}),
+    }
+
+    await updateInnofulfillTokenCache({
+      idToken,
+      refreshToken,
+      expiresIn,
+      userId,
+      tenantId,
+    }).catch((err: any) => {
+      console.warn('[Innofulfill] Failed to persist rotated auth token metadata:', err?.message || err)
+    })
+  }
+
   async login(payload?: { username?: string; password?: string; signinType?: string }) {
     const config = await this.getConfig()
     const username = normalizeText(payload?.username || config?.username || process.env.INNOFULFILL_USERNAME)
@@ -165,16 +200,30 @@ export class InnofulfillService {
         password,
         signinType: payload?.signinType || 'EMAIL',
       })
+      await this.persistAuthTokens(data)
       return data
     } catch (error: any) {
       this.handleError(error, 'Innofulfill login failed')
     }
   }
 
-  async refreshToken(payload: { userId: string; refreshToken: string }) {
+  async refreshToken(payload?: { userId?: string; refreshToken?: string }) {
+    const config = await this.getConfig()
+    const userId = normalizeText(payload?.userId || config?.userId || process.env.INNOFULFILL_USER_ID)
+    const refreshToken = normalizeText(
+      payload?.refreshToken || config?.refreshToken || process.env.INNOFULFILL_REFRESH_TOKEN,
+    )
+    if (!userId || !refreshToken) {
+      throw new HttpError(400, 'Innofulfill userId and refreshToken are required')
+    }
+
     try {
       const client = await this.getClient(false)
-      const { data } = await client.post('/auth/refresh-token', payload)
+      const { data } = await client.post('/auth/refresh-token', { userId, refreshToken })
+      await this.persistAuthTokens({
+        ...data,
+        user_id: userId,
+      })
       return data
     } catch (error: any) {
       this.handleError(error, 'Innofulfill refresh-token request failed')
@@ -183,11 +232,32 @@ export class InnofulfillService {
 
   private async getIdToken() {
     if (this.token && Date.now() < this.tokenExpiresAt - 60000) return this.token
+    const config = await this.getConfig()
+    const storedToken = normalizeText(config?.idToken)
+    const storedTokenExpiresAt = config?.idTokenExpiresAt
+      ? new Date(config.idTokenExpiresAt).getTime()
+      : 0
+    if (storedToken && Number.isFinite(storedTokenExpiresAt) && Date.now() < storedTokenExpiresAt - 60000) {
+      this.token = storedToken
+      this.tokenExpiresAt = storedTokenExpiresAt
+      return storedToken
+    }
+
+    if (normalizeText(config?.refreshToken) && normalizeText(config?.userId)) {
+      try {
+        const refreshed = await this.refreshToken()
+        const refreshedToken = normalizeText(refreshed?.id_token)
+        if (refreshedToken) return refreshedToken
+      } catch (err: any) {
+        const status = err?.statusCode || err?.response?.status || err?.status
+        if (status !== 401 && status !== 400) throw err
+        console.warn('[Innofulfill] Refresh token rejected; falling back to email login')
+      }
+    }
+
     const login = await this.login()
     const token = normalizeText(login?.id_token)
     if (!token) throw new HttpError(502, 'Innofulfill login did not return an id_token')
-    this.token = token
-    this.tokenExpiresAt = Date.now() + Number(login?.expires_in || 86400) * 1000
     return token
   }
 

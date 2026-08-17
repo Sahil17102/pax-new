@@ -635,6 +635,7 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
         hasPassword: false,
         hasApiKey: false,
         apiKeyMasked: '',
+        hasRefreshToken: false,
       },
       amazon: buildAmazonCredentialResponse(),
     }
@@ -703,6 +704,7 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
       } else if (provider === 'innofulfill') {
         const metadata = row.metadata || {}
         const apiKey = row.apiKey || ''
+        const refreshToken = String(metadata.refreshToken || metadata.refresh_token || '')
         acc.innofulfill = {
           provider: 'innofulfill',
           apiBase: row.apiBase || 'https://apis.innofulfill.com',
@@ -712,6 +714,8 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
           hasPassword: Boolean((row.password || '').trim()),
           hasApiKey: Boolean(apiKey.trim()),
           apiKeyMasked: maskCredential(apiKey),
+          hasRefreshToken: Boolean(refreshToken.trim()),
+          refreshTokenMasked: maskCredential(refreshToken),
         }
       } else if (provider === AMAZON_CREDENTIALS_PROVIDER) {
         acc.amazon = buildAmazonCredentialResponse(row)
@@ -730,7 +734,7 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
 }
 
 export const updateInnofulfillCredentialsController = async (req: Request, res: Response) => {
-  const { apiBase, username, password, apiKey, tenantId, userId } = req.body || {}
+  const { apiBase, username, password, apiKey, tenantId, userId, refreshToken } = req.body || {}
 
   try {
     const nextApiBase =
@@ -740,8 +744,10 @@ export const updateInnofulfillCredentialsController = async (req: Request, res: 
     const nextUsername = typeof username === 'string' ? username.trim() : undefined
     const nextPassword = typeof password === 'string' ? password.trim() : undefined
     const nextApiKey = typeof apiKey === 'string' ? apiKey.trim() : undefined
-    const nextTenantId = typeof tenantId === 'string' ? tenantId.trim() : ''
-    const nextUserId = typeof userId === 'string' ? userId.trim() : ''
+    const nextTenantId = typeof tenantId === 'string' ? tenantId.trim() : undefined
+    const nextUserId = typeof userId === 'string' ? userId.trim() : undefined
+    const nextRefreshToken =
+      typeof refreshToken === 'string' ? refreshToken.trim() : undefined
 
     const [existing] = await db
       .select({
@@ -749,10 +755,14 @@ export const updateInnofulfillCredentialsController = async (req: Request, res: 
         username: courier_credentials.username,
         password: courier_credentials.password,
         apiKey: courier_credentials.apiKey,
+        metadata: courier_credentials.metadata,
       })
       .from(courier_credentials)
       .where(eq(courier_credentials.provider, 'innofulfill'))
       .limit(1)
+
+    const existingMetadata =
+      existing?.metadata && typeof existing.metadata === 'object' ? existing.metadata : {}
 
     const values = {
       provider: 'innofulfill',
@@ -761,8 +771,10 @@ export const updateInnofulfillCredentialsController = async (req: Request, res: 
       password: nextPassword || existing?.password || '',
       apiKey: nextApiKey || existing?.apiKey || '',
       metadata: {
-        tenantId: nextTenantId,
-        userId: nextUserId,
+        ...existingMetadata,
+        tenantId: nextTenantId ?? String(existingMetadata.tenantId || existingMetadata.tenant_id || ''),
+        userId: nextUserId ?? String(existingMetadata.userId || existingMetadata.user_id || ''),
+        ...(nextRefreshToken ? { refreshToken: nextRefreshToken } : {}),
       },
       updatedAt: new Date(),
     }
@@ -811,6 +823,41 @@ export const testInnofulfillCredentialsController = async (req: Request, res: Re
     res.status(statusCode).json({
       success: false,
       message: err?.message || 'Failed to test Innofulfill credentials',
+    })
+  }
+}
+
+export const testInnofulfillRefreshTokenController = async (req: Request, res: Response) => {
+  try {
+    const service = new InnofulfillService({
+      apiBase: req.body?.apiBase,
+      username: req.body?.username,
+      password: req.body?.password,
+      apiKey: req.body?.apiKey,
+      tenantId: req.body?.tenantId,
+      userId: req.body?.userId,
+      refreshToken: req.body?.refreshToken,
+    })
+    const result = await service.refreshToken({
+      userId: req.body?.userId,
+      refreshToken: req.body?.refreshToken,
+    })
+    res.json({
+      success: true,
+      data: {
+        ok: true,
+        auth: 'refresh-token',
+        expiresIn: result?.expires_in || null,
+        tokenType: result?.token_type || null,
+        hasIdToken: Boolean(result?.id_token),
+        hasRefreshToken: Boolean(result?.refresh_token),
+      },
+    })
+  } catch (err: any) {
+    const statusCode = typeof err?.statusCode === 'number' ? err.statusCode : 500
+    res.status(statusCode).json({
+      success: false,
+      message: err?.message || 'Failed to refresh Innofulfill token',
     })
   }
 }

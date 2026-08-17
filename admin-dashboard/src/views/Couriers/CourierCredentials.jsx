@@ -21,6 +21,7 @@ import {
   useUpdateDelhiveryB2BCredentials,
   useUpdateEkartCredentials,
   useTestInnofulfillCredentials,
+  useTestInnofulfillRefreshToken,
   useUpdateInnofulfillCredentials,
   useUpdateShadowfaxCredentials,
   useTestXpressbeesCredentials,
@@ -39,6 +40,7 @@ const CourierCredentials = () => {
   const testXpressbees = useTestXpressbeesCredentials()
   const updateInnofulfill = useUpdateInnofulfillCredentials()
   const testInnofulfill = useTestInnofulfillCredentials()
+  const testInnofulfillRefresh = useTestInnofulfillRefreshToken()
 
   const [form, setForm] = useState({
     apiBase: '',
@@ -79,6 +81,7 @@ const CourierCredentials = () => {
     apiKey: '',
     tenantId: '',
     userId: '',
+    refreshToken: '',
   })
   const [innofulfillTestResult, setInnofulfillTestResult] = useState(null)
   useEffect(() => {
@@ -131,6 +134,7 @@ const CourierCredentials = () => {
         apiKey: '',
         tenantId: data.innofulfill.tenantId || '',
         userId: data.innofulfill.userId || '',
+        refreshToken: '',
       })
     }
   }, [data])
@@ -326,12 +330,13 @@ const CourierCredentials = () => {
         userId: innofulfillForm.userId,
         ...(innofulfillForm.password ? { password: innofulfillForm.password } : {}),
         ...(innofulfillForm.apiKey ? { apiKey: innofulfillForm.apiKey } : {}),
+        ...(innofulfillForm.refreshToken ? { refreshToken: innofulfillForm.refreshToken } : {}),
       },
       {
         onSuccess: () => {
           toast({ title: 'Innofulfill credentials updated', status: 'success' })
           setInnofulfillTestResult(null)
-          setInnofulfillForm((prev) => ({ ...prev, password: '', apiKey: '' }))
+          setInnofulfillForm((prev) => ({ ...prev, password: '', apiKey: '', refreshToken: '' }))
         },
         onError: (err) => {
           toast({
@@ -353,6 +358,7 @@ const CourierCredentials = () => {
         apiKey: innofulfillForm.apiKey,
         tenantId: innofulfillForm.tenantId,
         userId: innofulfillForm.userId,
+        refreshToken: innofulfillForm.refreshToken,
       },
       {
         onSuccess: (result) => {
@@ -368,6 +374,38 @@ const CourierCredentials = () => {
         onError: (err) => {
           toast({
             title: 'Failed to test Innofulfill credentials',
+            description: err?.message,
+            status: 'error',
+          })
+        },
+      },
+    )
+  }
+
+  const handleRefreshInnofulfillToken = () => {
+    testInnofulfillRefresh.mutate(
+      {
+        apiBase: innofulfillForm.apiBase,
+        username: innofulfillForm.username,
+        password: innofulfillForm.password,
+        apiKey: innofulfillForm.apiKey,
+        tenantId: innofulfillForm.tenantId,
+        userId: innofulfillForm.userId,
+        refreshToken: innofulfillForm.refreshToken,
+      },
+      {
+        onSuccess: (result) => {
+          setInnofulfillTestResult(result)
+          toast({
+            title: 'Innofulfill token refreshed',
+            description: 'The rotated refresh token was saved on the backend.',
+            status: 'success',
+          })
+          setInnofulfillForm((prev) => ({ ...prev, refreshToken: '' }))
+        },
+        onError: (err) => {
+          toast({
+            title: 'Failed to refresh Innofulfill token',
             description: err?.message,
             status: 'error',
           })
@@ -938,9 +976,29 @@ const CourierCredentials = () => {
               />
             </FormControl>
 
+            <FormControl>
+              <FormLabel>Refresh Token</FormLabel>
+              <Input
+                type="password"
+                value={innofulfillForm.refreshToken}
+                onChange={(e) =>
+                  setInnofulfillForm((prev) => ({ ...prev, refreshToken: e.target.value }))
+                }
+                placeholder={
+                  data?.innofulfill?.refreshTokenMasked || 'Optional rotated refresh token'
+                }
+              />
+              {data?.innofulfill?.hasRefreshToken && (
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  Current refresh token: {data.innofulfill.refreshTokenMasked}
+                </Text>
+              )}
+            </FormControl>
+
             <Text fontSize="xs" color="gray.500">
               Email login calls `/auth/login` with `signinType: EMAIL`; the returned ID token is
-              used as a Bearer token for authenticated Innofulfill calls.
+              used as a Bearer token for authenticated Innofulfill calls. Refresh tokens are
+              single-use and are rotated server-side after each successful refresh.
             </Text>
 
             {innofulfillTestResult && (
@@ -964,6 +1022,15 @@ const CourierCredentials = () => {
                 isLoading={testInnofulfill.isPending}
               >
                 Test Innofulfill Login
+              </Button>
+              <Button
+                colorScheme="blue"
+                variant="outline"
+                onClick={handleRefreshInnofulfillToken}
+                isLoading={testInnofulfillRefresh.isPending}
+                isDisabled={!innofulfillForm.refreshToken && !data?.innofulfill?.hasRefreshToken}
+              >
+                Refresh Token
               </Button>
               <Button
                 colorScheme="blue"

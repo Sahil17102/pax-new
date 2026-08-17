@@ -49,6 +49,34 @@
             },
             "url": "{{innofulfillApiBase}}/auth/login"
           }
+        },
+        {
+          "name": "Innofulfill Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var body = pm.response.json();",
+                  "pm.test('New ID token returned', function () { pm.expect(body.id_token).to.be.a('string').and.not.empty; });",
+                  "pm.test('Rotated refresh token returned', function () { pm.expect(body.refresh_token).to.be.a('string').and.not.empty; });",
+                  "pm.environment.set('innofulfillIdToken', body.id_token || '');",
+                  "pm.environment.set('innofulfillRefreshToken', body.refresh_token || '');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\"\n}"
+            },
+            "url": "{{innofulfillApiBase}}/auth/refresh-token"
+          }
         }
       ]
     },
@@ -103,7 +131,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\"\n}"
+              "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\"\n}"
             },
             "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill"
           }
@@ -132,6 +160,31 @@
               "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\"\n}"
             },
             "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill/test"
+          }
+        },
+        {
+          "name": "Test Refresh Token Through Pax",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var body = pm.response.json();",
+                  "pm.test('Proxy refresh succeeded', function () { pm.expect(body.success).to.eql(true); pm.expect(body.data.ok).to.eql(true); });",
+                  "pm.test('Provider returned rotated token', function () { pm.expect(body.data.hasRefreshToken).to.eql(true); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill/refresh-token/test"
           }
         },
         {

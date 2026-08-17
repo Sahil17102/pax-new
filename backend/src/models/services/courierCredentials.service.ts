@@ -84,6 +84,9 @@ export type InnofulfillConfig = {
   apiKey?: string
   tenantId?: string
   userId?: string
+  idToken?: string
+  idTokenExpiresAt?: string
+  refreshToken?: string
 }
 
 export type CourierConfig =
@@ -234,6 +237,15 @@ const buildConfigFromRow = (provider: ServiceProviderId, row: typeof courierCred
       apiKey: normalize(row.apiKey),
       tenantId: normalize((metadata.tenantId as string) || (metadata.tenant_id as string) || ''),
       userId: normalize((metadata.userId as string) || (metadata.user_id as string) || ''),
+      idToken: normalize((metadata.idToken as string) || (metadata.id_token as string) || ''),
+      idTokenExpiresAt: normalize(
+        (metadata.idTokenExpiresAt as string) ||
+          (metadata.id_token_expires_at as string) ||
+          '',
+      ),
+      refreshToken: normalize(
+        (metadata.refreshToken as string) || (metadata.refresh_token as string) || '',
+      ),
     }
     return cfg
   }
@@ -370,6 +382,52 @@ export const upsertCourierCredentials = async (
         updatedAt: new Date(),
       } as any,
     })
+}
+
+export const updateInnofulfillTokenCache = async (payload: {
+  idToken?: string | null
+  refreshToken?: string | null
+  expiresIn?: number | string | null
+  userId?: string | null
+  tenantId?: string | null
+}): Promise<void> => {
+  const [row] = await db
+    .select({
+      id: courierCredentials.id,
+      metadata: courierCredentials.metadata,
+    })
+    .from(courierCredentials)
+    .where(eq(courierCredentials.provider, 'innofulfill'))
+    .limit(1)
+
+  if (!row) return
+
+  const expiresIn = Number(payload.expiresIn || 86400)
+  const idTokenExpiresAt = Number.isFinite(expiresIn) && expiresIn > 0
+    ? new Date(Date.now() + expiresIn * 1000).toISOString()
+    : undefined
+  const metadata = row.metadata && typeof row.metadata === 'object' ? row.metadata : {}
+  const nextMetadata = {
+    ...metadata,
+    ...(normalize(payload.idToken || '') ? { idToken: normalize(payload.idToken || '') } : {}),
+    ...(idTokenExpiresAt ? { idTokenExpiresAt } : {}),
+    ...(normalize(payload.refreshToken || '')
+      ? {
+          refreshToken: normalize(payload.refreshToken || ''),
+          refreshTokenUpdatedAt: new Date().toISOString(),
+        }
+      : {}),
+    ...(normalize(payload.userId || '') ? { userId: normalize(payload.userId || '') } : {}),
+    ...(normalize(payload.tenantId || '') ? { tenantId: normalize(payload.tenantId || '') } : {}),
+  }
+
+  await db
+    .update(courierCredentials)
+    .set({
+      metadata: nextMetadata,
+      updatedAt: new Date(),
+    } as any)
+    .where(eq(courierCredentials.provider, 'innofulfill'))
 }
 
 export const listCourierCredentialsMeta = async (): Promise<CourierCredentialsMeta[]> => {

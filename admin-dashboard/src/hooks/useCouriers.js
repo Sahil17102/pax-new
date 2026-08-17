@@ -12,6 +12,7 @@ import {
   fetchShippingRates,
   testDelhiveryB2BCredentials,
   testInnofulfillCredentials,
+  testInnofulfillRefreshToken,
   testXpressbeesCredentials,
   updateDelhiveryCredentials,
   updateDelhiveryB2BCredentials,
@@ -214,6 +215,12 @@ export const useUpdateInnofulfillCredentials = () => {
 export const useTestInnofulfillCredentials = () => {
   return useMutation({
     mutationFn: testInnofulfillCredentials,
+  })
+}
+
+export const useTestInnofulfillRefreshToken = () => {
+  return useMutation({
+    mutationFn: testInnofulfillRefreshToken,
   })
 }
 

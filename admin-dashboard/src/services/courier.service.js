@@ -237,3 +237,9 @@ export const testInnofulfillCredentials = async (payload) => {
   if (!data?.success) throw new Error(data?.message || 'Failed to test Innofulfill credentials')
   return data.data
 }
+
+export const testInnofulfillRefreshToken = async (payload) => {
+  const { data } = await api.post('/admin/couriers/credentials/innofulfill/refresh-token/test', payload)
+  if (!data?.success) throw new Error(data?.message || 'Failed to refresh Innofulfill token')
+  return data.data
+}
