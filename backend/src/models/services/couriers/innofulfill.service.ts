@@ -100,6 +100,16 @@ export type InnofulfillServiceabilityResult = {
   operationType: string
   fromPincodeMetadata: any
   toPincodeMetadata: any
+  pickupAddress: any
+  shippingAddress: any
+  pickupPincodeMetadata: any
+  shippingPincodeMetadata: any
+  account: any
+  configuration: any
+  distanceMeters: number | null
+  distanceText: string
+  durationSeconds: number | null
+  durationText: string
   tat: number | null
   raw: any
 }
@@ -304,10 +314,21 @@ export class InnofulfillService {
   }
 
   async checkHyperlocalServiceability(params: any): Promise<InnofulfillServiceabilityResult> {
+    const paymentMode = String(params.paymentMode || params.payment_type || 'PREPAID').toUpperCase()
+    if (!params.pickupAddress || typeof params.pickupAddress !== 'object') {
+      throw new HttpError(400, 'Innofulfill Hyperlocal serviceability requires pickupAddress')
+    }
+    if (!params.shippingAddress || typeof params.shippingAddress !== 'object') {
+      throw new HttpError(400, 'Innofulfill Hyperlocal serviceability requires shippingAddress')
+    }
+    if (!['PREPAID', 'COD'].includes(paymentMode)) {
+      throw new HttpError(400, 'Innofulfill paymentMode must be PREPAID or COD')
+    }
+
     const body = {
       pickupAddress: params.pickupAddress,
       shippingAddress: params.shippingAddress,
-      paymentMode: String(params.paymentMode || params.payment_type || 'PREPAID').toUpperCase(),
+      paymentMode,
       operationType: params.operationType || 'PICKUP_DELIVERY',
       carriers: params.carriers || ['SMILE'],
     }
@@ -382,6 +403,16 @@ export class InnofulfillService {
       operationType: normalizeText(firstRow?.operationType),
       fromPincodeMetadata: firstRow?.fromPincodeMetadata ?? null,
       toPincodeMetadata: firstRow?.toPincodeMetadata ?? null,
+      pickupAddress: firstRow?.pickupAddress ?? null,
+      shippingAddress: firstRow?.shippingAddress ?? null,
+      pickupPincodeMetadata: firstRow?.pickupPincodeMetadata ?? null,
+      shippingPincodeMetadata: firstRow?.shippingPincodeMetadata ?? null,
+      account: firstRow?.account ?? null,
+      configuration: firstRow?.configuration ?? null,
+      distanceMeters: firstRow?.distanceMeters ? Number(firstRow.distanceMeters) : null,
+      distanceText: normalizeText(firstRow?.distanceText),
+      durationSeconds: firstRow?.durationSeconds ? Number(firstRow.durationSeconds) : null,
+      durationText: normalizeText(firstRow?.durationText),
       tat: null,
       raw: payload,
     }

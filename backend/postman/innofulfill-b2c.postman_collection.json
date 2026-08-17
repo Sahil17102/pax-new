@@ -114,6 +114,43 @@
             "url": "{{innofulfillApiBase}}/gateway/serviceability/ecomm",
             "description": "Direct Innofulfill ECOMM serviceability call. Run Innofulfill Login first for Bearer + TenantId auth, or enable Api-Key and set innofulfillApiKey."
           }
+        },
+        {
+          "name": "Check Hyperlocal Serviceability",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var body = pm.response.json();",
+                  "pm.test('Provider returned hyperlocal data rows', function () { pm.expect(body.data).to.be.an('array').and.not.empty; });",
+                  "pm.test('Carrier serviceability is boolean', function () {",
+                  "  pm.expect(body.data[0].carriers).to.be.an('array').and.not.empty;",
+                  "  pm.expect(body.data[0].carriers[0].serviceable).to.be.a('boolean');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{innofulfillIdToken}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "TenantId", "value": "{{innofulfillTenantId}}" },
+              { "key": "Api-Key", "value": "{{innofulfillApiKey}}", "disabled": true }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pickupAddress\": {\n    \"address\": \"{{innofulfillPickupAddress}}\",\n    \"pincode\": {{innofulfillPickupPincode}},\n    \"latitude\": {{innofulfillPickupLatitude}},\n    \"longitude\": {{innofulfillPickupLongitude}}\n  },\n  \"shippingAddress\": {\n    \"address\": \"{{innofulfillShippingAddress}}\",\n    \"pincode\": {{innofulfillShippingPincode}},\n    \"latitude\": {{innofulfillShippingLatitude}},\n    \"longitude\": {{innofulfillShippingLongitude}}\n  },\n  \"paymentMode\": \"{{innofulfillPaymentMode}}\",\n  \"operationType\": \"{{innofulfillOperationType}}\",\n  \"carriers\": [\n    \"{{innofulfillCarrier}}\"\n  ]\n}"
+            },
+            "url": "{{innofulfillApiBase}}/gateway/serviceability/hyperlocal",
+            "description": "Direct Innofulfill Hyperlocal serviceability call. Run Innofulfill Login first for Bearer + TenantId auth, or enable Api-Key and set innofulfillApiKey."
+          }
         }
       ]
     },
@@ -250,6 +287,34 @@
               "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\",\n  \"apiKey\": \"{{innofulfillApiKey}}\",\n  \"fromPincode\": {{innofulfillFromPincode}},\n  \"toPincode\": {{innofulfillToPincode}},\n  \"paymentMode\": \"{{innofulfillPaymentMode}}\",\n  \"operationType\": \"{{innofulfillOperationType}}\",\n  \"carriers\": [\n    \"{{innofulfillCarrier}}\"\n  ]\n}"
             },
             "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill/serviceability/ecomm/test"
+          }
+        },
+        {
+          "name": "Test Hyperlocal Serviceability Through Pax",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var body = pm.response.json();",
+                  "pm.test('Proxy hyperlocal serviceability succeeded', function () { pm.expect(body.success).to.eql(true); });",
+                  "pm.test('Normalized hyperlocal carrier result returned', function () {",
+                  "  pm.expect(body.data.carriers).to.be.an('array').and.not.empty;",
+                  "  pm.expect(body.data.carriers[0].serviceable).to.be.a('boolean');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\",\n  \"apiKey\": \"{{innofulfillApiKey}}\",\n  \"pickupAddress\": {\n    \"address\": \"{{innofulfillPickupAddress}}\",\n    \"pincode\": {{innofulfillPickupPincode}},\n    \"latitude\": {{innofulfillPickupLatitude}},\n    \"longitude\": {{innofulfillPickupLongitude}}\n  },\n  \"shippingAddress\": {\n    \"address\": \"{{innofulfillShippingAddress}}\",\n    \"pincode\": {{innofulfillShippingPincode}},\n    \"latitude\": {{innofulfillShippingLatitude}},\n    \"longitude\": {{innofulfillShippingLongitude}}\n  },\n  \"paymentMode\": \"{{innofulfillPaymentMode}}\",\n  \"operationType\": \"{{innofulfillOperationType}}\",\n  \"carriers\": [\n    \"{{innofulfillCarrier}}\"\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill/serviceability/hyperlocal/test"
           }
         },
         {

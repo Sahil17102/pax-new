@@ -263,3 +263,12 @@ Through Pax** calls the backend proxy, which returns normalized carrier-wise
 response. Both provider serviceable and non-serviceable responses are HTTP 200,
 so the tests assert `carriers[0].serviceable` is a boolean rather than assuming
 it must be `true`.
+
+**Check Hyperlocal Serviceability** calls
+`POST /gateway/serviceability/hyperlocal` with pickup and shipping address
+objects, including address text, pincode, latitude, and longitude. **Test
+Hyperlocal Serviceability Through Pax** returns the same normalized
+carrier-wise `serviceable` boolean and `reason`, plus pickup/shipping address
+metadata, pincode metadata, account/configuration details, distance, duration,
+and the raw provider response. The default sample lane uses Koregaon Park to
+Kharadi in Pune with carrier `SMILE`.
