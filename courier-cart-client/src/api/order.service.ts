@@ -9,7 +9,14 @@ export interface CreateShipmentParams {
   package_breadth?: number
   package_height?: number
   transaction_fee?: number
-  integration_type?: 'delhivery' | 'ekart' | 'shadowfax' | 'xpressbees' | 'amazon' | 'icarry'
+  integration_type?:
+    | 'delhivery'
+    | 'ekart'
+    | 'shadowfax'
+    | 'xpressbees'
+    | 'amazon'
+    | 'innofulfill'
+    | 'icarry'
   request_auto_pickup?: 'Yes' | 'No'
   gift_wrap?: number
   shipping_charges?: number // What seller charges customer (customer-facing price)
@@ -74,6 +81,7 @@ export interface CreateShipmentParams {
   pickup_time?: string
   delivery_location?: string
   zone_id?: string
+  selected_rate_card_id?: string
   selected_max_slab_weight?: number
   chargedWeight?: number | null
   volumetricWeight?: number | null

@@ -578,6 +578,7 @@ export const SelectCourierForm = ({ shipment_type }: { shipment_type: 'b2b' | 'b
                     setValue('courierPartner', courier?.name ?? '')
                     setValue('courierPartnerId', courier?.id ?? '')
                     setValue('courierOptionKey', courierOptionKey)
+                    setValue('selectedRateCardId', courier?.rate_card_id ?? null)
                     setValue('amazonRequestToken', courier?.amazon_request_token ?? null)
                     setValue('amazonRateId', courier?.amazon_rate_id ?? null)
                     setValue('amazonServiceId', courier?.amazon_service_id ?? null)

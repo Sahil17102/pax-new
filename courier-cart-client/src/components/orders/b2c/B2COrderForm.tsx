@@ -74,7 +74,14 @@ export type B2CFormData = {
   pickupLocationId?: string
   pickupLocationPincode?: string
   pickupLocationName?: string
-  integrationType?: 'delhivery' | 'ekart' | 'shadowfax' | 'xpressbees' | 'amazon' | 'icarry'
+  integrationType?:
+    | 'delhivery'
+    | 'ekart'
+    | 'shadowfax'
+    | 'xpressbees'
+    | 'amazon'
+    | 'innofulfill'
+    | 'icarry'
   pickupAddress?: string
   pickupLocationPOCName?: string
   courierPartnerId: string
@@ -85,6 +92,7 @@ export type B2CFormData = {
   amazonCarrierId?: string | null
   shadowfaxForwardMode?: 'marketplace' | 'warehouse'
   shadowfaxServiceMode?: 'regular' | 'surface'
+  selectedRateCardId?: string | null
   selectedMaxSlabWeight?: number | null
   orderAmount: number
   pickupDate: string
@@ -129,6 +137,7 @@ export default function B2COrderFormSteps({ onClose }: { onClose?: () => void })
       pickupDate: defaultPickupDate,
       pickupTime: '',
       orderType: getDefaultOrderType(),
+      selectedRateCardId: null,
       selectedMaxSlabWeight: null,
     },
   })
@@ -343,6 +352,7 @@ export default function B2COrderFormSteps({ onClose }: { onClose?: () => void })
         courier_id: Number(data.courierPartnerId),
         courier_partner: data.courierPartner,
         courier_option_key: data.courierOptionKey,
+        selected_rate_card_id: data.selectedRateCardId ?? undefined,
         amazon_request_token: amazonRequestToken,
         amazon_rate_id: amazonRateId,
         amazon_service_id: amazonServiceId,

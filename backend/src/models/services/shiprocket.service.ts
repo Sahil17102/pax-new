@@ -5209,6 +5209,38 @@ export const fetchAvailableCouriersWithRates = async (
     // ✅ Final filter: Ensure all couriers have correct business_type
     combined = await filterCouriersByBusinessType(combined, 'b2c')
 
+    if (effectiveShipmentType === 'b2c') {
+      const bestByProvider = new Map<string, any>()
+      const passthrough: any[] = []
+
+      for (const courier of combined) {
+        const providerKey = String(courier?.integration_type || courier?.serviceProvider || '')
+          .toLowerCase()
+          .trim()
+
+        if (providerKey !== 'innofulfill') {
+          passthrough.push(courier)
+          continue
+        }
+
+        const activeRate = getActiveB2CLocalRateForShipment(courier, isReverseShipment)
+        if (!activeRate) continue
+
+        const existing = bestByProvider.get(providerKey)
+        const currentTotal = Number(activeRate.total_charges ?? activeRate.rate ?? Infinity)
+        const existingRate = existing
+          ? getActiveB2CLocalRateForShipment(existing, isReverseShipment)
+          : null
+        const existingTotal = Number(existingRate?.total_charges ?? existingRate?.rate ?? Infinity)
+
+        if (!existing || currentTotal < existingTotal) {
+          bestByProvider.set(providerKey, courier)
+        }
+      }
+
+      combined = [...passthrough, ...bestByProvider.values()]
+    }
+
     combined = combined.map((courier: any) => {
       const activeRate = getActiveB2CLocalRateForShipment(courier, isReverseShipment)
       if (!activeRate) return courier
