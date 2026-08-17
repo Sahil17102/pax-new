@@ -922,6 +922,67 @@
           }
         },
         {
+          "name": "Create Invoice Config (Shipping Level - Specific Customer)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.environment.get('innofulfillInvoiceConfigSellerTenantId')) { pm.environment.set('innofulfillInvoiceConfigSellerTenantId', pm.environment.get('innofulfillTenantId') || ''); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('Provider shipping invoice config create/update succeeded', function () { pm.expect([200, 201]).to.include(pm.response.code); });",
+                  "pm.test('Provider returned shipping-level SPECIFIC invoice config', function () { pm.expect(body.data).to.be.an('object'); pm.expect(body.data.sellerSelection).to.eql('SPECIFIC'); pm.expect(body.data.invoiceLevel).to.eql('shipping level'); });",
+                  "if (body.data?.id) { pm.environment.set('innofulfillCreatedInvoiceConfigId', body.data.id); }",
+                  "if (body.data?.name) { pm.environment.set('innofulfillCreatedInvoiceConfigName', body.data.name); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{innofulfillIdToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "tenantid",
+                "value": "{{innofulfillTenantId}}"
+              },
+              {
+                "key": "api-key",
+                "value": "{{innofulfillApiKey}}",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{innofulfillInvoiceConfigName}}\",\n  \"sellerSelection\": \"SPECIFIC\",\n  \"sellers\": [\n    {\n      \"id\": \"{{innofulfillInvoiceConfigSellerId}}\",\n      \"name\": \"{{innofulfillInvoiceConfigSellerName}}\",\n      \"tenantId\": \"{{innofulfillInvoiceConfigSellerTenantId}}\"\n    }\n  ],\n  \"fields\": {\n    \"companyLogo\": true,\n    \"gstNumber\": true,\n    \"providerEmail\": true,\n    \"providerPhone\": true,\n    \"pickupAddress\": true,\n    \"pickupMobile\": true,\n    \"deliveryAddress\": true,\n    \"deliveryMobile\": true,\n    \"orderId\": true,\n    \"orderDate\": true,\n    \"placeOfSupply\": true,\n    \"placeOfDelivery\": true,\n    \"travelBy\": true\n  },\n  \"invoiceLevel\": \"{{innofulfillInvoiceConfigLevel}}\"\n}"
+            },
+            "url": "{{innofulfillApiBase}}/gateway/pdf-generator/invoice-configs",
+            "description": "Creates or updates a real Innofulfill shipping-level invoice configuration restricted to the configured seller. This mutates provider invoice-template state."
+          }
+        },
+        {
           "name": "Download Invoice",
           "event": [
             {
@@ -1897,6 +1958,52 @@
             },
             "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill/invoices/configs/test",
             "description": "Calls Pax admin proxy for Innofulfill invoice configurations and returns normalized pagination plus raw provider payload."
+          }
+        },
+        {
+          "name": "Test Create Shipping Invoice Config Through Pax",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.environment.get('innofulfillInvoiceConfigSellerTenantId')) { pm.environment.set('innofulfillInvoiceConfigSellerTenantId', pm.environment.get('innofulfillTenantId') || ''); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('Proxy shipping invoice config create/update succeeded', function () { pm.expect(body.success).to.eql(true); });",
+                  "pm.test('Proxy normalized shipping-level SPECIFIC invoice config returned', function () { pm.expect(body.data.sellerSelection).to.eql('SPECIFIC'); pm.expect(body.data.invoiceLevel).to.eql('shipping level'); });",
+                  "if (body.data?.id) { pm.environment.set('innofulfillCreatedInvoiceConfigId', body.data.id); }",
+                  "if (body.data?.name) { pm.environment.set('innofulfillCreatedInvoiceConfigName', body.data.name); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apiBase\": \"{{innofulfillApiBase}}\",\n  \"username\": \"{{innofulfillUsername}}\",\n  \"password\": \"{{innofulfillPassword}}\",\n  \"tenantId\": \"{{innofulfillTenantId}}\",\n  \"userId\": \"{{innofulfillUserId}}\",\n  \"refreshToken\": \"{{innofulfillRefreshToken}}\",\n  \"apiKey\": \"{{innofulfillApiKey}}\",\n  \"invoiceConfig\": {\n    \"name\": \"{{innofulfillInvoiceConfigName}}\",\n    \"sellerSelection\": \"SPECIFIC\",\n    \"sellers\": [\n      {\n        \"id\": \"{{innofulfillInvoiceConfigSellerId}}\",\n        \"name\": \"{{innofulfillInvoiceConfigSellerName}}\",\n        \"tenantId\": \"{{innofulfillInvoiceConfigSellerTenantId}}\"\n      }\n    ],\n    \"fields\": {\n      \"companyLogo\": true,\n      \"gstNumber\": true,\n      \"providerEmail\": true,\n      \"providerPhone\": true,\n      \"pickupAddress\": true,\n      \"pickupMobile\": true,\n      \"deliveryAddress\": true,\n      \"deliveryMobile\": true,\n      \"orderId\": true,\n      \"orderDate\": true,\n      \"placeOfSupply\": true,\n      \"placeOfDelivery\": true,\n      \"travelBy\": true\n    },\n    \"invoiceLevel\": \"{{innofulfillInvoiceConfigLevel}}\"\n  }\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/couriers/credentials/innofulfill/invoices/configs/create/test",
+            "description": "Calls Pax admin proxy to create/update a shipping-level Innofulfill invoice configuration for a specific seller and returns normalized config metadata plus raw provider payload."
           }
         },
         {

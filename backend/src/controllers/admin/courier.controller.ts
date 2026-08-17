@@ -1323,6 +1323,42 @@ export const testInnofulfillInvoiceConfigsController = async (req: Request, res:
   }
 }
 
+export const testInnofulfillCreateInvoiceConfigController = async (req: Request, res: Response) => {
+  try {
+    const service = new InnofulfillService({
+      apiBase: req.body?.apiBase,
+      username: req.body?.username,
+      password: req.body?.password,
+      apiKey: req.body?.apiKey,
+      tenantId: req.body?.tenantId,
+      userId: req.body?.userId,
+      refreshToken: req.body?.refreshToken,
+    })
+    const invoiceConfig =
+      req.body?.invoiceConfig && typeof req.body.invoiceConfig === 'object'
+        ? req.body.invoiceConfig
+        : {
+            name: req.body?.name,
+            sellerSelection: req.body?.sellerSelection,
+            sellers: req.body?.sellers,
+            fields: req.body?.fields,
+            invoiceLevel: req.body?.invoiceLevel,
+          }
+    const result = await service.createInvoiceConfiguration(invoiceConfig)
+
+    res.status(result.statusCode === 201 ? 201 : 200).json({
+      success: true,
+      data: result,
+    })
+  } catch (err: any) {
+    const statusCode = typeof err?.statusCode === 'number' ? err.statusCode : 500
+    res.status(statusCode).json({
+      success: false,
+      message: err?.message || 'Failed to test Innofulfill create invoice configuration',
+    })
+  }
+}
+
 export const testInnofulfillInvoiceController = async (req: Request, res: Response) => {
   try {
     const service = new InnofulfillService({

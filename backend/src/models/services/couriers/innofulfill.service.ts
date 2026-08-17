@@ -270,6 +270,45 @@ export type InnofulfillInvoiceConfigListResult = {
   raw: any
 }
 
+export type InnofulfillInvoiceConfigFields = {
+  companyLogo?: boolean
+  gstNumber?: boolean
+  providerEmail?: boolean
+  providerPhone?: boolean
+  pickupAddress?: boolean
+  pickupMobile?: boolean
+  deliveryAddress?: boolean
+  deliveryMobile?: boolean
+  orderId?: boolean
+  orderDate?: boolean
+  placeOfSupply?: boolean
+  placeOfDelivery?: boolean
+  travelBy?: boolean
+}
+
+export type InnofulfillInvoiceConfigPayload = {
+  name?: string
+  sellerSelection?: string
+  sellers?: InnofulfillLabelConfigSeller[]
+  fields?: InnofulfillInvoiceConfigFields
+  invoiceLevel?: string
+}
+
+export type InnofulfillInvoiceConfigMutationResult = {
+  id: string
+  name: string
+  sellerSelection: string
+  sellers: any[]
+  fields: any
+  invoiceLevel: string
+  tenantId: string
+  createdAt: string
+  updatedAt: string
+  message: string
+  statusCode: number
+  raw: any
+}
+
 export type InnofulfillLabelConfigListQuery = {
   page?: number | string
   limit?: number | string
@@ -543,17 +582,9 @@ export class InnofulfillService {
     return query
   }
 
-  private buildLabelConfigPayload(params: InnofulfillLabelConfigPayload) {
-    const name = normalizeText(params?.name)
-    if (!name) throw new HttpError(400, 'Innofulfill label configuration name is required')
-
-    const sellerSelection = normalizeText(params?.sellerSelection, 'SPECIFIC').toUpperCase()
-    if (!['SPECIFIC', 'ALL'].includes(sellerSelection)) {
-      throw new HttpError(400, 'Innofulfill label configuration sellerSelection must be SPECIFIC or ALL')
-    }
-
-    const sellers = Array.isArray(params?.sellers)
-      ? params.sellers
+  private normalizeConfigSellers(sellersValue: unknown) {
+    return Array.isArray(sellersValue)
+      ? sellersValue
           .map((seller) => ({
             id: normalizeText(seller?.id),
             name: normalizeText(seller?.name),
@@ -561,6 +592,81 @@ export class InnofulfillService {
           }))
           .filter((seller) => seller.id && seller.name && seller.tenantId)
       : []
+  }
+
+  private normalizeConfigSellerSelection(value: unknown, fallback = 'SPECIFIC') {
+    const sellerSelection = normalizeText(value, fallback).toUpperCase()
+    if (!['SPECIFIC', 'ALL'].includes(sellerSelection)) {
+      throw new HttpError(400, 'Innofulfill configuration sellerSelection must be SPECIFIC or ALL')
+    }
+    return sellerSelection
+  }
+
+  private buildInvoiceConfigPayload(params: InnofulfillInvoiceConfigPayload) {
+    const name = normalizeText(params?.name)
+    if (!name) throw new HttpError(400, 'Innofulfill invoice configuration name is required')
+
+    const sellerSelection = this.normalizeConfigSellerSelection(params?.sellerSelection)
+    const sellers = this.normalizeConfigSellers(params?.sellers)
+    if (sellerSelection === 'SPECIFIC' && sellers.length === 0) {
+      throw new HttpError(400, 'Innofulfill SPECIFIC invoice configuration requires at least one seller')
+    }
+
+    const invoiceLevel = normalizeText(params?.invoiceLevel, 'shipping level').toLowerCase()
+    if (!['shipping level', 'product level'].includes(invoiceLevel)) {
+      throw new HttpError(400, 'Innofulfill invoiceLevel must be shipping level or product level')
+    }
+
+    const fields = params?.fields && typeof params.fields === 'object' ? params.fields : {}
+
+    return {
+      name,
+      sellerSelection,
+      sellers: sellerSelection === 'ALL' ? [] : sellers,
+      fields: {
+        companyLogo: fields.companyLogo !== false,
+        gstNumber: fields.gstNumber !== false,
+        providerEmail: fields.providerEmail !== false,
+        providerPhone: fields.providerPhone !== false,
+        pickupAddress: fields.pickupAddress !== false,
+        pickupMobile: fields.pickupMobile !== false,
+        deliveryAddress: fields.deliveryAddress !== false,
+        deliveryMobile: fields.deliveryMobile !== false,
+        orderId: fields.orderId !== false,
+        orderDate: fields.orderDate !== false,
+        placeOfSupply: fields.placeOfSupply !== false,
+        placeOfDelivery: fields.placeOfDelivery !== false,
+        travelBy: fields.travelBy !== false,
+      },
+      invoiceLevel,
+    }
+  }
+
+  private summarizeInvoiceConfigMutation(payload: any): InnofulfillInvoiceConfigMutationResult {
+    const data = extractProviderData(payload) || {}
+    return {
+      id: normalizeText(data?.id),
+      name: normalizeText(data?.name),
+      sellerSelection: normalizeText(data?.sellerSelection),
+      sellers: Array.isArray(data?.sellers) ? data.sellers : [],
+      fields: data?.fields && typeof data.fields === 'object' ? data.fields : {},
+      invoiceLevel: normalizeText(data?.invoiceLevel),
+      tenantId: normalizeText(data?.tenantId || data?.tenant_id),
+      createdAt: normalizeText(data?.createdAt || data?.created_at),
+      updatedAt: normalizeText(data?.updatedAt || data?.updated_at),
+      message: normalizeText(payload?.message),
+      statusCode: Number(payload?.statusCode || payload?.status_code || 0),
+      raw: payload,
+    }
+  }
+
+  private buildLabelConfigPayload(params: InnofulfillLabelConfigPayload) {
+    const name = normalizeText(params?.name)
+    if (!name) throw new HttpError(400, 'Innofulfill label configuration name is required')
+
+    const sellerSelection = this.normalizeConfigSellerSelection(params?.sellerSelection)
+
+    const sellers = this.normalizeConfigSellers(params?.sellers)
 
     if (sellerSelection === 'SPECIFIC' && sellers.length === 0) {
       throw new HttpError(400, 'Innofulfill SPECIFIC label configuration requires at least one seller')
@@ -1668,6 +1774,21 @@ export class InnofulfillService {
       }
     } catch (error: any) {
       this.handleError(error, 'Innofulfill list invoice configurations failed')
+    }
+  }
+
+  async createInvoiceConfiguration(
+    payload: InnofulfillInvoiceConfigPayload,
+  ): Promise<InnofulfillInvoiceConfigMutationResult> {
+    const body = this.buildInvoiceConfigPayload(payload)
+    try {
+      const client = await this.getClient()
+      const { data } = await client.post('/gateway/pdf-generator/invoice-configs', body, {
+        headers: { accept: 'application/json' },
+      })
+      return this.summarizeInvoiceConfigMutation(data)
+    } catch (error: any) {
+      this.handleError(error, 'Innofulfill create invoice configuration failed')
     }
   }
 

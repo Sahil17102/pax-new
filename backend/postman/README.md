@@ -371,6 +371,13 @@ the selector/table. **Test List Invoice Configurations Through Pax** returns
 normalized `invoiceConfigs`, `count`, pagination fields, `traceId`, and the raw
 provider payload.
 
+**Create Invoice Config (Shipping Level - Specific Customer)** calls
+`POST /gateway/pdf-generator/invoice-configs` with `sellerSelection=SPECIFIC`,
+one seller, all documented shipping-summary invoice fields enabled, and
+`invoiceLevel=shipping level`. Use the `innofulfillInvoiceConfig*` variables to
+set the config name and seller. **Test Create Shipping Invoice Config Through
+Pax** stores the returned invoice config ID/name when present.
+
 **Download Invoice** calls
 `GET /gateway/pdf-generator/invoice/{orderId}?type=domestic&level=product`.
 Set `innofulfillInvoiceOrderId`, or leave it blank to fall back to the
