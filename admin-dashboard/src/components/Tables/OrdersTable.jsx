@@ -102,7 +102,7 @@ const OrdersTable = ({
   )
 
   const supportedCancellationProviders = useMemo(
-    () => new Set(['delhivery', 'ekart', 'xpressbees', 'shadowfax']),
+    () => new Set(['delhivery', 'ekart', 'xpressbees', 'shadowfax', 'amazon', 'innofulfill']),
     [],
   )
 
@@ -295,7 +295,11 @@ const OrdersTable = ({
             ? 'xpressbees'
             : providerText.includes('shadowfax')
               ? 'shadowfax'
-              : providerText.trim()
+              : providerText.includes('amazon')
+                ? 'amazon'
+                : providerText.includes('innofulfill')
+                  ? 'innofulfill'
+                  : providerText.trim()
     if (!supportedCancellationProviders.has(provider)) return false
     return Boolean(order.id)
   }
