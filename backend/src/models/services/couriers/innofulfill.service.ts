@@ -1449,8 +1449,7 @@ export class InnofulfillService {
     )
     const serviceable =
       carriers.length > 0
-        ? carriers.some((row: { serviceable: boolean }) => row.serviceable === true) &&
-          (availableModes === null || availableModes.length > 0)
+        ? carriers.some((row: { serviceable: boolean }) => row.serviceable === true)
         : readBoolean(payload?.serviceable ?? payload?.success) === true &&
           !isNonServiceableReason(responseReason)
     return {
