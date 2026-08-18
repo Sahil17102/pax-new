@@ -26,9 +26,9 @@ const cod = calculateBookingWalletDebit({
   codCharges: 50,
   gstPercent: 18,
 })
-assertAmount(cod.baseAmount, 160, 'COD taxable base includes COD charge')
-assertAmount(cod.gstAmount, 28.8, 'COD GST amount')
-assertAmount(cod.totalAmount, 188.8, 'COD wallet debit includes GST')
+assertAmount(cod.baseAmount, 0, 'COD taxable wallet base is zero')
+assertAmount(cod.gstAmount, 0, 'COD wallet GST amount is zero')
+assertAmount(cod.totalAmount, 0, 'COD wallet debit is zero')
 
 assertAmount(
   resolveGstInclusiveWalletDebit({
@@ -39,8 +39,8 @@ assertAmount(
     gstPercent: 18,
     gstAmount: 9.9,
   }),
-  64.9,
-  'legacy base-only stored debit is upgraded with GST',
+  0,
+  'COD stored debit resolves to zero for new wallet policy',
 )
 
 assertAmount(
@@ -52,8 +52,8 @@ assertAmount(
     gstPercent: 18,
     gstAmount: 9.9,
   }),
-  64.9,
-  'already GST-inclusive stored debit is not charged twice',
+  0,
+  'GST-inclusive COD stored debit resolves to zero for new wallet policy',
 )
 
 assertAmount(
@@ -65,8 +65,8 @@ assertAmount(
     gstPercent: 18,
     gstAmount: 13.68,
   }),
-  89.68,
-  'legacy base-only debit with hidden provider COD charge is upgraded with GST',
+  0,
+  'legacy COD debit with hidden provider COD charge resolves to zero',
 )
 
 const productionLikeSamples = [
@@ -84,7 +84,7 @@ const productionLikeSamples = [
     freightCharges: 33,
     otherCharges: 0,
     codCharges: 22,
-    expected: 64.9,
+    expected: 0,
   },
   {
     label: 'Xpressbees COD freight 38 + COD 26.4',
@@ -92,7 +92,7 @@ const productionLikeSamples = [
     freightCharges: 38,
     otherCharges: 0,
     codCharges: 26.4,
-    expected: 75.99,
+    expected: 0,
   },
   {
     label: 'Delhivery prepaid freight 319',
@@ -115,9 +115,9 @@ for (const sample of productionLikeSamples) {
   assertAmount(breakup.totalAmount, sample.expected, `${sample.label} total includes GST`)
 
   const legacyBaseOnlyDebit =
-    sample.freightCharges +
-    sample.otherCharges +
-    (sample.paymentType === 'cod' ? sample.codCharges : 0)
+    sample.paymentType === 'cod'
+      ? 0
+      : sample.freightCharges + sample.otherCharges
   assertAmount(
     resolveGstInclusiveWalletDebit({
       storedDebit: legacyBaseOnlyDebit,
@@ -150,7 +150,6 @@ for (const sample of productionLikeSamples) {
 console.log('Booking wallet GST debit checks passed', {
   prepaid,
   cod,
-  legacyBaseOnlyDebit: 64.9,
-  legacyHiddenChargeDebit: 89.68,
+  codWalletDebitPolicy: 'zero',
   productionLikeSamples,
 })

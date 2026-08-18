@@ -46,7 +46,6 @@ export const SelectCourierForm = ({ shipment_type }: { shipment_type: 'b2b' | 'b
   const transactionFee = Number(watch('transactionFee') || 0)
   const giftWrap = Number(watch('giftWrap') || 0)
   const discount = Number(watch('discount') || 0)
-  const courierCod = Number(watch('courierCod') || 0)
   const forwardCharges = Number(watch('forwardCharges') || 0)
   const otherCharges = Number(watch('otherCharges') || 0)
   const gstPercent = Number(watchFormValue('gstPercent') || 0)
@@ -234,6 +233,8 @@ export const SelectCourierForm = ({ shipment_type }: { shipment_type: 'b2b' | 'b
   const getCourierGstAmount = (courier: any) =>
     Number(courier?.localRates?.forward?.gst_amount ?? courier?.gst_amount ?? 0)
   const getCourierTaxInclusiveCharge = (courier: any) => {
+    if (orderType === 'cod') return 0
+
     const explicitTotal =
       courier?.localRates?.forward?.total_charges_with_gst ??
       courier?.total_charges_with_gst ??
@@ -242,8 +243,9 @@ export const SelectCourierForm = ({ shipment_type }: { shipment_type: 'b2b' | 'b
     if (explicitTotal !== undefined && explicitTotal !== null) return Number(explicitTotal)
     return getCourierTotalCharge(courier) + getCourierGstAmount(courier)
   }
+  const isCodOrder = orderType === 'cod'
   const selectedWalletDebitAmount =
-    walletDebitAmount || forwardCharges + (orderType === 'cod' ? courierCod : 0) + otherCharges + gstAmount
+    isCodOrder ? 0 : walletDebitAmount || forwardCharges + otherCharges + gstAmount
 
   const selectedCourierSummary = availableCouriers.find((courier) => {
     const courierOptionKey = String(
@@ -369,14 +371,21 @@ export const SelectCourierForm = ({ shipment_type }: { shipment_type: 'b2b' | 'b
                 )}
               </Stack>
 
-              {(forwardCharges > 0 || (orderType === 'cod' && courierCod > 0) || otherCharges > 0) && (
+              {(isCodOrder || forwardCharges > 0 || otherCharges > 0) && (
                 <>
                   <Divider sx={{ my: 1.1 }} />
                   <Stack spacing={0.65}>
                     <Typography sx={{ fontSize: 12, fontWeight: 800, color: TEXT_SECONDARY }}>
                       Wallet Debit Preview
                     </Typography>
-                    {forwardCharges > 0 && (
+                    {isCodOrder ? (
+                      <Stack direction="row" justifyContent="space-between">
+                        <Typography sx={{ color: TEXT_SECONDARY }}>COD Order</Typography>
+                        <Typography sx={{ fontWeight: 700, color: TEXT_PRIMARY }}>
+                          {formatCurrency(0)}
+                        </Typography>
+                      </Stack>
+                    ) : forwardCharges > 0 && (
                       <Stack direction="row" justifyContent="space-between">
                         <Typography sx={{ color: TEXT_SECONDARY }}>Forward Freight</Typography>
                         <Typography sx={{ fontWeight: 700, color: TEXT_PRIMARY }}>
@@ -384,15 +393,7 @@ export const SelectCourierForm = ({ shipment_type }: { shipment_type: 'b2b' | 'b
                         </Typography>
                       </Stack>
                     )}
-                    {orderType === 'cod' && courierCod > 0 && (
-                      <Stack direction="row" justifyContent="space-between">
-                        <Typography sx={{ color: TEXT_SECONDARY }}>Courier COD</Typography>
-                        <Typography sx={{ fontWeight: 700, color: TEXT_PRIMARY }}>
-                          {formatCurrency(courierCod)}
-                        </Typography>
-                      </Stack>
-                    )}
-                    {otherCharges > 0 && (
+                    {!isCodOrder && otherCharges > 0 && (
                       <Stack direction="row" justifyContent="space-between">
                         <Typography sx={{ color: TEXT_SECONDARY }}>Other Charges</Typography>
                         <Typography sx={{ fontWeight: 700, color: TEXT_PRIMARY }}>
@@ -400,18 +401,20 @@ export const SelectCourierForm = ({ shipment_type }: { shipment_type: 'b2b' | 'b
                         </Typography>
                       </Stack>
                     )}
-                    <Stack direction="row" justifyContent="space-between">
-                      <Typography sx={{ color: TEXT_SECONDARY }}>
-                        GST ({gstPercent.toFixed(2)}%)
-                      </Typography>
-                      <Typography sx={{ fontWeight: 700, color: TEXT_PRIMARY }}>
-                        {formatCurrency(gstAmount)}
-                      </Typography>
-                    </Stack>
+                    {!isCodOrder && (
+                      <Stack direction="row" justifyContent="space-between">
+                        <Typography sx={{ color: TEXT_SECONDARY }}>
+                          GST ({gstPercent.toFixed(2)}%)
+                        </Typography>
+                        <Typography sx={{ fontWeight: 700, color: TEXT_PRIMARY }}>
+                          {formatCurrency(gstAmount)}
+                        </Typography>
+                      </Stack>
+                    )}
                     <Divider />
                     <Stack direction="row" justifyContent="space-between">
                       <Typography sx={{ color: TEXT_PRIMARY, fontWeight: 800 }}>
-                        Courier rate + taxes
+                        Wallet debit
                       </Typography>
                       <Typography sx={{ fontWeight: 900, color: TEXT_PRIMARY }}>
                         {formatCurrency(selectedWalletDebitAmount)}
@@ -590,7 +593,7 @@ export const SelectCourierForm = ({ shipment_type }: { shipment_type: 'b2b' | 'b
                     setValue('otherCharges', otherCharge)
                     setFormValue('gstPercent', courierGstPercent)
                     setFormValue('gstAmount', courierGstAmount)
-                    setFormValue('walletDebitAmount', taxInclusiveCharge)
+                    setFormValue('walletDebitAmount', orderType === 'cod' ? 0 : taxInclusiveCharge)
                     setValue('courierCost', courier?.courier_cost_estimate ?? null) // Estimated courier cost from serviceability
                     setValue('integrationType', courier?.integration_type)
                     setValue(

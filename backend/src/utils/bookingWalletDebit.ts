@@ -32,10 +32,11 @@ export const getBookingWalletDebitBaseAmount = ({
   otherCharges?: unknown
   codCharges?: unknown
 }) => {
+  if (isCodPayment(paymentType)) return 0
+
   const base =
     toAmount(freightCharges) +
-    toAmount(otherCharges) +
-    (isCodPayment(paymentType) ? toAmount(codCharges) : 0)
+    toAmount(otherCharges)
 
   return roundCurrency(base)
 }
@@ -106,6 +107,8 @@ export const resolveGstInclusiveWalletDebit = ({
   razorpayChargeEnabled?: unknown
   razorpayChargePercent?: unknown
 }) => {
+  if (isCodPayment(paymentType)) return 0
+
   const stored = toAmount(storedDebit)
   const gst = toAmount(gstAmount)
   const percent = toAmount(gstPercent)

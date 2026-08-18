@@ -131,6 +131,8 @@ const getTaxInclusiveRate = (
   courier: Record<string, any>,
   order: BulkOrder,
 ) => {
+  if (String(order.order_type || "").toLowerCase() === "cod") return 0;
+
   const explicit =
     courier.localRates?.forward?.total_charges_with_gst ??
     courier.total_charges_with_gst ??
