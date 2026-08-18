@@ -12,6 +12,7 @@ import {
   isDelhiveryCancellationConfirmed,
 } from './couriers/delhivery.service'
 import { EkartService } from './couriers/ekart.service'
+import { InnofulfillService } from './couriers/innofulfill.service'
 import { ShadowfaxService } from './couriers/shadowfax.service'
 import { XpressbeesService } from './couriers/xpressbees.service'
 import { logTrackingEvent } from './trackingEvents.service'
@@ -23,6 +24,7 @@ const SUPPORTED_CANCELLATION_PROVIDERS = new Set([
   'xpressbees',
   'shadowfax',
   'amazon',
+  'innofulfill',
 ])
 
 const TERMINAL_NON_CANCELLABLE_STATUSES = new Set(['delivered', 'rto_delivered'])
@@ -63,6 +65,7 @@ const isCancellationAccepted = (result: any) => {
     alreadyCancelled ||
     result?.success === true ||
     result?.Success === true ||
+    Number(result?.cancelledCount || 0) > 0 ||
     result?.status === true ||
     String(result?.ReturnCode || result?.returnCode || '').trim() === '100' ||
     String(result?.status || '').toLowerCase() === 'success' ||
@@ -80,6 +83,25 @@ const getCancellationErrorMessage = (result: any) =>
   result?.responseMsg ||
   result?.remark ||
   'Courier cancellation not accepted'
+
+const getInnofulfillCancellationOrderId = (order: typeof b2c_orders.$inferSelect) => {
+  const providerMeta =
+    order.provider_meta && typeof order.provider_meta === 'object' && !Array.isArray(order.provider_meta)
+      ? (order.provider_meta as Record<string, any>)
+      : {}
+
+  return String(
+    order.provider_reference ||
+      order.shipment_id ||
+      order.provider_request_id ||
+      providerMeta.provider_reference ||
+      providerMeta.shipment_id ||
+      providerMeta.order_id ||
+      providerMeta.orderId ||
+      order.awb_number ||
+      '',
+  ).trim()
+}
 
 const truncateText = (value: unknown, maxLength: number) => {
   const text = String(value || '').trim()
@@ -228,6 +250,9 @@ const resolveCancellationProvider = (order: any) => {
   }
   if (providerText.includes('shadowfax')) return 'shadowfax'
   if (providerText.includes('amazon')) return 'amazon'
+  if (providerText.includes('innofulfill') || providerText.includes('innofulfil')) {
+    return 'innofulfill'
+  }
   return providerText
 }
 
@@ -486,7 +511,7 @@ export async function cancelOrderShipment(orderId: string) {
 
   if (!SUPPORTED_CANCELLATION_PROVIDERS.has(integration) && !(isSalesChannelSourceOrder(order) && !awbNumber)) {
     console.error('Unsupported integration type:', { orderId, integration })
-    throw new Error('Only Delhivery, Ekart, Xpressbees, Shadowfax and Amazon are supported for cancellation')
+    throw new Error('Only Delhivery, Ekart, Xpressbees, Shadowfax, Amazon and Innofulfill are supported for cancellation')
   }
 
   const amazonShipmentId = String(
@@ -510,6 +535,19 @@ export async function cancelOrderShipment(orderId: string) {
     throw new Error('Amazon cancellation requires a shipment id')
   }
 
+  const innofulfillOrderId = integration === 'innofulfill' ? getInnofulfillCancellationOrderId(order) : ''
+  if (integration === 'innofulfill' && !innofulfillOrderId) {
+    console.error('Innofulfill cancellation failed: Missing provider order id', {
+      orderId,
+      integration,
+      awbNumber,
+      shipmentId: order.shipment_id,
+      providerReference: order.provider_reference,
+      providerRequestId: order.provider_request_id,
+    })
+    throw new Error('Innofulfill cancellation requires a provider order id')
+  }
+
   const providerMeta: Record<string, unknown> =
     order.provider_meta && typeof order.provider_meta === 'object' && !Array.isArray(order.provider_meta)
       ? (order.provider_meta as Record<string, unknown>)
@@ -527,7 +565,7 @@ export async function cancelOrderShipment(orderId: string) {
     throw new Error('Delhivery cancellation requires an AWB number')
   }
 
-  if (integration !== 'amazon' && !awbNumber) {
+  if (!['amazon', 'innofulfill'].includes(integration) && !awbNumber) {
     cancellationResult = {
       success: true,
       localOnly: true,
@@ -740,6 +778,12 @@ export async function cancelOrderShipment(orderId: string) {
       order,
       credentials: amazonCredentials,
     })
+  } else if (integration === 'innofulfill') {
+    const svc = new InnofulfillService()
+    cancellationResult = await svc.cancelOrdersBulk(
+      [{ orderId: innofulfillOrderId, reason: 'Cancelled By Customer' }],
+      'Cancelled By Customer',
+    )
   } else {
     const svc = new XpressbeesService()
     cancellationResult = await svc.cancelShipment(awbNumber)

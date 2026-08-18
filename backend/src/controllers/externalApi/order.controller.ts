@@ -3,6 +3,7 @@ import { Response } from 'express'
 import { db } from '../../models/client'
 import { DelhiveryService } from '../../models/services/couriers/delhivery.service'
 import { EkartService } from '../../models/services/couriers/ekart.service'
+import { InnofulfillService } from '../../models/services/couriers/innofulfill.service'
 import { ShadowfaxService } from '../../models/services/couriers/shadowfax.service'
 import { XpressbeesService } from '../../models/services/couriers/xpressbees.service'
 import { cancelAmazonShipment } from '../../models/services/amazonShipping.service'
@@ -37,6 +38,25 @@ const isOperationalTimeoutError = (error: any) => {
     message.includes('timeout') ||
     message.includes('timed out')
   )
+}
+
+const getInnofulfillCancellationOrderId = (order: any) => {
+  const providerMeta =
+    order?.provider_meta && typeof order.provider_meta === 'object' && !Array.isArray(order.provider_meta)
+      ? order.provider_meta
+      : {}
+
+  return String(
+    order?.provider_reference ||
+      order?.shipment_id ||
+      order?.provider_request_id ||
+      providerMeta.provider_reference ||
+      providerMeta.shipment_id ||
+      providerMeta.order_id ||
+      providerMeta.orderId ||
+      order?.awb_number ||
+      '',
+  ).trim()
 }
 
 const queueWebhookEvent = (
@@ -364,11 +384,11 @@ export const cancelOrderController = async (req: any, res: Response) => {
 
     let cancellationResult: any = null
     const provider = String(order.integration_type || '').toLowerCase()
-    if (!['delhivery', 'ekart', 'xpressbees', 'shadowfax', 'amazon'].includes(provider)) {
+    if (!['delhivery', 'ekart', 'xpressbees', 'shadowfax', 'amazon', 'innofulfill'].includes(provider)) {
       return res.status(400).json({
         success: false,
         error: 'Unsupported provider',
-        message: `Only Delhivery, Ekart, Xpressbees, Shadowfax and Amazon are supported for cancellation. Found: ${order.integration_type}`,
+        message: `Only Delhivery, Ekart, Xpressbees, Shadowfax, Amazon and Innofulfill are supported for cancellation. Found: ${order.integration_type}`,
       })
     }
 
@@ -390,7 +410,18 @@ export const cancelOrderController = async (req: any, res: Response) => {
       })
     }
 
-    if (provider !== 'amazon' && !order.awb_number) {
+    const innofulfillOrderId =
+      provider === 'innofulfill' ? getInnofulfillCancellationOrderId(order) : ''
+
+    if (provider === 'innofulfill' && !innofulfillOrderId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing provider order id',
+        message: 'Innofulfill cancellation requires a provider order id',
+      })
+    }
+
+    if (!['amazon', 'innofulfill'].includes(provider) && !order.awb_number) {
       return res.status(400).json({
         success: false,
         error: 'Missing AWB',
@@ -420,6 +451,12 @@ export const cancelOrderController = async (req: any, res: Response) => {
           },
           amazonCredentials,
         )
+      } else if (provider === 'innofulfill') {
+        const innofulfill = new InnofulfillService()
+        cancellationResult = await innofulfill.cancelOrdersBulk(
+          [{ orderId: innofulfillOrderId, reason: reason || 'Cancelled via API' }],
+          reason || 'Cancelled via API',
+        )
       } else {
         const xpressbees = new XpressbeesService()
         cancellationResult = await xpressbees.cancelShipment(order.awb_number)
@@ -436,6 +473,7 @@ export const cancelOrderController = async (req: any, res: Response) => {
     const providerCancelAccepted =
       cancellationResult?.success === true ||
       cancellationResult?.Success === true ||
+      Number(cancellationResult?.cancelledCount || 0) > 0 ||
       cancellationResult?.status === true ||
       cancellationResult?.status === 'Success' ||
       cancellationResult?.status === 'success' ||
