@@ -8366,6 +8366,28 @@ export const createB2CShipmentService = async (
 
       console.log('Using Innofulfill B2C API...')
       const innofulfill = new InnofulfillService()
+      const innofulfillServiceability = await innofulfill.checkEcommServiceability({
+        fromPincode: bookingPickupPincode,
+        toPincode: bookingDestinationPincode,
+        paymentMode: params.payment_type === 'cod' ? 'COD' : 'PREPAID',
+      })
+      if (innofulfillServiceability.serviceable !== true) {
+        console.warn('[Booking] Innofulfill live serviceability blocked shipment creation', {
+          order_number: params.order_number,
+          pickup_pincode: bookingPickupPincode,
+          destination_pincode: bookingDestinationPincode,
+          payment_type: params.payment_type,
+          carriers: innofulfillServiceability.carriers,
+          message:
+            innofulfillServiceability.raw?.message ||
+            innofulfillServiceability.raw?.error?.message ||
+            null,
+        })
+        throw new HttpError(
+          400,
+          `Innofulfill is not serviceable for pincode ${bookingPickupPincode} -> ${bookingDestinationPincode}. Please choose a different courier or pickup address.`,
+        )
+      }
       shipmentData = await innofulfill.createOrder(params)
       const innofulfillPackage = innofulfill.normalizeBookingResponse(shipmentData, params)
 

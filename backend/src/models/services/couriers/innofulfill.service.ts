@@ -9,6 +9,7 @@ import {
 const DEFAULT_API_BASE = 'https://apis.innofulfill.com'
 const ECOMM_CARRIER_ID = 'dee69b40-c0f3-4a44-879a-8b6f6849efaa'
 const ECOMM_CARRIER_NAME = 'innofulfill_ecomm'
+const ECOMM_SERVICEABILITY_CARRIERS = [ECOMM_CARRIER_NAME]
 const HYPERLOCAL_CARRIER_NAME = 'innofulfillHyperlocal'
 
 const normalizeBase = (value?: string | null) =>
@@ -114,6 +115,9 @@ const isNonServiceableReason = (value: unknown) => {
   return (
     normalized.includes('not serviceable') ||
     normalized.includes('non-serviceable') ||
+    normalized.includes('unserviceable') ||
+    normalized.includes('no serviceable carrier') ||
+    normalized.includes('no carrier') ||
     normalized.includes('not available') ||
     normalized.includes('not servicable')
   )
@@ -1222,7 +1226,7 @@ export class InnofulfillService {
       toPincode,
       paymentMode,
       operationType: params.operationType || 'PICKUP_DELIVERY',
-      carriers: params.carriers || ['SMILE'],
+      carriers: params.carriers || ECOMM_SERVICEABILITY_CARRIERS,
     }
 
     try {
@@ -1435,11 +1439,20 @@ export class InnofulfillService {
     })
     const firstRow = rows.find((row: any) => row && typeof row === 'object') || {}
     const availableModes = Array.isArray(firstRow?.availableModes) ? firstRow.availableModes : null
+    const responseReason = normalizeText(
+      firstRow?.reason ||
+        firstRow?.message ||
+        firstRow?.remarks ||
+        payload?.reason ||
+        payload?.message ||
+        payload?.error?.message,
+    )
     const serviceable =
       carriers.length > 0
         ? carriers.some((row: { serviceable: boolean }) => row.serviceable === true) &&
           (availableModes === null || availableModes.length > 0)
-        : readBoolean(payload?.serviceable ?? payload?.success) === true
+        : readBoolean(payload?.serviceable ?? payload?.success) === true &&
+          !isNonServiceableReason(responseReason)
     return {
       serviceable,
       codAvailable: serviceable,
