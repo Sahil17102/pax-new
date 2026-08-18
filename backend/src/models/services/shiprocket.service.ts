@@ -3233,6 +3233,31 @@ export const computeB2CFreightForOrder = async (params: {
     }
   }
 
+  if (!rateCard && resolvedServiceProvider === 'innofulfill') {
+    for (const rateType of preferredRateTypes) {
+      const [matchedRateCard] = await fetchResolvedB2CRateCards({
+        planId: activePlanId,
+        zoneId: resolvedZoneRow.id,
+        serviceProvider: resolvedServiceProvider,
+        mode: params.mode?.trim() || null,
+        type: rateType,
+      })
+      if (matchedRateCard) {
+        console.warn('[Booking] Using Innofulfill provider rate-card fallback', {
+          requestedCourierId: params.courierId,
+          selectedRateCardId: params.selectedRateCardId || null,
+          matchedRateCardId: matchedRateCard.shippingRateId,
+          matchedCourierId: matchedRateCard.courier_id,
+          zoneId: resolvedZoneRow.id,
+          zoneCode: resolvedZoneRow.code,
+          rateType,
+        })
+        rateCard = matchedRateCard
+        break
+      }
+    }
+  }
+
   if (!rateCard) {
     throw new HttpError(400, 'No rate card found for selected courier/zone')
   }

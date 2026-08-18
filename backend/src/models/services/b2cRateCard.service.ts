@@ -365,7 +365,7 @@ export async function fetchResolvedB2CRateCards(filters: {
     conditions.push(eq(shippingRates.id, filters.shippingRateId))
   }
 
-  if (filters.courierId !== undefined && !isDelhiveryModeScopedRequest) {
+  if (filters.courierId !== undefined && !filters.shippingRateId && !isDelhiveryModeScopedRequest) {
     conditions.push(eq(shippingRates.courier_id, filters.courierId))
   }
 
