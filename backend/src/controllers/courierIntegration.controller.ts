@@ -383,6 +383,17 @@ const fetchB2CRateRowsForFallback = async (params: {
     .orderBy(asc(shippingRates.last_updated))
 }
 
+const LIVE_ONLY_B2C_PROVIDERS = new Set(['innofulfill'])
+
+const isLiveOnlyB2CProvider = (provider: unknown) =>
+  LIVE_ONLY_B2C_PROVIDERS.has(normalizeB2CServiceProvider(provider))
+
+const removeLiveOnlyB2CFallbackCouriers = (couriersList: any[] = []) =>
+  couriersList.filter((courier) => {
+    const provider = courier?.integration_type || courier?.serviceProvider || courier?.service_provider
+    return !isLiveOnlyB2CProvider(provider)
+  })
+
 const buildLastResortB2CCouriersFromRateCards = async (
   serviceParams: Record<string, any>,
   userId?: string,
@@ -441,6 +452,7 @@ const buildLastResortB2CCouriersFromRateCards = async (
   for (const row of rateRows) {
     const rateMeta = getB2CFallbackRateMeta(row)
     const { provider } = rateMeta
+    if (isLiveOnlyB2CProvider(provider)) continue
     if (!isSupportedB2CFallbackRate(provider, row)) continue
     if (!Number.isFinite(rateMeta.courierId)) continue
     const enabledCourier = enabledCourierMap.get(`${rateMeta.courierId}__${provider}`)
@@ -606,8 +618,9 @@ const fetchB2CCouriersWithLocalFallback = async (serviceParams: Record<string, a
           userId,
         )
 
-        if (calculatorCouriers.length > 0) {
-          return calculatorCouriers
+        const fallbackCouriers = removeLiveOnlyB2CFallbackCouriers(calculatorCouriers)
+        if (fallbackCouriers.length > 0) {
+          return fallbackCouriers
         }
       } catch (fallbackErr: any) {
         console.warn('[Couriers] Local rate-card pipeline failed after empty strict result', {
@@ -628,13 +641,15 @@ const fetchB2CCouriersWithLocalFallback = async (serviceParams: Record<string, a
 
     if (serviceParams?.isCalculator !== true) {
       try {
-        return await fetchAvailableCouriersWithRates(
+        const fallbackCouriers = await fetchAvailableCouriersWithRates(
           {
             ...serviceParams,
             isCalculator: true,
           } as any,
           userId,
         )
+        const bookableFallbackCouriers = removeLiveOnlyB2CFallbackCouriers(fallbackCouriers)
+        if (bookableFallbackCouriers.length > 0) return bookableFallbackCouriers
       } catch (fallbackErr: any) {
         console.warn('[Couriers] Local rate-card pipeline failed, using direct rate-card fallback', {
           message: fallbackErr?.message || fallbackErr,
