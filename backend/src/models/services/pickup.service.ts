@@ -365,6 +365,82 @@ const markDelhiveryCancellationRequested = async (
   return pendingResult
 }
 
+const markInnofulfillCancellationRequested = async (
+  order: any,
+  providerOrderId: string,
+  error: any = null,
+) => {
+  const requestedAt = new Date()
+  const providerMeta: Record<string, any> =
+    order.provider_meta && typeof order.provider_meta === 'object' && !Array.isArray(order.provider_meta)
+      ? order.provider_meta
+      : {}
+  const previousCancellation =
+    providerMeta.cancellation && typeof providerMeta.cancellation === 'object'
+      ? providerMeta.cancellation
+      : {}
+  const pendingResult = {
+    success: true,
+    pending: true,
+    provider: 'innofulfill',
+    message:
+      'Innofulfill cancellation request could not be confirmed right now. Marked as cancellation requested; please retry after a few minutes.',
+    provider_response: error?.response?.data || null,
+  }
+
+  await db
+    .update(b2c_orders)
+    .set({
+      order_status: 'cancellation_requested',
+      pickup_status: 'cancellation_requested',
+      provider_last_status: 'cancellation_requested',
+      delivery_message: 'Waiting for Innofulfill cancellation confirmation',
+      provider_meta: {
+        ...providerMeta,
+        cancellation: {
+          ...previousCancellation,
+          provider: 'innofulfill',
+          requested_at: previousCancellation.requested_at || requestedAt.toISOString(),
+          last_attempt_at: requestedAt.toISOString(),
+          attempt_count: Number(previousCancellation.attempt_count || 0) + 1,
+          provider_order_id: providerOrderId,
+          awb_number: order.awb_number || null,
+          pending: true,
+          last_error: error ? String(error?.message || error).slice(0, 500) : null,
+          provider_response: error?.response?.data || null,
+        },
+      },
+      updated_at: requestedAt,
+    })
+    .where(eq(b2c_orders.id, order.id))
+
+  await logTrackingEvent({
+    orderId: order.id,
+    userId: order.user_id,
+    awbNumber: order.awb_number || null,
+    courier: order.courier_partner || 'Innofulfill',
+    statusCode: 'cancellation_requested',
+    statusText: 'Cancellation requested',
+    raw: pendingResult,
+  }).catch((err) => {
+    console.warn('Failed to log Innofulfill cancellation-requested event:', err)
+  })
+
+  await sendWebhookEvent(order.user_id, 'tracking.updated', {
+    awb_number: order.awb_number,
+    order_id: order.id,
+    order_number: order.order_number,
+    status: 'cancellation_requested',
+    raw_status: 'cancellation_requested',
+    courier_partner: order.courier_partner,
+  }).catch((err) => {
+    console.warn('Failed to send Innofulfill cancellation-requested webhook:', err)
+  })
+
+  await syncSalesChannelStatusForOrder(order.id, 'innofulfill cancellation request')
+  return pendingResult
+}
+
 const finalizeOrderCancellation = async (
   orderId: string,
   cancellationResult: any,
@@ -780,10 +856,20 @@ export async function cancelOrderShipment(orderId: string) {
     })
   } else if (integration === 'innofulfill') {
     const svc = new InnofulfillService()
-    cancellationResult = await svc.cancelOrdersBulk(
-      [{ orderId: innofulfillOrderId, reason: 'Cancelled By Customer' }],
-      'Cancelled By Customer',
-    )
+    try {
+      cancellationResult = await svc.cancelOrdersBulk(
+        [{ orderId: innofulfillOrderId, reason: 'Cancelled By Customer' }],
+        'Cancelled By Customer',
+      )
+    } catch (error: any) {
+      console.warn('Innofulfill cancellation could not be confirmed; marking request pending', {
+        orderId,
+        innofulfillOrderId,
+        statusCode: error?.statusCode || error?.response?.status || null,
+        message: error?.message || error,
+      })
+      return markInnofulfillCancellationRequested(order, innofulfillOrderId, error)
+    }
   } else {
     const svc = new XpressbeesService()
     cancellationResult = await svc.cancelShipment(awbNumber)
