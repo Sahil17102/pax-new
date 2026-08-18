@@ -482,8 +482,22 @@ const buildDefaultRateSlabs = (): RateSlabSeed[] => [
   },
 ]
 
+const normalizeInnofulfillRateZoneCode = (zoneCode: string) => {
+  const normalized = String(zoneCode || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+
+  if (normalized === 'withincity' || normalized === 'local') return 'local'
+  if (['withinzone', 'withinregion', 'withinstate'].includes(normalized)) return 'withinZone'
+  if (normalized === 'metrotometro' || normalized === 'metro') return 'metro'
+  if (normalized === 'roi' || normalized === 'restofindia') return 'roi'
+  if (['nejk', 'nejandk', 'specialzone', 'special'].includes(normalized)) return 'neJk'
+  return zoneCode
+}
+
 const buildInnofulfillRateSlabs = (zoneCode: string): RateSlabSeed[] => {
-  const rates = INNOFULFILL_ECOMM_FORWARD_RATES[zoneCode]
+  const rates = INNOFULFILL_ECOMM_FORWARD_RATES[normalizeInnofulfillRateZoneCode(zoneCode)]
   if (!rates) return buildDefaultRateSlabs()
 
   return INNOFULFILL_ECOMM_SLABS.map((slab, index) => ({
